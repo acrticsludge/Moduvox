@@ -10,7 +10,6 @@ export const createPresetVoiceSchema = z.object({
 export const createClonedVoiceSchema = z.object({
   name: z.string().min(1, "Name is required").max(100),
   type: z.literal("cloned"),
-  clone_mode: z.enum(["standard", "ultimate"]),
   sample_duration_seconds: z.number().int().positive().optional(),
   emotion_default: z.string().default("calm"),
 })
