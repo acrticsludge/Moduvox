@@ -67,11 +67,6 @@ function VoiceCard({
             <p className="text-sm text-[#71717A]">
               {voice.type === "preset" ? "Preset" : "Cloned voice"}
             </p>
-            {voice.type === "preset" && presetInfo && (
-              <p className="mt-1.5 max-w-[200px] text-xs leading-relaxed text-zinc-500">
-                {presetInfo.description}
-              </p>
-            )}
           </div>
         </div>
 
@@ -96,6 +91,12 @@ function VoiceCard({
           </button>
         </div>
       </div>
+
+      {voice.type === "preset" && presetInfo && (
+        <p className="mt-4 text-xs leading-relaxed text-zinc-500">
+          {presetInfo.description}
+        </p>
+      )}
 
       <button
         type="button"
