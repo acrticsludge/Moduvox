@@ -126,16 +126,11 @@ export default function TermsPage() {
             <p>
               For questions about these terms, contact us at{" "}
               <a href="mailto:anubhavrai100@gmail.com" className="text-[#18181B] underline underline-offset-2">
-                anubhavrai100@gmail.com
-              </a>.
+                here
+              </a>
             </p>
           </section>
         </div>
-
-        <p className="mt-12 border-t border-zinc-200 pt-6 text-xs text-[#A1A1AA]">
-          This document is provided as a template and does not constitute legal advice. Review
-          with a qualified attorney before use.
-        </p>
       </div>
       <Footer />
     </main>

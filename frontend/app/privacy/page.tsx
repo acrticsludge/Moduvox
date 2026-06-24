@@ -146,7 +146,7 @@ export default function PrivacyPage() {
             <p className="mt-2">
               To exercise these rights, contact us at{" "}
               <a href="mailto:anubhavrai100@gmail.com" className="text-[#18181B] underline underline-offset-2">
-                anubhavrai100@gmail.com
+                here
               </a>.
             </p>
           </section>
@@ -173,22 +173,17 @@ export default function PrivacyPage() {
             <p>
               For privacy-related inquiries:{" "}
               <a href="mailto:anubhavrai100@gmail.com" className="text-[#18181B] underline underline-offset-2">
-                anubhavrai100@gmail.com
+                here
               </a>
             </p>
             <p className="mt-1">
               General inquiries:{" "}
               <a href="mailto:anubhavrai100@gmail.com" className="text-[#18181B] underline underline-offset-2">
-                anubhavrai100@gmail.com
+                here
               </a>
             </p>
           </section>
         </div>
-
-        <p className="mt-12 border-t border-zinc-200 pt-6 text-xs text-[#A1A1AA]">
-          This document is provided as a template and does not constitute legal advice. Review
-          with a qualified attorney before use.
-        </p>
       </div>
       <Footer />
     </main>
