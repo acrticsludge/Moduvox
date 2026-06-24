@@ -51,16 +51,19 @@ export async function generateAudio(input: VoxCPMInput): Promise<VoxCPMResult> {
 
   const client = await Client.connect(DEFAULT_SPACE_ID)
 
-  const result = await client.predict("/generate", {
-    target_text: targetText,
-    control_instruction: ultimateMode ? "" : toneInstructions,
-    reference_audio: referenceAudio,
-    ultimate_cloning_mode: ultimateMode,
-    prompt_text: promptText,
-    cfg_value: cfgValue,
-    normalize: normalize,
-    ref_denoise: refDenoise,
-  })
+  // Gradio API expects positional args as an array, not keyword arguments
+  // Order: target_text, control_instruction, reference_audio,
+  //        ultimate_cloning_mode, prompt_text, cfg_value, normalize, ref_denoise
+  const result = await client.predict("/generate", [
+    targetText,
+    ultimateMode ? "" : toneInstructions,
+    referenceAudio,
+    ultimateMode,
+    promptText,
+    cfgValue,
+    normalize,
+    refDenoise,
+  ])
 
   const data = result.data as FileData[]
   const fileData = data[0]

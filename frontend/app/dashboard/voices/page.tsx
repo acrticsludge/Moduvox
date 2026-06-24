@@ -433,7 +433,6 @@ function TestVoiceModal({
   const [state, setState] = useState<"idle" | "generating" | "done">("idle")
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const audioRef = useRef<HTMLAudioElement | null>(null)
 
   async function handleGenerate() {
     setState("generating")
@@ -453,14 +452,6 @@ function TestVoiceModal({
       setError(e instanceof Error ? e.message : "Something went wrong")
       setState("idle")
     }
-  }
-
-  function handlePlay() {
-    if (!audioUrl) return
-    if (audioRef.current) audioRef.current.pause()
-    const audio = new Audio(audioUrl)
-    audioRef.current = audio
-    audio.play()
   }
 
   return (
@@ -531,14 +522,14 @@ function TestVoiceModal({
           )}
 
           {state === "done" && (
-            <button
-              type="button"
-              onClick={handlePlay}
-              className="inline-flex items-center gap-2 rounded-lg bg-[#18181B] px-4 py-2 text-sm font-medium text-white transition-all hover:bg-[#27272A]"
+            <audio
+              controls
+              src={audioUrl ?? ""}
+              className="w-full max-w-[260px] rounded-lg"
+              style={{ height: 36 }}
             >
-              <Play className="h-4 w-4" />
-              Play preview
-            </button>
+              Your browser does not support the audio element.
+            </audio>
           )}
         </div>
       </div>
@@ -625,7 +616,6 @@ export default function VoicesPage() {
                   key={v.id}
                   voice={v}
                   onDelete={handleDelete}
-                  onPlay={handlePlay}
                   onTest={setTestVoice}
                 />
               ))}
