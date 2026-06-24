@@ -67,6 +67,12 @@ export function Navbar() {
           </ul>
           {/* Navbar CTA: outline variant — secondary to hero's filled CTA */}
           <a
+            href="/login"
+            className="rounded-lg px-3 py-2 text-sm font-medium text-[#71717A] no-underline transition-colors duration-200 hover:text-[#18181B]"
+          >
+            Log in
+          </a>
+          <a
             href="#start"
             style={{ transitionTimingFunction: SPRING }}
             className="ml-2 rounded-lg border border-zinc-300 bg-transparent px-4 py-2 text-sm font-medium text-[#18181B] transition-all duration-200 hover:bg-[#F9FAFB] hover:scale-[1.02] active:scale-[0.98]"
@@ -130,15 +136,23 @@ export function Navbar() {
           ))}
         </ul>
 
-        {/* Mobile CTA: outline variant */}
-        <a
-          href="#start"
-          onClick={() => setDrawerOpen(false)}
-          style={{ transitionTimingFunction: SPRING }}
-          className="mt-6 rounded-lg border border-zinc-300 bg-transparent px-4 py-2.5 text-center text-sm font-medium text-[#18181B] transition-all duration-200 hover:bg-[#F9FAFB] hover:scale-[1.02] active:scale-[0.98]"
-        >
-          Start free
-        </a>
+        <div className="mt-auto space-y-2">
+          <a
+            href="/login"
+            onClick={() => setDrawerOpen(false)}
+            className="block rounded-lg px-3 py-2.5 text-base font-medium text-[#71717A] no-underline transition-colors duration-200 hover:bg-[rgba(0,0,0,0.04)] hover:text-[#18181B]"
+          >
+            Log in
+          </a>
+          <a
+            href="#start"
+            onClick={() => setDrawerOpen(false)}
+            style={{ transitionTimingFunction: SPRING }}
+            className="block rounded-lg border border-zinc-300 bg-transparent px-4 py-2.5 text-center text-sm font-medium text-[#18181B] transition-all duration-200 hover:bg-[#F9FAFB] hover:scale-[1.02] active:scale-[0.98]"
+          >
+            Start free
+          </a>
+        </div>
       </aside>
     </header>
   );
