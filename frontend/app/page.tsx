@@ -1,7 +1,6 @@
 import { Navbar } from "@/components/ui/Navbar"
 import { Hero } from "@/components/landing/hero"
 import { FeatureSection } from "@/components/landing/feature-section"
-import { CtaBand } from "@/components/landing/cta-band"
 import { Footer } from "@/components/landing/footer"
 import { UploadMockup } from "@/components/landing/mockups/upload-mockup"
 import { CompareMockup } from "@/components/landing/mockups/compare-mockup"
@@ -33,7 +32,6 @@ export default function Home() {
         visual={<AnalyticsMockup />}
       />
 
-      <CtaBand />
       <Footer />
     </main>
   )

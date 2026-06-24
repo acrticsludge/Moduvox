@@ -65,11 +65,11 @@ export function Navbar() {
               </li>
             ))}
           </ul>
-          {/* CTA: charcoal per user preference */}
+          {/* Navbar CTA: outline variant — secondary to hero's filled CTA */}
           <a
             href="#start"
             style={{ transitionTimingFunction: SPRING }}
-            className="ml-2 rounded-lg bg-[#18181B] px-4 py-2 text-sm font-medium text-white transition-transform duration-200 hover:scale-[1.02] hover:bg-[#27272A] active:scale-[0.98]"
+            className="ml-2 rounded-lg border border-zinc-300 bg-transparent px-4 py-2 text-sm font-medium text-[#18181B] transition-all duration-200 hover:bg-[#F9FAFB] hover:scale-[1.02] active:scale-[0.98]"
           >
             Start free
           </a>
@@ -130,12 +130,12 @@ export function Navbar() {
           ))}
         </ul>
 
-        {/* Mobile CTA: charcoal per user preference */}
+        {/* Mobile CTA: outline variant */}
         <a
           href="#start"
           onClick={() => setDrawerOpen(false)}
           style={{ transitionTimingFunction: SPRING }}
-          className="mt-6 rounded-lg bg-[#18181B] px-4 py-2.5 text-center text-sm font-medium text-white transition-transform duration-200 hover:scale-[1.02] hover:bg-[#27272A] active:scale-[0.98]"
+          className="mt-6 rounded-lg border border-zinc-300 bg-transparent px-4 py-2.5 text-center text-sm font-medium text-[#18181B] transition-all duration-200 hover:bg-[#F9FAFB] hover:scale-[1.02] active:scale-[0.98]"
         >
           Start free
         </a>
