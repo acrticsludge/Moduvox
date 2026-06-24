@@ -7,9 +7,9 @@ import { Footer } from "@/components/landing/footer"
 import { LayoutGrid, Mic, Settings, Archive, Trash2, Menu } from "lucide-react"
 
 const SIDEBAR_MAIN = [
-  { label: "All Projects", icon: LayoutGrid, match: /^\/dashboard(\/projects\/?.*)?$/ },
-  { label: "My Voices", icon: Mic, match: /^\/dashboard\/voices/ },
-  { label: "Settings", icon: Settings, match: /^\/dashboard\/settings/ },
+  { label: "All Projects", icon: LayoutGrid, href: "/dashboard", match: /^\/dashboard(\/projects\/?.*)?$/ },
+  { label: "My Voices", icon: Mic, href: "/dashboard/voices", match: /^\/dashboard\/voices/ },
+  { label: "Settings", icon: Settings, href: "/dashboard/settings", match: /^\/dashboard\/settings/ },
 ]
 
 const SIDEBAR_BOTTOM = [
@@ -63,13 +63,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <nav className="flex flex-1 flex-col gap-1 px-3 py-4">
               {SIDEBAR_MAIN.map((item) => {
                 const active = item.match.test(pathname)
-                const href = item.label === "All Projects"
-                  ? "/dashboard"
-                  : `/dashboard/${item.label.toLowerCase().replace(/\s+/g, "-")}`
                 return (
                   <a
                     key={item.label}
-                    href={href}
+                    href={item.href}
                     onClick={() => setSidebarOpen(false)}
                     className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors duration-150 ${
                       active
