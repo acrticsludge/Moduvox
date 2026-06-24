@@ -65,10 +65,13 @@ function VoiceCard({
           <div>
             <h3 className="font-medium text-[#18181B]">{voice.name}</h3>
             <p className="text-sm text-[#71717A]">
-              {voice.type === "preset"
-                ? (presetInfo?.description ?? "Preset voice")
-                : "Cloned voice"}
+              {voice.type === "preset" ? "Preset" : "Cloned voice"}
             </p>
+            {voice.type === "preset" && presetInfo && (
+              <p className="mt-1.5 max-w-[200px] text-xs leading-relaxed text-zinc-500">
+                {presetInfo.description}
+              </p>
+            )}
           </div>
         </div>
 
