@@ -10,7 +10,6 @@ type Voice = {
   user_id: string
   name: string
   type: "preset" | "cloned"
-  clone_mode: "standard" | "ultimate" | null
   sample_path: string | null
   sample_duration_seconds: number | null
   emotion_default: string
@@ -61,7 +60,7 @@ function VoiceCard({
             <p className="text-sm text-[#71717A]">
               {voice.type === "preset"
                 ? "Preset voice"
-                : `Cloned · ${voice.clone_mode === "ultimate" ? "Ultimate" : "Standard"}`}
+                : "Cloned voice"}
             </p>
           </div>
         </div>
@@ -117,7 +116,6 @@ function AddVoiceModal({
   const [step, setStep] = useState<"choose" | "preset" | "clone">("choose")
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null)
   const [voiceName, setVoiceName] = useState("")
-  const [cloneMode, setCloneMode] = useState<"standard" | "ultimate">("standard")
   const [file, setFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -160,7 +158,6 @@ function AddVoiceModal({
       const formData = new FormData()
       formData.append("file", file)
       formData.append("name", voiceName.trim())
-      formData.append("clone_mode", cloneMode)
 
       const res = await fetch("/api/voices/upload", {
         method: "POST",
@@ -342,42 +339,6 @@ function AddVoiceModal({
               </div>
             </div>
 
-            {/* Clone mode */}
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-[#18181B]">
-                Clone mode
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setCloneMode("standard")}
-                  className={`rounded-xl border p-3 text-left transition-all ${
-                    cloneMode === "standard"
-                      ? "border-[#18181B] bg-zinc-50"
-                      : "border-zinc-200 hover:border-zinc-300"
-                  }`}
-                >
-                  <p className="text-sm font-medium text-[#18181B]">Standard</p>
-                  <p className="text-xs text-[#71717A]">
-                    Applies tone instructions
-                  </p>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCloneMode("ultimate")}
-                  className={`rounded-xl border p-3 text-left transition-all ${
-                    cloneMode === "ultimate"
-                      ? "border-[#18181B] bg-zinc-50"
-                      : "border-zinc-200 hover:border-zinc-300"
-                  }`}
-                >
-                  <p className="text-sm font-medium text-[#18181B]">Ultimate</p>
-                  <p className="text-xs text-[#71717A]">
-                    Raw clone, no instructions
-                  </p>
-                </button>
-              </div>
-            </div>
 
             {/* Voice name */}
             <div>
