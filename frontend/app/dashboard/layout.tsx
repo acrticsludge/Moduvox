@@ -96,7 +96,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </aside>
 
           {/* ========== MAIN CONTENT ========== */}
-          <main className="relative flex flex-1 flex-col min-w-0">
+          <main className="relative flex flex-1 flex-col min-w-0 pb-16">
             {/* Mobile hamburger — floats above content when sidebar is closed */}
             {!sidebarOpen && (
               <button
