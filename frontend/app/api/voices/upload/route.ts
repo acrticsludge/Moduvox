@@ -68,9 +68,10 @@ export async function POST(request: Request) {
     .single()
 
   if (dbError) {
+    console.error("POST /api/voices/upload:", dbError.message)
     // Clean up uploaded file if DB insert fails
     await admin.storage.from("voice-samples").remove([filePath])
-    return NextResponse.json({ error: dbError.message }, { status: 500 })
+    return NextResponse.json({ error: "Failed to save voice" }, { status: 500 })
   }
 
   return NextResponse.json({ data: voice }, { status: 201 })

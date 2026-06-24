@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server"
+import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { generateWithPreset, generateWithClone } from "@/lib/voxcpm"
+
+const testVoiceSchema = z.object({
+  voice_id: z.string().uuid("Invalid voice ID"),
+}).strict()
 
 const PRESET_VOICE_MAP: Record<string, string> = {
   "calm-female": "A calm, warm female voice. Speaks clearly and steadily.",
@@ -21,12 +26,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const body = await request.json()
-  const { voice_id } = body as { voice_id?: string }
-
-  if (!voice_id) {
-    return NextResponse.json({ error: "voice_id is required" }, { status: 400 })
+  let parsedBody: { voice_id: string }
+  try {
+    const body = await request.json()
+    const parsed = testVoiceSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.flatten().fieldErrors }, { status: 422 })
+    }
+    parsedBody = parsed.data
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
   }
+
+  const { voice_id } = parsedBody
 
   // Fetch voice, verify ownership
   const { data: voice, error: fetchError } = await supabase
@@ -123,7 +135,7 @@ export async function POST(request: Request) {
     // Fallback: return the temporary VoxCPM2 URL
     return NextResponse.json({ data: { audioUrl: result.audioUrl } })
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Voice test generation failed"
-    return NextResponse.json({ error: message }, { status: 502 })
+    console.error("POST /api/generate/test:", err)
+    return NextResponse.json({ error: "Voice preview generation failed" }, { status: 502 })
   }
 }
