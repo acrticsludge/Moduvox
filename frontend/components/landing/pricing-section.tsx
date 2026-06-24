@@ -134,9 +134,13 @@ export function PricingSection() {
                   {plan.cta}
                 </a>
               ) : (
-                <span className="block cursor-not-allowed rounded-lg border border-dashed border-zinc-300 bg-zinc-50 px-4 py-2.5 text-center text-sm font-medium text-zinc-300">
+                <button
+                  disabled
+                  aria-disabled="true"
+                  className="block w-full cursor-not-allowed rounded-lg border border-dashed border-zinc-300 bg-zinc-50 px-4 py-2.5 text-center text-sm font-medium text-zinc-300"
+                >
                   {plan.cta}
-                </span>
+                </button>
               )}
             </div>
           ))}
