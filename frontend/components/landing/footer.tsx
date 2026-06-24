@@ -10,7 +10,7 @@ const linkGroups = [
   {
     heading: "Company",
     links: [
-      { label: "About", href: "#about" },
+      { label: "About", href: "/about" },
       { label: "Privacy", href: "/privacy" },
       { label: "Terms", href: "/terms" },
     ],
