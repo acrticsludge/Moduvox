@@ -18,8 +18,15 @@ export default function AboutPage() {
           </p>
 
           <p>
-            The idea came from a simple observation: IT and HR teams spend hours creating
-            slide decks for training, but the step from &quot;deck is done&quot; to &quot;deck is
+            The idea came from a friend&apos;s suggestion: turn slides into narrated
+            presentations automatically. After validating it on Reddit, the focus
+            narrowed to IT and HR teams — the people who create the most training
+            content and feel the pain of manual narration most acutely.
+          </p>
+
+          <p>
+            The core insight was simple: IT and HR teams spend hours creating slide
+            decks for training, but the step from &quot;deck is done&quot; to &quot;deck is
             narrated and shared&quot; is still painfully manual. You either record yourself
             slide by slide (mistakes, retakes, background noise), or you send a PDF and
             hope people read it. Neither works well.
@@ -58,14 +65,6 @@ export default function AboutPage() {
           </p>
         </div>
 
-        <div className="mt-10">
-          <a
-            href="/signup"
-            className="inline-block rounded-lg bg-[#18181B] px-6 py-3 text-base font-medium text-white transition-all hover:bg-[#27272A] active:scale-[0.98]"
-          >
-            Get started free
-          </a>
-        </div>
       </div>
       <Footer />
     </main>
