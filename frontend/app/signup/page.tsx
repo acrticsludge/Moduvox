@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -14,6 +14,13 @@ export default function SignupPage() {
   const router = useRouter();
   const supabase = createClient();
 
+  // If already logged in, go to dashboard
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) router.push("/dashboard");
+    });
+  }, [router, supabase]);
+
   async function handleEmailSignup(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -22,10 +29,7 @@ export default function SignupPage() {
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        data: { name },
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-      },
+      options: { data: { name } },
     });
 
     if (error) {
@@ -34,7 +38,7 @@ export default function SignupPage() {
       return;
     }
 
-    router.push("/login?check_email=1");
+    router.push("/");
     router.refresh();
   }
 

@@ -19,7 +19,7 @@ export function Hero() {
           </p>
           <div className="mt-8">
             <a
-              href="#start"
+              href="/signup"
               style={{ transitionTimingFunction: SPRING }}
               className="inline-block rounded-lg bg-[#18181B] px-6 py-3 text-base font-medium text-white transition-transform duration-200 hover:scale-[1.02] hover:bg-[#27272A] active:scale-[0.98]"
             >
