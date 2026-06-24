@@ -1,10 +1,10 @@
 import { cn } from "@/lib/utils";
+import type { ReactNode } from "react";
 
 type FeatureSectionProps = {
   heading: string;
   body: string;
-  imageSrc: string;
-  imageAlt: string;
+  visual: ReactNode;
   visualRight?: boolean;
   darker?: boolean;
 };
@@ -12,8 +12,7 @@ type FeatureSectionProps = {
 export function FeatureSection({
   heading,
   body,
-  imageSrc,
-  imageAlt,
+  visual,
   visualRight = false,
   darker = false,
 }: FeatureSectionProps) {
@@ -23,11 +22,7 @@ export function FeatureSection({
         <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-2">
           {/* Visual */}
           <div className={cn("lg:order-1", visualRight && "lg:order-2")}>
-            <img
-              src={imageSrc}
-              alt={imageAlt}
-              className="w-full rounded-xl border border-black/5 shadow-lg"
-            />
+            {visual}
           </div>
 
           {/* Text */}
