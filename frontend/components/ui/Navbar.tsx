@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { Menu, X } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import type { User } from "@supabase/supabase-js";
 
 const NAV_LINKS = [
   { label: "How it works", href: "#how-it-works" },
@@ -15,6 +17,20 @@ const SPRING = "cubic-bezier(0.34,1.56,0.64,1)";
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const supabase = createClient();
+
+  useEffect(() => {
+    // Get initial session
+    supabase.auth.getUser().then(({ data }) => setUser(data.user ?? null));
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, [supabase]);
 
   // Navbar is transparent + absolute over the Canvas; gains a Surface backdrop
   // once scrolled so Charcoal text stays legible over content below.
@@ -51,35 +67,45 @@ export function Navbar() {
           Moduvox
         </a>
 
-        {/* Right: desktop links + CTA */}
-        <div className="hidden items-center gap-2 md:flex">
-          <ul className="flex items-center gap-1">
-            {NAV_LINKS.map((link) => (
-              <li key={link.href}>
+          {/* Right: desktop links + CTA */}
+          <div className="hidden items-center gap-2 md:flex">
+            <ul className="flex items-center gap-1">
+              {NAV_LINKS.map((link) => (
+                <li key={link.href}>
+                  <a
+                    href={link.href}
+                    className="rounded-lg px-3 py-2 text-sm font-medium text-[#71717A] no-underline transition-colors duration-200 hover:bg-[rgba(0,0,0,0.04)] hover:text-[#18181B] active:bg-[rgba(0,0,0,0.08)]"
+                  >
+                    {link.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+            {user ? (
+              <a
+                href="/dashboard"
+                className="ml-2 rounded-lg bg-[#18181B] px-4 py-2 text-sm font-medium text-white transition-transform duration-200 hover:scale-[1.02] hover:bg-[#27272A] active:scale-[0.98]"
+              >
+                Dashboard
+              </a>
+            ) : (
+              <>
                 <a
-                  href={link.href}
-                  className="rounded-lg px-3 py-2 text-sm font-medium text-[#71717A] no-underline transition-colors duration-200 hover:bg-[rgba(0,0,0,0.04)] hover:text-[#18181B] active:bg-[rgba(0,0,0,0.08)]"
+                  href="/login"
+                  className="rounded-lg px-3 py-2 text-sm font-medium text-[#71717A] no-underline transition-colors duration-200 hover:text-[#18181B]"
                 >
-                  {link.label}
+                  Log in
                 </a>
-              </li>
-            ))}
-          </ul>
-          {/* Navbar CTA: outline variant — secondary to hero's filled CTA */}
-          <a
-            href="/login"
-            className="rounded-lg px-3 py-2 text-sm font-medium text-[#71717A] no-underline transition-colors duration-200 hover:text-[#18181B]"
-          >
-            Log in
-          </a>
-          <a
-            href="#start"
-            style={{ transitionTimingFunction: SPRING }}
-            className="ml-2 rounded-lg border border-zinc-300 bg-transparent px-4 py-2 text-sm font-medium text-[#18181B] transition-all duration-200 hover:bg-[#F9FAFB] hover:scale-[1.02] active:scale-[0.98]"
-          >
-            Start free
-          </a>
-        </div>
+                <a
+                  href="/signup"
+                  style={{ transitionTimingFunction: SPRING }}
+                  className="ml-2 rounded-lg border border-zinc-300 bg-transparent px-4 py-2 text-sm font-medium text-[#18181B] transition-all duration-200 hover:bg-[#F9FAFB] hover:scale-[1.02] active:scale-[0.98]"
+                >
+                  Start free
+                </a>
+              </>
+            )}
+          </div>
 
         {/* Mobile: hamburger */}
         <button
@@ -137,21 +163,33 @@ export function Navbar() {
         </ul>
 
         <div className="mt-auto space-y-2">
-          <a
-            href="/login"
-            onClick={() => setDrawerOpen(false)}
-            className="block rounded-lg px-3 py-2.5 text-base font-medium text-[#71717A] no-underline transition-colors duration-200 hover:bg-[rgba(0,0,0,0.04)] hover:text-[#18181B]"
-          >
-            Log in
-          </a>
-          <a
-            href="#start"
-            onClick={() => setDrawerOpen(false)}
-            style={{ transitionTimingFunction: SPRING }}
-            className="block rounded-lg border border-zinc-300 bg-transparent px-4 py-2.5 text-center text-sm font-medium text-[#18181B] transition-all duration-200 hover:bg-[#F9FAFB] hover:scale-[1.02] active:scale-[0.98]"
-          >
-            Start free
-          </a>
+          {user ? (
+            <a
+              href="/dashboard"
+              onClick={() => setDrawerOpen(false)}
+              className="block rounded-lg bg-[#18181B] px-4 py-2.5 text-center text-sm font-medium text-white transition-transform duration-200 hover:scale-[1.02] hover:bg-[#27272A] active:scale-[0.98]"
+            >
+              Dashboard
+            </a>
+          ) : (
+            <>
+              <a
+                href="/login"
+                onClick={() => setDrawerOpen(false)}
+                className="block rounded-lg px-3 py-2.5 text-base font-medium text-[#71717A] no-underline transition-colors duration-200 hover:bg-[rgba(0,0,0,0.04)] hover:text-[#18181B]"
+              >
+                Log in
+              </a>
+              <a
+                href="/signup"
+                onClick={() => setDrawerOpen(false)}
+                style={{ transitionTimingFunction: SPRING }}
+                className="block rounded-lg border border-zinc-300 bg-transparent px-4 py-2.5 text-center text-sm font-medium text-[#18181B] transition-all duration-200 hover:bg-[#F9FAFB] hover:scale-[1.02] active:scale-[0.98]"
+              >
+                Start free
+              </a>
+            </>
+          )}
         </div>
       </aside>
     </header>
