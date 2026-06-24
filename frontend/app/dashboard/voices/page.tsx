@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react"
 import { createClient } from "@/lib/supabase/client"
-import { Plus, Mic, Play, Trash2, Music, Loader2 } from "lucide-react"
+import { Plus, Mic, Play, Trash2, Music, Loader2, Volume2 } from "lucide-react"
 
 // ── Types ────────────────────────────────────────────
 type Voice = {
@@ -40,10 +40,12 @@ function VoiceCard({
   voice,
   onDelete,
   onPlay,
+  onTest,
 }: {
   voice: Voice
   onDelete: (id: string) => void
   onPlay: (voice: Voice) => void
+  onTest: (voice: Voice) => void
 }) {
   const presetInfo = voice.preset_id
     ? PRESET_VOICES.find((p) => p.id === voice.preset_id)
@@ -92,7 +94,16 @@ function VoiceCard({
         </div>
       </div>
 
-      <p className="mt-3 text-xs text-zinc-400">Created {formatDate(voice.created_at)}</p>
+      <button
+        type="button"
+        onClick={() => onTest(voice)}
+        className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-[#71717A] transition-colors hover:text-[#18181B]"
+      >
+        <Volume2 className="h-3 w-3" />
+        Test voice
+      </button>
+
+      <p className="mt-1 text-xs text-zinc-400">Created {formatDate(voice.created_at)}</p>
 
       {voice.type === "cloned" && voice.sample_path && (
         <div className="mt-3 rounded-lg bg-zinc-50 p-3">
@@ -387,11 +398,139 @@ function AddVoiceModal({
   )
 }
 
+// ── Test Voice Modal ─────────────────────────────────
+const TEST_TEXT =
+  "At Moduvox, we turn slides into narrated training videos using your own voice. This preview shows how your presentation will sound."
+
+function TestVoiceModal({
+  voice,
+  onClose,
+}: {
+  voice: Voice
+  onClose: () => void
+}) {
+  const [state, setState] = useState<"idle" | "generating" | "done">("idle")
+  const [audioUrl, setAudioUrl] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+
+  async function handleGenerate() {
+    setState("generating")
+    setError(null)
+
+    try {
+      const res = await fetch("/api/generate/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ voice_id: voice.id }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? "Generation failed")
+      setAudioUrl(json.data.audioUrl)
+      setState("done")
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong")
+      setState("idle")
+    }
+  }
+
+  function handlePlay() {
+    if (!audioUrl) return
+    if (audioRef.current) audioRef.current.pause()
+    const audio = new Audio(audioUrl)
+    audioRef.current = audio
+    audio.play()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#18181B]/40 p-4">
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-lg">
+        {/* Header */}
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-[#18181B]">Test Voice</h2>
+            <p className="text-sm text-[#71717A]">{voice.name}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#71717A] transition-colors hover:bg-zinc-100 hover:text-[#18181B]"
+            aria-label="Close"
+          >
+            <span className="text-lg">✕</span>
+          </button>
+        </div>
+
+        {/* Example text */}
+        <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4">
+          <p className="text-xs font-medium uppercase tracking-wider text-zinc-400">
+            Example narration
+          </p>
+          <p className="mt-2 text-sm leading-relaxed text-[#18181B]">
+            {TEST_TEXT}
+          </p>
+        </div>
+
+        {error && (
+          <div className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
+            {error}
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className="mt-5 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-sm font-medium text-[#71717A] transition-colors hover:text-[#18181B]"
+          >
+            Close
+          </button>
+
+          {state === "idle" && (
+            <button
+              type="button"
+              onClick={handleGenerate}
+              className="inline-flex items-center gap-2 rounded-lg bg-[#18181B] px-4 py-2 text-sm font-medium text-white transition-all hover:bg-[#27272A]"
+            >
+              <Volume2 className="h-4 w-4" />
+              Generate preview
+            </button>
+          )}
+
+          {state === "generating" && (
+            <button
+              type="button"
+              disabled
+              className="inline-flex cursor-not-allowed items-center gap-2 rounded-lg bg-zinc-300 px-4 py-2 text-sm font-medium text-zinc-500"
+            >
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Generating...
+            </button>
+          )}
+
+          {state === "done" && (
+            <button
+              type="button"
+              onClick={handlePlay}
+              className="inline-flex items-center gap-2 rounded-lg bg-[#18181B] px-4 py-2 text-sm font-medium text-white transition-all hover:bg-[#27272A]"
+            >
+              <Play className="h-4 w-4" />
+              Play preview
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Main Page ────────────────────────────────────────
 export default function VoicesPage() {
   const [voices, setVoices] = useState<Voice[]>([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
+  const [testVoice, setTestVoice] = useState<Voice | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
 
   useEffect(() => {
@@ -460,14 +599,15 @@ export default function VoicesPage() {
           </div>
         ) : voices.length > 0 ? (
           <div className="grid w-full grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {voices.map((v) => (
-              <VoiceCard
-                key={v.id}
-                voice={v}
-                onDelete={handleDelete}
-                onPlay={handlePlay}
-              />
-            ))}
+              {voices.map((v) => (
+                <VoiceCard
+                  key={v.id}
+                  voice={v}
+                  onDelete={handleDelete}
+                  onPlay={handlePlay}
+                  onTest={setTestVoice}
+                />
+              ))}
           </div>
         ) : (
           /* Empty state */
@@ -496,11 +636,17 @@ export default function VoicesPage() {
         )}
       </div>
 
-      {/* Modal */}
+      {/* Modals */}
       {showModal && (
         <AddVoiceModal
           onClose={() => setShowModal(false)}
           onCreated={handleCreated}
+        />
+      )}
+      {testVoice && (
+        <TestVoiceModal
+          voice={testVoice}
+          onClose={() => setTestVoice(null)}
         />
       )}
     </>
