@@ -93,7 +93,7 @@ function VoiceCard({
         onClick={() => onTest(voice)}
         className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-[#71717A] transition-colors hover:text-[#18181B]"
       >
-        <Volume2 className="h-3 w-3" />
+        <Volume2 className="h-3.5 w-3.5" strokeWidth={1.5} />
         Test voice
       </button>
 
@@ -505,7 +505,7 @@ function TestVoiceModal({
               onClick={handleGenerate}
               className="inline-flex items-center gap-2 rounded-lg bg-[#18181B] px-4 py-2 text-sm font-medium text-white transition-all hover:bg-[#27272A]"
             >
-              <Volume2 className="h-4 w-4" />
+              <Volume2 className="h-4 w-4" strokeWidth={1.5} />
               Generate preview
             </button>
           )}
