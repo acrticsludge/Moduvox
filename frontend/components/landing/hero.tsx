@@ -23,7 +23,6 @@ export function Hero() {
         <div>
           <h1 className="flex flex-wrap items-center gap-x-3 gap-y-1 text-balance font-semibold leading-[1.05] tracking-[-0.03em] text-[#18181B] [font-size:clamp(2.5rem,5vw,4rem)]">
             <span>Your slides.</span>
-            <SlideThumbnail />
             <span>Your voice. No recording.</span>
           </h1>
           <p className="mt-6 max-w-[58ch] text-pretty text-lg leading-relaxed text-[#71717A]">

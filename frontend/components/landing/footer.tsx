@@ -12,14 +12,14 @@ const linkGroups = [
     heading: "Company",
     links: [
       { label: "About", href: "#about" },
-      { label: "Privacy", href: "#privacy" },
-      { label: "Terms", href: "#terms" },
+      { label: "Privacy", href: "/privacy" },
+      { label: "Terms", href: "/terms" },
     ],
   },
   {
     heading: "Connect",
     links: [
-      { label: "Email", href: "mailto:hello@moduvox.com" },
+      { label: "Email", href: "mailto:anubhavrai100@gmail.com" },
       { label: "Twitter / X", href: "https://x.com" },
       { label: "LinkedIn", href: "https://linkedin.com" },
     ],
