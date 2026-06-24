@@ -1,3 +1,8 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import type { User } from "@supabase/supabase-js";
 import { Upload, FileText, Mic, Speaker, Edit3, Smile, Music, Play, Mail, BarChart3, Link, RotateCcw, Shield } from "lucide-react";
 
 const featureGroups = [
@@ -89,6 +94,13 @@ const featureGroups = [
 ];
 
 export function FeaturesSection() {
+  const [user, setUser] = useState<User | null>(null);
+  const supabase = createClient();
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setUser(data.user ?? null));
+  }, [supabase]);
+
   return (
     <section className="bg-[#F9FAFB]">
       <div className="mx-auto max-w-[1400px] px-4 py-24 sm:px-6 lg:px-8 lg:py-32">
@@ -127,18 +139,20 @@ export function FeaturesSection() {
           ))}
         </div>
 
-        {/* Bottom CTA */}
-        <div className="mt-24 text-center">
-          <p className="text-lg text-[#71717A]">
-            All features included in the Free tier.
-          </p>
-          <a
-            href="/signup"
-            className="mt-4 inline-block rounded-lg bg-[#18181B] px-6 py-3 text-base font-medium text-white transition-transform duration-200 hover:scale-[1.02] hover:bg-[#27272A] active:scale-[0.98]"
-          >
-            Get started free
-          </a>
-        </div>
+        {/* Bottom CTA — only shown to logged-out users */}
+        {!user && (
+          <div className="mt-24 text-center">
+            <p className="text-lg text-[#71717A]">
+              All features included in the Free tier.
+            </p>
+            <a
+              href="/signup"
+              className="mt-4 inline-block rounded-lg bg-[#18181B] px-6 py-3 text-base font-medium text-white transition-transform duration-200 hover:scale-[1.02] hover:bg-[#27272A] active:scale-[0.98]"
+            >
+              Get started free
+            </a>
+          </div>
+        )}
       </div>
     </section>
   );

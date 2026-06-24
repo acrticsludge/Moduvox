@@ -1,3 +1,8 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import type { User } from "@supabase/supabase-js";
 import { Check } from "lucide-react";
 
 const plans = [
@@ -58,6 +63,13 @@ const plans = [
 ];
 
 export function PricingSection() {
+  const [user, setUser] = useState<User | null>(null);
+  const supabase = createClient();
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setUser(data.user ?? null));
+  }, [supabase]);
+
   return (
     <section className="bg-[#F9FAFB]">
       <div className="mx-auto max-w-[1400px] px-4 py-24 sm:px-6 lg:px-8 lg:py-32">
@@ -127,7 +139,11 @@ export function PricingSection() {
 
               {/* CTA */}
               <div className={plan.comingSoon ? "blur-sm" : ""}>
-                {plan.active ? (
+                {plan.active && user ? (
+                  <span className="block rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-center text-sm font-medium text-[#71717A]">
+                    You&apos;re on this plan
+                  </span>
+                ) : plan.active ? (
                 <a
                   href={plan.ctaHref ?? "/"}
                   className="block rounded-lg bg-[#18181B] px-4 py-2.5 text-center text-sm font-medium text-white transition-transform duration-200 hover:scale-[1.02] hover:bg-[#27272A] active:scale-[0.98]"
