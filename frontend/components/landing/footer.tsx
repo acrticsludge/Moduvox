@@ -2,8 +2,7 @@ const linkGroups = [
   {
     heading: "Product",
     links: [
-      { label: "How it works", href: "#how-it-works" },
-      { label: "Features", href: "#features" },
+      { label: "Features", href: "/features" },
       { label: "Smart Update", href: "#smart-update" },
       { label: "Viewer Tracking", href: "#viewer-tracking" },
     ],
