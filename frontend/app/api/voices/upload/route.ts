@@ -17,7 +17,6 @@ export async function POST(request: Request) {
   const formData = await request.formData()
   const file = formData.get("file") as File | null
   const name = formData.get("name") as string | null
-  const cloneMode = formData.get("clone_mode") as string | null
   const emotionDefault = formData.get("emotion_default") as string | "calm"
 
   if (!file) {
@@ -34,10 +33,6 @@ export async function POST(request: Request) {
 
   if (!name || !name.trim()) {
     return NextResponse.json({ error: "Name is required" }, { status: 400 })
-  }
-
-  if (!cloneMode || !["standard", "ultimate"].includes(cloneMode)) {
-    return NextResponse.json({ error: "clone_mode must be 'standard' or 'ultimate'" }, { status: 400 })
   }
 
   // Upload file to Supabase Storage using admin client
@@ -65,7 +60,6 @@ export async function POST(request: Request) {
       user_id: user.id,
       name: name.trim(),
       type: "cloned",
-      clone_mode: cloneMode,
       sample_path: filePath,
       sample_duration_seconds: null,
       emotion_default: emotionDefault ?? "calm",
