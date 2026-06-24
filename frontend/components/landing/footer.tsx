@@ -59,7 +59,10 @@ export function Footer() {
 
       <div className="border-t border-white/10">
         <div className="mx-auto max-w-[1400px] px-4 py-6 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between">
+          <p className="text-center text-[11px] text-zinc-600">
+            Powered by Gemini AI and VoxCPM
+          </p>
+          <div className="mt-2 flex items-center justify-between">
             <p className="text-sm text-[#71717A]">
               2026 Moduvox. All rights reserved.
             </p>
