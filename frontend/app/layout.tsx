@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Moduvox — Your slides. Your voice. No recording.",
+  title: "Moduvox - Your slides. Your voice. No recording.",
   description:
     "Upload a PPTX and a voice sample. Moduvox generates a complete narrated presentation in your voice, with viewer tracking.",
 };

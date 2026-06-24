@@ -6,7 +6,7 @@ import { Menu, X } from "lucide-react";
 const NAV_LINKS = [
   { label: "How it works", href: "#how-it-works" },
   { label: "Features", href: "#features" },
-  { label: "Pricing", href: "/pricing" },
+  { label: "Pricing", href: "#pricing" },
 ];
 
 // Spring physics curve from DESIGN.md — weighty, not floaty
@@ -44,7 +44,7 @@ export function Navbar() {
       <nav className="mx-auto flex h-16 max-w-[1400px] items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* Left: logo */}
         <a
-          href="#"
+          href="/"
           className="text-2xl font-semibold tracking-tight text-[#18181B]"
           aria-label="Moduvox home"
         >
@@ -103,7 +103,7 @@ export function Navbar() {
         aria-hidden={!drawerOpen}
       >
         <div className="flex items-center justify-between">
-          <span className="text-lg font-semibold tracking-tight text-[#18181B]">
+          <span className="text-2xl font-semibold tracking-tight text-[#18181B]">
             Moduvox
           </span>
           <button

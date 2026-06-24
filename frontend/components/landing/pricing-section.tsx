@@ -67,7 +67,7 @@ export function PricingSection() {
             Simple pricing. Free to start.
           </h2>
           <p className="mt-4 text-lg leading-relaxed text-[#71717A]">
-            Start with the Free tier — no credit card. Upgrade when you outgrow it.
+            Start with the Free tier. No credit card needed.
           </p>
         </div>
 
@@ -106,7 +106,7 @@ export function PricingSection() {
               </div>
 
               {/* Features */}
-              <ul className="mb-8 flex flex-1 flex-col gap-3">
+              <ul className={`mb-8 flex flex-1 flex-col gap-3 ${plan.comingSoon ? "blur-sm" : ""}`}>
                 {plan.features.map((feature) => (
                   <li key={feature} className="flex items-start gap-3">
                     <Check
@@ -126,7 +126,8 @@ export function PricingSection() {
               </ul>
 
               {/* CTA */}
-              {plan.active ? (
+              <div className={plan.comingSoon ? "blur-sm" : ""}>
+                {plan.active ? (
                 <a
                   href="/"
                   className="block rounded-lg bg-[#18181B] px-4 py-2.5 text-center text-sm font-medium text-white transition-transform duration-200 hover:scale-[1.02] hover:bg-[#27272A] active:scale-[0.98]"
@@ -142,6 +143,7 @@ export function PricingSection() {
                   {plan.cta}
                 </button>
               )}
+            </div>
             </div>
           ))}
         </div>
