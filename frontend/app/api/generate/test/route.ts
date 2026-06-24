@@ -43,33 +43,84 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
+  // ── Check for cached preview ───────────────────────
+  if (voice.preview_audio_path) {
+    const admin = createAdminClient()
+    const { data: signedData } = await admin.storage
+      .from("voice-samples")
+      .createSignedUrl(voice.preview_audio_path, 3600)
+
+    if (signedData) {
+      return NextResponse.json({ data: { audioUrl: signedData.signedUrl } })
+    }
+    // Signed URL failed — fall through to regenerate
+  }
+
+  // ── Generate new preview ────────────────────────────
+  const admin = createAdminClient()
+
   try {
+    let result: Awaited<ReturnType<typeof generateWithPreset>>
+
     if (voice.type === "preset") {
       const description = voice.preset_id
         ? (PRESET_VOICE_MAP[voice.preset_id] ?? PRESET_VOICE_MAP["calm-female"])
         : PRESET_VOICE_MAP["calm-female"]
 
-      const result = await generateWithPreset(EXAMPLE_TEXT, description)
+      result = await generateWithPreset(EXAMPLE_TEXT, description)
+    } else {
+      // Cloned voice
+      if (!voice.sample_path) {
+        return NextResponse.json({ error: "Voice sample not found" }, { status: 400 })
+      }
+
+      const { data: blob } = await admin.storage
+        .from("voice-samples")
+        .download(voice.sample_path)
+
+      if (!blob) {
+        return NextResponse.json({ error: "Voice sample file not found" }, { status: 400 })
+      }
+
+      const file = new File([await blob.arrayBuffer()], "sample.wav", { type: "audio/wav" })
+      result = await generateWithClone(EXAMPLE_TEXT, file)
+    }
+
+    // Download the generated audio from VoxCPM2's temporary URL
+    const audioRes = await fetch(result.audioUrl)
+    if (!audioRes.ok) {
       return NextResponse.json({ data: { audioUrl: result.audioUrl } })
     }
 
-    // Cloned voice
-    if (!voice.sample_path) {
-      return NextResponse.json({ error: "Voice sample not found" }, { status: 400 })
-    }
+    const audioBuffer = await audioRes.arrayBuffer()
 
-    const admin = createAdminClient()
-    const { data: blob } = await admin.storage
+    // Save to Supabase Storage for future use
+    const previewPath = `${user.id}/previews/${voice_id}.wav`
+    const { error: uploadError } = await admin.storage
       .from("voice-samples")
-      .download(voice.sample_path)
+      .upload(previewPath, audioBuffer, {
+        contentType: "audio/wav",
+        upsert: true,
+      })
 
-    if (!blob) {
-      return NextResponse.json({ error: "Voice sample file not found" }, { status: 400 })
+    if (!uploadError) {
+      // Update the voice record with the preview path
+      await supabase
+        .from("voices")
+        .update({ preview_audio_path: previewPath })
+        .eq("id", voice_id)
+
+      // Return a signed URL for the saved audio
+      const { data: signedData } = await admin.storage
+        .from("voice-samples")
+        .createSignedUrl(previewPath, 3600)
+
+      if (signedData) {
+        return NextResponse.json({ data: { audioUrl: signedData.signedUrl } })
+      }
     }
 
-    const file = new File([await blob.arrayBuffer()], "sample.wav", { type: "audio/wav" })
-
-    const result = await generateWithClone(EXAMPLE_TEXT, file)
+    // Fallback: return the temporary VoxCPM2 URL
     return NextResponse.json({ data: { audioUrl: result.audioUrl } })
   } catch (err) {
     const message = err instanceof Error ? err.message : "Voice test generation failed"
