@@ -59,8 +59,8 @@ export default function DashboardPage() {
                 type="button"
                 className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors duration-150 ${
                   item.active
-                    ? "bg-[#18181B] text-white"
-                    : "text-[#71717A] hover:bg-zinc-100 hover:text-[#18181B]"
+                    ? "bg-zinc-100 text-[#18181B]"
+                    : "text-[#71717A] hover:bg-zinc-50 hover:text-[#18181B]"
                 }`}
               >
                 <item.icon className="h-4 w-4" />
