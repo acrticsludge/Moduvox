@@ -104,7 +104,7 @@ export default function DashboardPage() {
 
             <button
               type="button"
-              className="inline-flex items-center gap-2 rounded-lg bg-[#18181B] px-4 py-2 text-sm font-medium text-white transition-all duration-200 hover:bg-[#27272A] hover:scale-[1.02] active:scale-[0.98]"
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-[#71717A] transition-colors duration-150 hover:text-[#18181B]"
             >
               <Plus className="h-4 w-4" />
               New Presentation
@@ -134,7 +134,7 @@ export default function DashboardPage() {
               </p>
               <button
                 type="button"
-                className="mt-6 inline-flex items-center gap-2 rounded-lg bg-[#18181B] px-5 py-2.5 text-sm font-medium text-white transition-all duration-200 hover:bg-[#27272A] hover:scale-[1.02] active:scale-[0.98]"
+                className="mt-6 inline-flex items-center gap-1.5 text-sm font-medium text-[#71717A] transition-colors duration-150 hover:text-[#18181B]"
               >
                 <Plus className="h-4 w-4" />
                 Create your first presentation
