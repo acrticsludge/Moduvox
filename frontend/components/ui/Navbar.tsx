@@ -45,7 +45,7 @@ export function Navbar() {
         {/* Left: logo */}
         <a
           href="#"
-          className="text-lg font-semibold tracking-tight text-[#18181B]"
+          className="text-2xl font-semibold tracking-tight text-[#18181B]"
           aria-label="Moduvox home"
         >
           Moduvox
