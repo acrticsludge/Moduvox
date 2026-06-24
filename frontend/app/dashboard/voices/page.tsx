@@ -39,12 +39,10 @@ function formatDate(iso: string) {
 function VoiceCard({
   voice,
   onDelete,
-  onPlay,
   onTest,
 }: {
   voice: Voice
   onDelete: (id: string) => void
-  onPlay: (voice: Voice) => void
   onTest: (voice: Voice) => void
 }) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
@@ -73,16 +71,6 @@ function VoiceCard({
         </div>
 
         <div className="flex items-center gap-1 shrink-0">
-          {voice.type === "cloned" && (
-            <button
-              type="button"
-              onClick={() => onPlay(voice)}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#71717A] transition-colors hover:bg-zinc-100 hover:text-[#18181B]"
-              aria-label="Play sample"
-            >
-              <Play className="h-4 w-4" />
-            </button>
-          )}
           <button
             type="button"
             onClick={() => onDelete(voice.id)}
@@ -108,8 +96,6 @@ function VoiceCard({
         <Volume2 className="h-3 w-3" />
         Test voice
       </button>
-
-      <p className="mt-1 text-xs text-zinc-400">Created {formatDate(voice.created_at)}</p>
 
       {voice.type === "cloned" && voice.sample_path && (
         <div className="mt-3">
@@ -150,6 +136,8 @@ function VoiceCard({
           )}
         </div>
       )}
+
+      <p className="mt-1 text-xs text-zinc-400">Created {formatDate(voice.created_at)}</p>
     </div>
   )
 }
