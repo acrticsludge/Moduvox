@@ -63,10 +63,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <nav className="flex flex-1 flex-col gap-1 px-3 py-4">
               {SIDEBAR_MAIN.map((item) => {
                 const active = item.match.test(pathname)
+                const href = item.label === "All Projects"
+                  ? "/dashboard"
+                  : `/dashboard/${item.label.toLowerCase().replace(/\s+/g, "-")}`
                 return (
-                  <button
+                  <a
                     key={item.label}
-                    type="button"
+                    href={href}
+                    onClick={() => setSidebarOpen(false)}
                     className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors duration-150 ${
                       active
                         ? "bg-zinc-100 text-[#18181B]"
@@ -75,7 +79,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   >
                     <item.icon className="h-4 w-4" />
                     {item.label}
-                  </button>
+                  </a>
                 )
               })}
 
