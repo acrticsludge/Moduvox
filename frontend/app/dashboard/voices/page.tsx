@@ -333,7 +333,7 @@ function AddVoiceModal({
                       Click to upload
                     </p>
                     <p className="text-xs text-zinc-400">
-                      WAV, MP3, or M4A · 30 seconds to 3 minutes · Max 10MB
+                      WAV, MP3, or M4A · 30 to 50 seconds · Max 10MB
                     </p>
                   </div>
                 )}
