@@ -16,6 +16,7 @@ export default function Home() {
         heading="Upload, generate, share."
         body="Drop in your PowerPoint file and a 30-second voice sample. Our AI extracts speaker notes, writes natural narration, and clones your voice. Edit anything before it's final."
         visual={<UploadMockup />}
+        darker
       />
 
       <FeatureSection
@@ -23,13 +24,13 @@ export default function Home() {
         body="Updated a policy? Upload the revised deck. Only the changed slides get re-narrated. Your share link updates automatically. No re-recording the whole thing."
         visual={<CompareMockup />}
         visualRight
-        darker
       />
 
       <FeatureSection
         heading="Know who actually watched."
         body="Require viewers to enter their email before watching. See completion rates, time spent, and who skipped. Export CSV reports for compliance audits."
         visual={<AnalyticsMockup />}
+        darker
       />
 
       <Footer />
