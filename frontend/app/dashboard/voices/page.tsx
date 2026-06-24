@@ -47,6 +47,8 @@ function VoiceCard({
   onPlay: (voice: Voice) => void
   onTest: (voice: Voice) => void
 }) {
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [loadingUrl, setLoadingUrl] = useState(false)
   const presetInfo = voice.preset_id
     ? PRESET_VOICES.find((p) => p.id === voice.preset_id)
     : null
@@ -110,15 +112,42 @@ function VoiceCard({
       <p className="mt-1 text-xs text-zinc-400">Created {formatDate(voice.created_at)}</p>
 
       {voice.type === "cloned" && voice.sample_path && (
-        <div className="mt-3 rounded-lg bg-zinc-50 p-3">
-          <button
-            type="button"
-            onClick={() => onPlay(voice)}
-            className="flex w-full items-center justify-center gap-2 text-sm font-medium text-[#71717A] transition-colors hover:text-[#18181B]"
-          >
-            <Play className="h-3.5 w-3.5" />
-            Preview voice sample
-          </button>
+        <div className="mt-3">
+          {previewUrl ? (
+            <audio
+              controls
+              src={previewUrl}
+              className="w-full rounded-lg"
+              style={{ height: 40 }}
+            >
+              Your browser does not support the audio element.
+            </audio>
+          ) : (
+            <div className="rounded-lg bg-zinc-50 p-3">
+              <button
+                type="button"
+                onClick={async () => {
+                  if (loadingUrl) return
+                  setLoadingUrl(true)
+                  const supabase = createClient()
+                  const { data } = await supabase.storage
+                    .from("voice-samples")
+                    .createSignedUrl(voice.sample_path!, 300)
+                  if (data) setPreviewUrl(data.signedUrl)
+                  setLoadingUrl(false)
+                }}
+                disabled={loadingUrl}
+                className="flex w-full items-center justify-center gap-2 text-sm font-medium text-[#71717A] transition-colors hover:text-[#18181B] disabled:opacity-50"
+              >
+                {loadingUrl ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Play className="h-3.5 w-3.5" />
+                )}
+                {loadingUrl ? "Loading..." : "Preview voice sample"}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
