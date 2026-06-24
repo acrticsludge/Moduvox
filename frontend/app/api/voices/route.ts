@@ -44,7 +44,7 @@ export async function POST(request: Request) {
       user_id: user.id,
       name: parsed.data.name,
       type: "preset",
-      clone_mode: null,
+      preset_id: parsed.data.preset_id,
       sample_path: null,
       sample_duration_seconds: null,
       emotion_default: parsed.data.emotion_default,

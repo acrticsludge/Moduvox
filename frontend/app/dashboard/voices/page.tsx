@@ -10,6 +10,7 @@ type Voice = {
   user_id: string
   name: string
   type: "preset" | "cloned"
+  preset_id: string | null
   sample_path: string | null
   sample_duration_seconds: number | null
   emotion_default: string
@@ -18,11 +19,11 @@ type Voice = {
 }
 
 const PRESET_VOICES = [
-  { id: "calm-female", label: "Calm Female" },
-  { id: "energetic-male", label: "Energetic Male" },
-  { id: "soft-narrator", label: "Soft Narrator" },
-  { id: "professional-tone", label: "Professional Tone" },
-  { id: "warm-friendly", label: "Warm Friendly" },
+  { id: "calm-female", label: "Calm Female", description: "Warm, steady, reassuring. Ideal for policy and compliance training." },
+  { id: "energetic-male", label: "Energetic Male", description: "Upbeat, engaging. Good for onboarding and introductions." },
+  { id: "soft-narrator", label: "Soft Narrator", description: "Gentle and measured. Fits detailed explanations and tutorials." },
+  { id: "professional-tone", label: "Professional Tone", description: "Clear, authoritative. Suits formal business content." },
+  { id: "warm-friendly", label: "Warm Friendly", description: "Approachable, conversational. Makes complex topics feel simple." },
 ]
 
 // ── Helpers ──────────────────────────────────────────
@@ -44,8 +45,12 @@ function VoiceCard({
   onDelete: (id: string) => void
   onPlay: (voice: Voice) => void
 }) {
+  const presetInfo = voice.preset_id
+    ? PRESET_VOICES.find((p) => p.id === voice.preset_id)
+    : null
+
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white p-5 transition-all duration-150 hover:border-zinc-300 hover:shadow-sm">
+    <div className="self-start rounded-xl border border-zinc-200 bg-white p-5 transition-all duration-150 hover:border-zinc-300 hover:shadow-sm">
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-100">
@@ -59,13 +64,13 @@ function VoiceCard({
             <h3 className="font-medium text-[#18181B]">{voice.name}</h3>
             <p className="text-sm text-[#71717A]">
               {voice.type === "preset"
-                ? "Preset voice"
+                ? (presetInfo?.description ?? "Preset voice")
                 : "Cloned voice"}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 shrink-0">
           {voice.type === "cloned" && (
             <button
               type="button"
@@ -243,25 +248,28 @@ function AddVoiceModal({
         {step === "preset" && (
           <div className="space-y-3">
             <div className="grid grid-cols-1 gap-2">
-              {PRESET_VOICES.map((pv) => (
-                <button
-                  key={pv.id}
-                  type="button"
-                  onClick={() => setSelectedPreset(pv.id)}
-                  className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${
-                    selectedPreset === pv.id
-                      ? "border-[#18181B] bg-zinc-50"
-                      : "border-zinc-200 hover:border-zinc-300"
-                  }`}
-                >
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-100">
-                    <Music className="h-4 w-4 text-[#71717A]" />
-                  </div>
-                  <span className="text-sm font-medium text-[#18181B]">
-                    {pv.label}
-                  </span>
-                </button>
-              ))}
+                  {PRESET_VOICES.map((pv) => (
+                    <button
+                      key={pv.id}
+                      type="button"
+                      onClick={() => setSelectedPreset(pv.id)}
+                      className={`flex items-start gap-3 rounded-xl border p-3 text-left transition-all ${
+                        selectedPreset === pv.id
+                          ? "border-[#18181B] bg-zinc-50"
+                          : "border-zinc-200 hover:border-zinc-300"
+                      }`}
+                    >
+                      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-zinc-100">
+                        <Music className="h-4 w-4 text-[#71717A]" />
+                      </div>
+                      <div>
+                        <span className="text-sm font-medium text-[#18181B]">
+                          {pv.label}
+                        </span>
+                        <p className="text-xs text-[#71717A]">{pv.description}</p>
+                      </div>
+                    </button>
+                  ))}
             </div>
 
             <div className="mt-4">
@@ -401,12 +409,15 @@ export default function VoicesPage() {
     fetchVoices()
   }, [])
 
-  function handlePlay(voice: Voice) {
+  async function handlePlay(voice: Voice) {
     if (!voice.sample_path) return
     const supabase = createClient()
-    const { data } = supabase.storage.from("voice-samples").getPublicUrl(voice.sample_path)
+    const { data } = await supabase.storage
+      .from("voice-samples")
+      .createSignedUrl(voice.sample_path, 60)
+    if (!data) return
     if (audioRef.current) audioRef.current.pause()
-    const audio = new Audio(data.publicUrl)
+    const audio = new Audio(data.signedUrl)
     audioRef.current = audio
     audio.play()
   }
