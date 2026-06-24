@@ -13,9 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Moduvox - Narrated presentations from your slides",
+  title: "Moduvox — Your slides. Your voice. No recording.",
   description:
-    "Upload a PPTX and a voice sample. Moduvox extracts slide notes, generates natural narration, clones your voice, and creates a shareable narrated presentation.",
+    "Upload a PPTX and a voice sample. Moduvox generates a complete narrated presentation in your voice, with viewer tracking.",
 };
 
 export default function RootLayout({
