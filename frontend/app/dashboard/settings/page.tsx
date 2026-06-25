@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
-import { Loader2 } from "lucide-react"
+import { Loader2, LogOut } from "lucide-react"
+import { useRouter } from "next/navigation"
 
 type Tab = "profile" | "security"
 
@@ -24,6 +25,7 @@ export default function SettingsPage() {
   const [deleteConfirmText, setDeleteConfirmText] = useState("")
   const [deleting, setDeleting] = useState(false)
   const supabase = createClient()
+  const router = useRouter()
 
   useEffect(() => {
     async function loadProfile() {
@@ -92,6 +94,12 @@ export default function SettingsPage() {
     setNewPassword("")
     setConfirmPassword("")
     setChangingPassword(false)
+  }
+
+  async function handleLogout() {
+    await supabase.auth.signOut()
+    router.push("/")
+    router.refresh()
   }
 
   async function handleDeleteAccount() {
@@ -268,6 +276,24 @@ export default function SettingsPage() {
                     </div>
                   </div>
                 )}
+              </div>
+
+              <hr className="border-zinc-200" />
+
+              {/* Log out */}
+              <div>
+                <h2 className="text-base font-semibold text-[#18181B]">Session</h2>
+                <p className="mt-1 text-sm text-[#71717A]">
+                  Sign out of your account on this device.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="mt-3 inline-flex items-center gap-2 rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-[#18181B] transition-all hover:bg-zinc-50"
+                >
+                  <LogOut className="h-4 w-4" />
+                  Log out
+                </button>
               </div>
 
               <hr className="border-zinc-200" />
