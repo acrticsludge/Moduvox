@@ -1,6 +1,6 @@
 export function EditorMockup() {
   return (
-    <div className="w-full overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-xl">
+    <div className="w-[500px] overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-xl">
       {/* Title bar */}
       <div className="flex items-center gap-1.5 border-b border-zinc-200 px-4 py-3">
         <span className="h-2.5 w-2.5 rounded-full bg-zinc-300" />
@@ -20,7 +20,9 @@ export function EditorMockup() {
               className={`h-9 w-14 rounded border ${i === 1 ? "border-zinc-800 ring-1 ring-zinc-800" : "border-zinc-200"} bg-white p-1 shadow-xs`}
             >
               <div className="flex h-full flex-col gap-[1px]">
-                <div className={`h-[3px] w-3/5 rounded-[1px] ${i === 1 ? "bg-zinc-800" : "bg-zinc-300"}`} />
+                <div
+                  className={`h-[3px] w-3/5 rounded-[1px] ${i === 1 ? "bg-zinc-800" : "bg-zinc-300"}`}
+                />
                 <div className="h-[2px] w-full rounded-[1px] bg-zinc-200" />
                 <div className="h-[2px] w-3/4 rounded-[1px] bg-zinc-200" />
               </div>
@@ -32,7 +34,7 @@ export function EditorMockup() {
         <div className="flex flex-1 flex-col">
           {/* Slide preview */}
           <div className="flex items-center justify-center border-b border-zinc-200 bg-zinc-50 p-6">
-            <div className="aspect-video w-full max-w-[400px] rounded-lg border border-zinc-300 bg-white p-6 shadow-sm">
+            <div className="aspect-video w-full max-w-none rounded-lg border border-zinc-300 bg-white p-6 shadow-sm">
               <div className="flex h-full flex-col gap-2">
                 <div className="h-3 w-3/5 rounded bg-zinc-800" />
                 <div className="mt-auto flex flex-col gap-1.5">
@@ -47,7 +49,9 @@ export function EditorMockup() {
           {/* Narration editor */}
           <div className="p-4">
             <div className="mb-2 flex items-center gap-2">
-              <span className="text-xs font-medium text-zinc-500">Narration</span>
+              <span className="text-xs font-medium text-zinc-500">
+                Narration
+              </span>
               <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium text-zinc-500">
                 Calm
               </span>

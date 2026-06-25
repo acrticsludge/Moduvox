@@ -18,7 +18,7 @@ export function Hero() {
 
   return (
     <section className="mx-auto max-w-[1400px] px-4 pb-20 pt-36 sm:px-6 lg:px-8 lg:pt-44">
-      <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-[55%_45%]">
+      <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-[50%_50%]">
         {/* Text block */}
         <div>
           <h1 className="flex flex-wrap items-center gap-x-3 gap-y-1 text-balance font-semibold leading-[1.05] tracking-[-0.03em] text-[#18181B] [font-size:clamp(2.5rem,5vw,4rem)]">
