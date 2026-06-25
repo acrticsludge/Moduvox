@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
-import { Plus, ChevronRight, FileText, FolderKanban, BookOpen, GraduationCap, Shield, Presentation, Notebook, ClipboardList } from "lucide-react"
+import { Plus, ChevronRight, FileText, Pencil, FolderKanban, BookOpen, GraduationCap, Shield, Presentation, Notebook, ClipboardList } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import type { Project } from "@/lib/validations/project"
+import { RenameProjectModal } from "@/components/dashboard/RenameProjectModal"
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   FolderKanban,
@@ -29,6 +30,7 @@ export default function ProjectDetailPage() {
   const params = useParams<{ id: string }>()
   const [project, setProject] = useState<Project | null>(null)
   const [loading, setLoading] = useState(true)
+  const [showEdit, setShowEdit] = useState(false)
 
   useEffect(() => {
     const supabase = createClient()
@@ -89,24 +91,34 @@ export default function ProjectDetailPage() {
 
       {/* Project info */}
       <div className="border-b border-[var(--color-border-faint)] px-6 py-6">
-        <div className="flex items-center gap-4">
-          <div
-            className="flex h-14 w-14 items-center justify-center rounded-2xl"
-            style={{ backgroundColor: project.color }}
-          >
-            <IconComp className="h-7 w-7 text-zinc-700" />
-          </div>
-          <div>
-            <h1 className="text-xl font-semibold text-[#18181B]">{project.name}</h1>
-            {project.description && (
-              <p className="mt-0.5 text-sm text-[#71717A]">{project.description}</p>
-            )}
-            <div className="mt-1 flex items-center gap-3 text-sm text-[#71717A]">
-              <span>0 presentations</span>
-              <span className="text-zinc-300">·</span>
-              <span>Created {formatDate(project.created_at)}</span>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div
+              className="flex h-14 w-14 items-center justify-center rounded-2xl"
+              style={{ backgroundColor: project.color }}
+            >
+              <IconComp className="h-7 w-7 text-zinc-700" />
+            </div>
+            <div>
+              <h1 className="text-xl font-semibold text-[#18181B]">{project.name}</h1>
+              {project.description && (
+                <p className="mt-0.5 text-sm text-[#71717A]">{project.description}</p>
+              )}
+              <div className="mt-1 flex items-center gap-3 text-sm text-[#71717A]">
+                <span>0 presentations</span>
+                <span className="text-zinc-300">·</span>
+                <span>Created {formatDate(project.created_at)}</span>
+              </div>
             </div>
           </div>
+
+          <button
+            type="button"
+            onClick={() => setShowEdit(true)}
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-[#71717A] transition-colors hover:bg-zinc-100 hover:text-[#18181B]"
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
         </div>
       </div>
 
@@ -132,6 +144,26 @@ export default function ProjectDetailPage() {
           </button>
         </div>
       </div>
+
+      {showEdit && project && (
+        <RenameProjectModal
+          project={project}
+          onClose={() => setShowEdit(false)}
+          onSaved={() => {
+            setShowEdit(false)
+            // Re-fetch project to show updated name/description/color/icon
+            const supabase = createClient()
+            supabase
+              .from("projects")
+              .select("*")
+              .eq("id", params.id)
+              .single()
+              .then(({ data }) => {
+                if (data) setProject(data)
+              })
+          }}
+        />
+      )}
     </>
   )
 }
