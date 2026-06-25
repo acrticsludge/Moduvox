@@ -14,7 +14,12 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [resetSent, setResetSent] = useState(false)
+  const [showPasswordForm, setShowPasswordForm] = useState(false)
+  const [currentPassword, setCurrentPassword] = useState("")
+  const [newPassword, setNewPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [changingPassword, setChangingPassword] = useState(false)
+  const [passwordChanged, setPasswordChanged] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleteConfirmText, setDeleteConfirmText] = useState("")
   const [deleting, setDeleting] = useState(false)
@@ -61,18 +66,32 @@ export default function SettingsPage() {
     }
   }
 
-  async function handleResetPassword() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user?.email) return
+  async function handleChangePassword() {
+    if (newPassword !== confirmPassword) {
+      setError("Passwords do not match")
+      return
+    }
+    if (newPassword.length < 6) {
+      setError("Password must be at least 6 characters")
+      return
+    }
 
-    const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
-      redirectTo: `${window.location.origin}/login`,
-    })
+    setChangingPassword(true)
+    setError(null)
+
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
     if (error) {
       setError(error.message)
-    } else {
-      setResetSent(true)
+      setChangingPassword(false)
+      return
     }
+
+    setPasswordChanged(true)
+    setShowPasswordForm(false)
+    setCurrentPassword("")
+    setNewPassword("")
+    setConfirmPassword("")
+    setChangingPassword(false)
   }
 
   async function handleDeleteAccount() {
@@ -184,26 +203,70 @@ export default function SettingsPage() {
           {/* ── Security Tab ─────────────────────── */}
           {tab === "security" && (
             <div className="space-y-8">
-              {/* Password reset */}
+              {/* Password change */}
               <div>
                 <h2 className="text-base font-semibold text-[#18181B]">Password</h2>
                 <p className="mt-1 text-sm text-[#71717A]">
-                  Change your password via email reset. A reset link will be sent
-                  to your email address.
+                  Set a new password for your account.
                 </p>
 
-                {resetSent ? (
+                {passwordChanged ? (
                   <p className="mt-3 text-sm font-medium text-emerald-600">
-                    Reset email sent. Check your inbox.
+                    Password changed successfully.
                   </p>
-                ) : (
+                ) : !showPasswordForm ? (
                   <button
                     type="button"
-                    onClick={handleResetPassword}
+                    onClick={() => setShowPasswordForm(true)}
                     className="mt-3 inline-flex items-center gap-2 rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-[#18181B] transition-all hover:bg-zinc-50"
                   >
-                    Send reset email
+                    Change password
                   </button>
+                ) : (
+                  <div className="mt-4 space-y-3">
+                    <div>
+                      <label className="mb-1.5 block text-sm font-medium text-[#18181B]">
+                        New password
+                      </label>
+                      <input
+                        type="password"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="Min. 6 characters"
+                        className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm text-[#18181B] outline-none transition-colors placeholder:text-zinc-400 focus:border-zinc-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-sm font-medium text-[#18181B]">
+                        Confirm new password
+                      </label>
+                      <input
+                        type="password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder="Re-enter new password"
+                        className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm text-[#18181B] outline-none transition-colors placeholder:text-zinc-400 focus:border-zinc-400"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => { setShowPasswordForm(false); setError(null) }}
+                        className="rounded-lg px-3 py-2 text-sm font-medium text-[#71717A] transition-colors hover:text-[#18181B]"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleChangePassword}
+                        disabled={changingPassword || !newPassword || !confirmPassword}
+                        className="inline-flex items-center gap-2 rounded-lg bg-[#18181B] px-4 py-2 text-sm font-medium text-white transition-all hover:bg-[#27272A] disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        {changingPassword && <Loader2 className="h-4 w-4 animate-spin" />}
+                        {changingPassword ? "Saving..." : "Save password"}
+                      </button>
+                    </div>
+                  </div>
                 )}
               </div>
 
