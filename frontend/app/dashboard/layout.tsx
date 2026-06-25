@@ -7,7 +7,7 @@ import { Footer } from "@/components/landing/footer"
 import { LayoutGrid, Mic, Settings, Archive, Trash2, Menu } from "lucide-react"
 
 const SIDEBAR_MAIN = [
-  { label: "All Projects", icon: LayoutGrid, href: "/dashboard", match: /^\/dashboard(\/projects\/?.*)?$/ },
+  { label: "All Projects", icon: LayoutGrid, href: "/dashboard", match: /^\/dashboard(\/projects\/?.*|\/presentations\/?.*)?$/ },
   { label: "My Voices", icon: Mic, href: "/dashboard/voices", match: /^\/dashboard\/voices/ },
   { label: "Settings", icon: Settings, href: "/dashboard/settings", match: /^\/dashboard\/settings/ },
 ]
