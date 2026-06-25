@@ -6,6 +6,7 @@ import { Plus, ChevronRight, FileText, Pencil, FolderKanban, BookOpen, Graduatio
 import { createClient } from "@/lib/supabase/client"
 import type { Project } from "@/lib/validations/project"
 import { RenameProjectModal } from "@/components/dashboard/RenameProjectModal"
+import { CreatePresentationDialog } from "@/components/dashboard/CreatePresentationDialog"
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   FolderKanban,
@@ -31,6 +32,7 @@ export default function ProjectDetailPage() {
   const [project, setProject] = useState<Project | null>(null)
   const [loading, setLoading] = useState(true)
   const [showEdit, setShowEdit] = useState(false)
+const [showCreatePresentation, setShowCreatePresentation] = useState(false)
 
   useEffect(() => {
     const supabase = createClient()
@@ -81,7 +83,7 @@ export default function ProjectDetailPage() {
 
         <button
           type="button"
-          disabled
+          onClick={() => setShowCreatePresentation(true)}
           className="inline-flex items-center gap-1.5 text-sm font-medium text-[#71717A] transition-colors duration-150 hover:text-[#18181B]"
         >
           <Plus className="h-4 w-4" />
@@ -136,7 +138,7 @@ export default function ProjectDetailPage() {
           </p>
           <button
             type="button"
-            disabled
+            onClick={() => setShowCreatePresentation(true)}
             className="mt-6 inline-flex items-center gap-1.5 text-sm font-medium text-[#71717A] transition-colors duration-150 hover:text-[#18181B]"
           >
             <Plus className="h-4 w-4" />
@@ -144,6 +146,13 @@ export default function ProjectDetailPage() {
           </button>
         </div>
       </div>
+
+      {showCreatePresentation && (
+        <CreatePresentationDialog
+          projectId={params.id}
+          onClose={() => setShowCreatePresentation(false)}
+        />
+      )}
 
       {showEdit && project && (
         <RenameProjectModal
