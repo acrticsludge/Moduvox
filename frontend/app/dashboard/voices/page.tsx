@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Plus, Mic, Play, Trash2, Music, Loader2, Volume2 } from "lucide-react"
+import { DeleteVoiceDialog } from "@/components/dashboard/DeleteVoiceDialog"
 
 // ── Types ────────────────────────────────────────────
 type Voice = {
@@ -38,12 +39,12 @@ function formatDate(iso: string) {
 // ── Voice Card ───────────────────────────────────────
 function VoiceCard({
   voice,
-  onDelete,
   onTest,
+  onDelete,
 }: {
   voice: Voice
-  onDelete: (id: string) => void
   onTest: (voice: Voice) => void
+  onDelete: (voice: Voice) => void
 }) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [loadingUrl, setLoadingUrl] = useState(false)
@@ -73,7 +74,7 @@ function VoiceCard({
         <div className="flex items-center gap-1 shrink-0">
           <button
             type="button"
-            onClick={() => onDelete(voice.id)}
+            onClick={() => onDelete(voice)}
             className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#71717A] transition-colors hover:bg-red-50 hover:text-red-600"
             aria-label="Delete voice"
           >
@@ -543,6 +544,7 @@ export default function VoicesPage() {
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [testVoice, setTestVoice] = useState<Voice | null>(null)
+  const [deleteVoice, setDeleteVoice] = useState<Voice | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
 
   useEffect(() => {
@@ -574,13 +576,7 @@ export default function VoicesPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Delete this voice? This cannot be undone.")) return
-    try {
-      const res = await fetch(`/api/voices/${id}`, { method: "DELETE" })
-      if (res.ok) setVoices((prev) => prev.filter((v) => v.id !== id))
-    } catch {
-      // silent
-    }
+    setVoices((prev) => prev.filter((v) => v.id !== id))
   }
 
   function handleCreated(voice: Voice) {
@@ -615,8 +611,8 @@ export default function VoicesPage() {
                 <VoiceCard
                   key={v.id}
                   voice={v}
-                  onDelete={handleDelete}
                   onTest={setTestVoice}
+                  onDelete={setDeleteVoice}
                 />
               ))}
           </div>
@@ -658,6 +654,13 @@ export default function VoicesPage() {
         <TestVoiceModal
           voice={testVoice}
           onClose={() => setTestVoice(null)}
+        />
+      )}
+      {deleteVoice && (
+        <DeleteVoiceDialog
+          voice={deleteVoice}
+          onClose={() => setDeleteVoice(null)}
+          onDeleted={() => handleDelete(deleteVoice.id)}
         />
       )}
     </>

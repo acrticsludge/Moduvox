@@ -31,7 +31,9 @@ export function Footer() {
       <div className="mx-auto max-w-[1400px] px-4 py-10 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 gap-8 md:grid-cols-4 md:gap-6">
           <div className="md:pr-8">
-            <span className="text-lg font-semibold tracking-tight text-white">Moduvox</span>
+            <span className="text-lg font-semibold tracking-tight text-white">
+              Moduvox
+            </span>
             <p className="mt-3 max-w-xs text-sm leading-relaxed text-[#71717A]">
               Turn slides into narrated training, in your voice.
             </p>
@@ -39,7 +41,9 @@ export function Footer() {
 
           {linkGroups.map((group) => (
             <nav key={group.heading} aria-label={group.heading}>
-              <h2 className="text-sm font-semibold text-white">{group.heading}</h2>
+              <h2 className="text-sm font-semibold text-white">
+                {group.heading}
+              </h2>
               <ul className="mt-3 flex flex-col gap-2">
                 {group.links.map((link) => (
                   <li key={link.label}>
