@@ -18,6 +18,7 @@ export default function PresentationDetailPage() {
   const params = useParams<{ id: string }>()
   const [presentation, setPresentation] = useState<PresentationType | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
 
   useEffect(() => {
     const supabase = createClient()
@@ -27,8 +28,12 @@ export default function PresentationDetailPage() {
       .select("*")
       .eq("id", params.id)
       .single()
-      .then(({ data }) => {
-        setPresentation(data as PresentationType | null)
+      .then(({ data, error: err }) => {
+        if (err) {
+          setError("Failed to load presentation")
+        } else {
+          setPresentation(data as PresentationType | null)
+        }
         setLoading(false)
       })
   }, [params.id])
@@ -37,6 +42,14 @@ export default function PresentationDetailPage() {
     return (
       <div className="flex flex-1 items-center justify-center px-6">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-600" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-1 items-center justify-center px-6">
+        <p className="text-sm text-red-600">{error}</p>
       </div>
     )
   }
