@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { createClient } from "@/lib/supabase/client"
 import {
   MoreHorizontal,
   Pencil,
@@ -43,8 +44,20 @@ export function ProjectCard({ project }: { project: Project }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [showRename, setShowRename] = useState(false)
   const [showDelete, setShowDelete] = useState(false)
+  const [presentationCount, setPresentationCount] = useState<number | null>(null)
 
   const IconComp = ICON_MAP[project.icon] ?? FolderKanban
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase
+      .from("presentations")
+      .select("id", { count: "exact", head: true })
+      .eq("project_id", project.id)
+      .then(({ count }) => {
+        if (count !== null) setPresentationCount(count)
+      })
+  }, [project.id])
 
   function handleNavigate() {
     router.push(`/dashboard/projects/${project.id}`)
@@ -75,7 +88,11 @@ export function ProjectCard({ project }: { project: Project }) {
                 <h3 className="text-sm font-semibold text-[#18181B]">
                   {project.name}
                 </h3>
-                <p className="text-xs text-[#71717A]">0 presentations</p>
+                <p className="text-xs text-[#71717A]">
+                  {presentationCount !== null
+                    ? `${presentationCount} ${presentationCount === 1 ? "presentation" : "presentations"}`
+                    : "..."}
+                </p>
               </div>
             </div>
 

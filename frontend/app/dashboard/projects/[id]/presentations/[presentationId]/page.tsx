@@ -15,7 +15,7 @@ function formatDate(iso: string) {
 }
 
 export default function PresentationDetailPage() {
-  const params = useParams<{ id: string }>()
+  const params = useParams<{ id: string; presentationId: string }>()
   const [presentation, setPresentation] = useState<PresentationType | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -26,7 +26,7 @@ export default function PresentationDetailPage() {
     supabase
       .from("presentations")
       .select("*")
-      .eq("id", params.id)
+      .eq("id", params.presentationId)
       .single()
       .then(({ data, error: err }) => {
         if (err) {
@@ -36,7 +36,7 @@ export default function PresentationDetailPage() {
         }
         setLoading(false)
       })
-  }, [params.id])
+  }, [params.presentationId])
 
   if (loading) {
     return (

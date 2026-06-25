@@ -33,7 +33,7 @@ export function CreatePresentationDialog({
         setError(typeof json.error === "string" ? json.error : "Something went wrong")
         return
       }
-      router.push(`/dashboard/presentations/${json.data.id}`)
+      router.push(`/dashboard/projects/${projectId}/presentations/${json.data.id}`)
     } catch {
       setError("Something went wrong")
     } finally {

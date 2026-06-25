@@ -1,10 +1,11 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useParams } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import { Plus, ChevronRight, FileText, Pencil, FolderKanban, BookOpen, GraduationCap, Shield, Presentation, Notebook, ClipboardList } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import type { Project } from "@/lib/validations/project"
+import type { Presentation as PresentationType } from "@/lib/validations/presentation"
 import { RenameProjectModal } from "@/components/dashboard/RenameProjectModal"
 import { CreatePresentationDialog } from "@/components/dashboard/CreatePresentationDialog"
 
@@ -28,24 +29,29 @@ function formatDate(iso: string) {
 }
 
 export default function ProjectDetailPage() {
+  const router = useRouter()
   const params = useParams<{ id: string }>()
   const [project, setProject] = useState<Project | null>(null)
+  const [presentations, setPresentations] = useState<PresentationType[]>([])
   const [loading, setLoading] = useState(true)
   const [showEdit, setShowEdit] = useState(false)
-const [showCreatePresentation, setShowCreatePresentation] = useState(false)
+  const [showCreatePresentation, setShowCreatePresentation] = useState(false)
 
   useEffect(() => {
     const supabase = createClient()
 
-    supabase
-      .from("projects")
-      .select("*")
-      .eq("id", params.id)
-      .single()
-      .then(({ data }) => {
-        setProject(data)
-        setLoading(false)
-      })
+    Promise.all([
+      supabase.from("projects").select("*").eq("id", params.id).single(),
+      supabase
+        .from("presentations")
+        .select("*")
+        .eq("project_id", params.id)
+        .order("created_at", { ascending: false }),
+    ]).then(([projectRes, presentationsRes]) => {
+      setProject(projectRes.data)
+      setPresentations(presentationsRes.data as PresentationType[])
+      setLoading(false)
+    })
   }, [params.id])
 
   if (loading) {
@@ -107,7 +113,7 @@ const [showCreatePresentation, setShowCreatePresentation] = useState(false)
                 <p className="mt-0.5 text-sm text-[#71717A]">{project.description}</p>
               )}
               <div className="mt-1 flex items-center gap-3 text-sm text-[#71717A]">
-                <span>0 presentations</span>
+                <span>{presentations.length} {presentations.length === 1 ? "presentation" : "presentations"}</span>
                 <span className="text-zinc-300">·</span>
                 <span>Created {formatDate(project.created_at)}</span>
               </div>
@@ -124,28 +130,56 @@ const [showCreatePresentation, setShowCreatePresentation] = useState(false)
         </div>
       </div>
 
-      {/* Empty state */}
-      <div className="flex flex-1 items-center justify-center px-6">
-        <div className="mx-auto max-w-sm text-center">
-          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-zinc-100">
-            <FileText className="h-7 w-7 text-[#71717A]" />
+      {/* Presentations list or empty state */}
+      {presentations.length === 0 ? (
+        <div className="flex flex-1 items-center justify-center px-6">
+          <div className="mx-auto max-w-sm text-center">
+            <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-zinc-100">
+              <FileText className="h-7 w-7 text-[#71717A]" />
+            </div>
+            <h2 className="text-xl font-semibold text-[#18181B]">
+              No presentations yet
+            </h2>
+            <p className="mt-2 text-sm leading-relaxed text-[#71717A]">
+              Upload a PPTX to create your first narrated presentation.
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowCreatePresentation(true)}
+              className="mt-6 inline-flex items-center gap-1.5 text-sm font-medium text-[#71717A] transition-colors duration-150 hover:text-[#18181B]"
+            >
+              <Plus className="h-4 w-4" />
+              Create your first presentation
+            </button>
           </div>
-          <h2 className="text-xl font-semibold text-[#18181B]">
-            No presentations yet
-          </h2>
-          <p className="mt-2 text-sm leading-relaxed text-[#71717A]">
-            Upload a PPTX to create your first narrated presentation.
-          </p>
-          <button
-            type="button"
-            onClick={() => setShowCreatePresentation(true)}
-            className="mt-6 inline-flex items-center gap-1.5 text-sm font-medium text-[#71717A] transition-colors duration-150 hover:text-[#18181B]"
-          >
-            <Plus className="h-4 w-4" />
-            Create your first presentation
-          </button>
         </div>
-      </div>
+      ) : (
+        <div className="flex-1 px-6 py-6">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {presentations.map((p) => (
+              <div
+                key={p.id}
+                onClick={() => router.push(`/dashboard/projects/${params.id}/presentations/${p.id}`)}
+                className="group cursor-pointer rounded-xl border border-zinc-200 bg-white p-4 hover:shadow-sm"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-100">
+                    <Presentation className="h-5 w-5 text-zinc-700" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="truncate text-sm font-semibold text-[#18181B]">
+                      {p.title}
+                    </h3>
+                    <p className="text-xs text-[#71717A]">
+                      {p.status === "draft" ? "Draft" : "Ready"} · {formatDate(p.created_at)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {showCreatePresentation && (
         <CreatePresentationDialog
