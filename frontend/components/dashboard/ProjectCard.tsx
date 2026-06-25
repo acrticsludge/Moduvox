@@ -106,7 +106,7 @@ export function ProjectCard({ project }: { project: Project }) {
                       className="flex w-full items-center gap-2 px-3 py-2 text-sm text-[#18181B] hover:bg-zinc-50"
                     >
                       <Pencil className="h-4 w-4" />
-                      Rename
+                      Edit
                     </button>
                     <button
                       onClick={(e) => {

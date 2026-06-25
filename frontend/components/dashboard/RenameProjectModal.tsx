@@ -90,7 +90,7 @@ export function RenameProjectModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#18181B]/40">
       <div className="w-full max-w-md rounded-xl border bg-white shadow-xl">
         <div className="flex items-center justify-between border-b px-6 py-4">
-          <h2 className="text-lg font-semibold">Rename Project</h2>
+          <h2 className="text-lg font-semibold">Edit Project</h2>
           <button
             onClick={onClose}
             className="rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700"
