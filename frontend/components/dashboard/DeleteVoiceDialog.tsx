@@ -63,7 +63,8 @@ export function DeleteVoiceDialog({
             type="text"
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
-            placeholder="DELETE"
+            placeholder=""
+            autoFocus
             className="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm text-[#18181B] focus:border-red-400 focus:outline-none"
           />
         </div>
