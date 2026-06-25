@@ -31,7 +31,7 @@ export default function SettingsPage() {
         .from("users")
         .select("name")
         .eq("id", user.id)
-        .single()
+        .maybeSingle()
 
       setName(data?.name ?? user.user_metadata?.full_name ?? "")
       setLoading(false)

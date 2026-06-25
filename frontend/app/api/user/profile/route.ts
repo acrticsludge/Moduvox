@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { updateProfileSchema } from "@/lib/validations/user"
 
 export async function PATCH(request: Request) {
@@ -21,7 +22,9 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: parsed.error.flatten().fieldErrors }, { status: 422 })
   }
 
-  const { error } = await supabase
+  // Use admin client to bypass RLS — user is already authenticated via the check above
+  const admin = createAdminClient()
+  const { error } = await admin
     .from("users")
     .upsert({ id: user.id, name: parsed.data.name, email: user.email, updated_at: new Date().toISOString() })
     .eq("id", user.id)
