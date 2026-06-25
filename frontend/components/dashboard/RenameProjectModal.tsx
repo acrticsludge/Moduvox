@@ -1,32 +1,23 @@
+"use client"
+
 import { useState } from "react"
 import { X, Loader2, Check } from "lucide-react"
+import { COLOR_PALETTE, ICON_SET, type Project, type ProjectColor, type ProjectIcon } from "@/lib/validations/project"
+
 import {
-  COLOR_PALETTE,
-  ICON_SET,
-  type Project,
-  type ProjectColor,
-  type ProjectIcon,
-} from "@/lib/validations/project"
-import {
-  FolderKanban,
-  BookOpen,
-  GraduationCap,
-  Shield,
-  FileText,
-  Presentation,
-  Notebook,
-  ClipboardList,
+  FolderKanban, BookOpen, GraduationCap, Shield,
+  FileText, Presentation, Notebook, ClipboardList,
 } from "lucide-react"
 
-const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  FolderKanban,
-  BookOpen,
-  GraduationCap,
-  Shield,
-  FileText,
-  Presentation,
-  Notebook,
-  ClipboardList,
+const ICON_COMPONENTS: Record<string, React.ReactNode> = {
+  FolderKanban: <FolderKanban className="h-5 w-5" />,
+  BookOpen: <BookOpen className="h-5 w-5" />,
+  GraduationCap: <GraduationCap className="h-5 w-5" />,
+  Shield: <Shield className="h-5 w-5" />,
+  FileText: <FileText className="h-5 w-5" />,
+  Presentation: <Presentation className="h-5 w-5" />,
+  Notebook: <Notebook className="h-5 w-5" />,
+  ClipboardList: <ClipboardList className="h-5 w-5" />,
 }
 
 export function RenameProjectModal({
@@ -40,17 +31,16 @@ export function RenameProjectModal({
 }) {
   const [name, setName] = useState(project.name)
   const [description, setDescription] = useState(project.description)
-  const [color, setColor] = useState<ProjectColor | undefined>(project.color)
-  const [icon, setIcon] = useState<ProjectIcon | undefined>(project.icon)
-  const [error, setError] = useState<string | null>(null)
+  const [color, setColor] = useState<ProjectColor | null>(project.color as ProjectColor)
+  const [icon, setIcon] = useState<ProjectIcon | null>(project.icon as ProjectIcon)
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState("")
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!name.trim()) return
-
     setSaving(true)
-    setError(null)
+    setError("")
 
     try {
       const res = await fetch(`/api/projects/${project.id}`, {
@@ -58,27 +48,17 @@ export function RenameProjectModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: name.trim(),
-          description: description.trim() || undefined,
-          color,
-          icon,
+          description: description.trim(),
+          color: color ?? undefined,
+          icon: icon ?? undefined,
         }),
       })
-
-      if (res.ok) {
-        onSaved()
+      const json = await res.json()
+      if (!res.ok) {
+        setError(typeof json.error === "string" ? json.error : "Something went wrong")
         return
       }
-
-      if (res.status === 422) {
-        const body = await res.json()
-        const details =
-          body.details
-            ?.map((d: { message: string }) => d.message)
-            .join(", ") ?? ""
-        setError(`Validation failed${details ? ": " + details : ""}`)
-      } else {
-        setError("Something went wrong")
-      }
+      onSaved()
     } catch {
       setError("Something went wrong")
     } finally {
@@ -88,112 +68,94 @@ export function RenameProjectModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#18181B]/40">
-      <div className="w-full max-w-md rounded-xl border bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b px-6 py-4">
-          <h2 className="text-lg font-semibold">Edit Project</h2>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700"
-          >
-            <X className="h-5 w-5" />
+      <div className="w-full max-w-md rounded-xl border border-zinc-200 bg-white p-6 shadow-xl">
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-semibold text-[#18181B]">Edit Project</h2>
+          <button type="button" onClick={onClose} className="text-[#71717A] hover:text-[#18181B]">
+            <X className="h-4 w-4" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4 px-6 py-4">
+        <form onSubmit={handleSubmit} className="mt-5 space-y-4">
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-zinc-700">
-              Name
-            </label>
+            <label className="text-sm font-medium text-[#18181B]">Name</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              maxLength={100}
               placeholder="e.g. Security Training Q3"
-              className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500"
+              maxLength={100}
+              required
+              className="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm text-[#18181B] placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-none"
               autoFocus
             />
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-zinc-700">
-              Description
-            </label>
+            <label className="text-sm font-medium text-[#18181B]">Description</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
+              placeholder="What is this project about?"
               maxLength={500}
               rows={2}
-              placeholder="What is this project about?"
-              className="w-full resize-none rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500"
+              className="mt-1 w-full resize-none rounded-lg border border-zinc-200 px-3 py-2 text-sm text-[#18181B] placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-none"
             />
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-zinc-700">
-              Color
-            </label>
-            <div className="flex gap-2">
+            <label className="text-sm font-medium text-[#18181B]">Color</label>
+            <div className="mt-1.5 flex gap-2">
               {COLOR_PALETTE.map((c) => (
                 <button
                   key={c}
                   type="button"
-                  onClick={() => setColor(color === c ? undefined : c)}
-                  className="flex h-7 w-7 items-center justify-center rounded-full border transition hover:scale-110"
+                  onClick={() => setColor(c as ProjectColor)}
+                  className="flex h-7 w-7 items-center justify-center rounded-full transition-all hover:scale-110"
                   style={{ backgroundColor: c }}
                 >
-                  {color === c && (
-                    <Check className="h-4 w-4 text-zinc-700" />
-                  )}
+                  {color === c && <Check className="h-3.5 w-3.5 text-[#18181B]" />}
                 </button>
               ))}
             </div>
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-zinc-700">
-              Icon
-            </label>
-            <div className="grid grid-cols-4 gap-2">
-              {ICON_SET.map((i) => {
-                const IconComp = ICON_MAP[i]
-                const selected = icon === i
-                return (
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={() => setIcon(selected ? undefined : i)}
-                    className={`flex items-center justify-center rounded-lg border p-2 transition ${
-                      selected
-                        ? "border-[#18181B] bg-zinc-100"
-                        : "border-zinc-200 hover:border-zinc-400"
-                    }`}
-                  >
-                    {IconComp && <IconComp className="h-5 w-5 text-zinc-700" />}
-                  </button>
-                )
-              })}
+            <label className="text-sm font-medium text-[#18181B]">Icon</label>
+            <div className="mt-1.5 grid grid-cols-4 gap-2">
+              {ICON_SET.map((ico) => (
+                <button
+                  key={ico}
+                  type="button"
+                  onClick={() => setIcon(ico as ProjectIcon)}
+                  className={`flex items-center justify-center rounded-lg border p-2 transition-all ${
+                    icon === ico
+                      ? "border-[#18181B] bg-zinc-100"
+                      : "border-zinc-200 hover:border-zinc-300"
+                  }`}
+                >
+                  {ICON_COMPONENTS[ico]}
+                </button>
+              ))}
             </div>
           </div>
 
-          {error && (
-            <p className="text-sm text-red-600">{error}</p>
-          )}
+          {error && <p className="text-sm text-red-600">{error}</p>}
 
-          <div className="flex items-center justify-end gap-3 border-t pt-4">
+          <div className="flex justify-end gap-3 pt-2">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+              className="rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-[#71717A] hover:text-[#18181B]"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={!name.trim() || saving}
-              className="flex items-center gap-2 rounded-lg bg-[#18181B] px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-[#18181B] px-4 py-2 text-sm font-medium text-white transition-all hover:bg-[#18181B]/90 disabled:opacity-50"
             >
-              {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+              {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
               Save
             </button>
           </div>
