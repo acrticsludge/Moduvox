@@ -146,7 +146,7 @@ export function PricingSection() {
                 ) : plan.active ? (
                 <a
                   href={plan.ctaHref ?? "/"}
-                  className="block rounded-lg bg-[#18181B] px-4 py-2.5 text-center text-sm font-medium text-white transition-transform duration-200 hover:scale-[1.02] hover:bg-[#27272A] active:scale-[0.98]"
+                  className="block rounded-lg border border-[#18181B]/70 bg-[#18181B] px-4 py-2.5 text-center text-sm font-medium text-white transition-transform duration-200 hover:scale-[1.02] hover:border-[#18181B] hover:bg-[#27272A] active:scale-[0.98]"
                 >
                   {plan.cta}
                 </a>

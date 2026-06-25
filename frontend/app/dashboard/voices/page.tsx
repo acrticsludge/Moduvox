@@ -330,7 +330,7 @@ function AddVoiceModal({
                 type="button"
                 onClick={handleSavePreset}
                 disabled={!selectedPreset || !voiceName.trim() || uploading}
-                className="inline-flex items-center gap-2 rounded-lg bg-[#18181B] px-4 py-2 text-sm font-medium text-white transition-all hover:bg-[#27272A] disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-flex items-center gap-2 rounded-lg border border-[#18181B]/70 bg-[#18181B] px-4 py-2 text-sm font-medium text-white transition-all hover:border-[#18181B] hover:bg-[#27272A] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {uploading && <Loader2 className="h-4 w-4 animate-spin" />}
                 Save Voice
@@ -407,7 +407,7 @@ function AddVoiceModal({
                 type="button"
                 onClick={handleUploadClone}
                 disabled={!file || !voiceName.trim() || uploading}
-                className="inline-flex items-center gap-2 rounded-lg bg-[#18181B] px-4 py-2 text-sm font-medium text-white transition-all hover:bg-[#27272A] disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-flex items-center gap-2 rounded-lg border border-[#18181B]/70 bg-[#18181B] px-4 py-2 text-sm font-medium text-white transition-all hover:border-[#18181B] hover:bg-[#27272A] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {uploading && <Loader2 className="h-4 w-4 animate-spin" />}
                 {uploading ? "Uploading..." : "Save Voice"}
@@ -504,7 +504,7 @@ function TestVoiceModal({
             <button
               type="button"
               onClick={handleGenerate}
-              className="inline-flex items-center gap-2 rounded-lg bg-[#18181B] px-4 py-2 text-sm font-medium text-white transition-all hover:bg-[#27272A]"
+              className="inline-flex items-center gap-2 rounded-lg border border-[#18181B]/70 bg-[#18181B] px-4 py-2 text-sm font-medium text-white transition-all hover:border-[#18181B] hover:bg-[#27272A]"
             >
               <Volume2 className="h-4 w-4" strokeWidth={1.5} />
               Generate preview

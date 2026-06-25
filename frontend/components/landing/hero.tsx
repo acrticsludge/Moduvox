@@ -33,7 +33,7 @@ export function Hero() {
             {user ? (
               <a
                 href="/dashboard"
-                className="inline-block rounded-lg bg-[#18181B] px-6 py-3 text-base font-medium text-white transition-transform duration-200 hover:scale-[1.02] hover:bg-[#27272A] active:scale-[0.98]"
+                className="inline-block rounded-lg border border-[#18181B]/70 bg-[#18181B] px-6 py-3 text-base font-medium text-white transition-transform duration-200 hover:scale-[1.02] hover:border-[#18181B] hover:bg-[#27272A] active:scale-[0.98]"
               >
                 Dashboard
               </a>
@@ -41,7 +41,7 @@ export function Hero() {
               <a
                 href="/signup"
                 style={{ transitionTimingFunction: SPRING }}
-                className="inline-block rounded-lg bg-[#18181B] px-6 py-3 text-base font-medium text-white transition-transform duration-200 hover:scale-[1.02] hover:bg-[#27272A] active:scale-[0.98]"
+                className="inline-block rounded-lg border border-[#18181B]/70 bg-[#18181B] px-6 py-3 text-base font-medium text-white transition-transform duration-200 hover:scale-[1.02] hover:border-[#18181B] hover:bg-[#27272A] active:scale-[0.98]"
               >
                 Start free
               </a>

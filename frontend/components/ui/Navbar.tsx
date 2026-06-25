@@ -83,7 +83,7 @@ export function Navbar() {
             {user ? (
               <a
                 href="/dashboard"
-                className="ml-2 rounded-lg bg-[#18181B] px-4 py-2 text-sm font-medium text-white transition-transform duration-200 hover:scale-[1.02] hover:bg-[#27272A] active:scale-[0.98]"
+                className="ml-2 rounded-lg border border-[#18181B]/70 bg-[#18181B] px-4 py-2 text-sm font-medium text-white transition-transform duration-200 hover:scale-[1.02] hover:border-[#18181B] hover:bg-[#27272A] active:scale-[0.98]"
               >
                 Dashboard
               </a>
@@ -166,7 +166,7 @@ export function Navbar() {
             <a
               href="/dashboard"
               onClick={() => setDrawerOpen(false)}
-              className="block rounded-lg bg-[#18181B] px-4 py-2.5 text-center text-sm font-medium text-white transition-transform duration-200 hover:scale-[1.02] hover:bg-[#27272A] active:scale-[0.98]"
+              className="block rounded-lg border border-[#18181B]/70 bg-[#18181B] px-4 py-2.5 text-center text-sm font-medium text-white transition-transform duration-200 hover:scale-[1.02] hover:border-[#18181B] hover:bg-[#27272A] active:scale-[0.98]"
             >
               Dashboard
             </a>
