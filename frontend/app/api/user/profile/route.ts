@@ -23,7 +23,7 @@ export async function PATCH(request: Request) {
 
   const { error } = await supabase
     .from("users")
-    .update({ name: parsed.data.name, updated_at: new Date().toISOString() })
+    .upsert({ id: user.id, name: parsed.data.name, email: user.email, updated_at: new Date().toISOString() })
     .eq("id", user.id)
 
   if (error) {
