@@ -1,13 +1,11 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 import { ChevronLeft, ChevronRight, Play, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import { renderPptx, type RenderedSlide } from "@/lib/pptx-renderer"
-
-const SLIDE_ACCENTS = ["#DC2626", "#2563EB", "#16A34A"]
 
 export function SlideEditor({
   voiceSelected,
@@ -16,7 +14,6 @@ export function SlideEditor({
   voiceSelected: boolean
   file: File | null
 }) {
-  const previewRef = useRef<HTMLDivElement>(null)
   const [slides, setSlides] = useState<RenderedSlide[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [generating, setGenerating] = useState(false)
@@ -129,42 +126,20 @@ export function SlideEditor({
           </button>
         </div>
 
-        {/* Slide preview — rendered HTML */}
-        <div
-          className="relative w-full max-w-[780px] overflow-hidden rounded-xl border-2 border-zinc-200 bg-white shadow-sm"
-          style={{ minHeight: "360px" }}
-        >
-          {/* Accent bar */}
-          <div
-            className="absolute left-0 right-0 top-0 z-10 h-1"
-            style={{ backgroundColor: SLIDE_ACCENTS[currentIndex % SLIDE_ACCENTS.length] }}
+        {/* Slide preview — canvas-rendered screenshot */}
+        {current.imageDataUrl ? (
+          <img
+            src={current.imageDataUrl}
+            alt={`Slide ${current.number}`}
+            className="w-full max-w-[780px] rounded-xl border-2 border-zinc-200 shadow-sm"
+            style={{ aspectRatio: "16/9" }}
           />
-          {/* Rendered slide content */}
-          <div
-            ref={previewRef}
-            className="pptx-preview"
-            style={{
-              width: "100%",
-              height: "100%",
-              minHeight: "360px",
-              overflow: "hidden",
-            }}
-            dangerouslySetInnerHTML={{ __html: current.html }}
-          />
-        </div>
+        ) : (
+          <div className="flex w-full max-w-[780px] items-center justify-center rounded-xl border-2 border-zinc-200 bg-white shadow-sm" style={{ aspectRatio: "16/9" }}>
+            <p className="text-sm text-[#71717A]">Failed to render slide</p>
+          </div>
+        )}
 
-        {/* Dot indicators */}
-        <div className="flex items-center justify-center gap-1.5">
-          {slides.map((_, i) => (
-            <div
-              key={i}
-              className={cn(
-                "h-2 w-2 rounded-full transition-colors",
-                i === currentIndex ? "bg-[#18181B]" : "bg-zinc-300",
-              )}
-            />
-          ))}
-        </div>
       </div>
 
       {/* Right column — controls */}
