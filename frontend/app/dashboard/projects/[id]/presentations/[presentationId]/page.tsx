@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
-import { ChevronRight, FileText, Presentation } from "lucide-react"
+import { ChevronRight, Presentation } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import type { Presentation as PresentationType } from "@/lib/validations/presentation"
+import { CreatePageSidebar } from "@/components/dashboard/CreatePageSidebar"
+import { PptxUploadZone } from "@/components/dashboard/PptxUploadZone"
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -14,7 +16,7 @@ function formatDate(iso: string) {
   })
 }
 
-export default function PresentationDetailPage() {
+export default function PresentationCreatePage() {
   const params = useParams<{ id: string; presentationId: string }>()
   const [presentation, setPresentation] = useState<PresentationType | null>(null)
   const [loading, setLoading] = useState(true)
@@ -22,7 +24,6 @@ export default function PresentationDetailPage() {
 
   useEffect(() => {
     const supabase = createClient()
-
     supabase
       .from("presentations")
       .select("*")
@@ -63,7 +64,7 @@ export default function PresentationDetailPage() {
   }
 
   return (
-    <>
+    <div className="flex flex-1 flex-col">
       {/* Top bar */}
       <div className="flex items-center justify-between border-b border-[var(--color-border-faint)] bg-white px-6 py-4">
         <div className="flex items-center gap-2 text-sm">
@@ -85,37 +86,11 @@ export default function PresentationDetailPage() {
         </div>
       </div>
 
-      {/* Presentation info */}
-      <div className="border-b border-[var(--color-border-faint)] px-6 py-6">
-        <div className="flex items-center gap-4">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-100">
-            <Presentation className="h-7 w-7 text-zinc-700" />
-          </div>
-          <div>
-            <h1 className="text-xl font-semibold text-[#18181B]">{presentation.title}</h1>
-            <div className="mt-1 flex items-center gap-3 text-sm text-[#71717A]">
-              <span className="capitalize">{presentation.status}</span>
-              <span className="text-zinc-300">·</span>
-              <span>Created {formatDate(presentation.created_at)}</span>
-            </div>
-          </div>
-        </div>
+      {/* Sidebar + Main */}
+      <div className="flex flex-1">
+        <CreatePageSidebar />
+        <PptxUploadZone />
       </div>
-
-      {/* Empty editor state */}
-      <div className="flex flex-1 items-center justify-center px-6">
-        <div className="mx-auto max-w-sm text-center">
-          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-zinc-100">
-            <FileText className="h-7 w-7 text-[#71717A]" />
-          </div>
-          <h2 className="text-xl font-semibold text-[#18181B]">
-            Ready for slides
-          </h2>
-          <p className="mt-2 text-sm leading-relaxed text-[#71717A]">
-            Upload a PPTX file to start building your narrated presentation.
-          </p>
-        </div>
-      </div>
-    </>
+    </div>
   )
 }
