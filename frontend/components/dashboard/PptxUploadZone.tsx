@@ -4,7 +4,7 @@ import { useRef, useState } from "react"
 import { Upload, FileText, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-export function PptxUploadZone() {
+export function PptxUploadZone({ onFileAccepted }: { onFileAccepted?: (file: File) => void }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [file, setFile] = useState<File | null>(null)
   const [error, setError] = useState("")
@@ -23,6 +23,7 @@ export function PptxUploadZone() {
       return
     }
     setFile(f)
+    onFileAccepted?.(f)
   }
 
   function handleDrop(e: React.DragEvent) {
