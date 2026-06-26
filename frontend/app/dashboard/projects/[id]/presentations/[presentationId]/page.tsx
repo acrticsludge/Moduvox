@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client"
 import type { Presentation as PresentationType } from "@/lib/validations/presentation"
 import { CreatePageSidebar } from "@/components/dashboard/CreatePageSidebar"
 import { PptxUploadZone } from "@/components/dashboard/PptxUploadZone"
+import { SlideEditor } from "@/components/dashboard/SlideEditor"
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -21,6 +22,7 @@ export default function PresentationCreatePage() {
   const [presentation, setPresentation] = useState<PresentationType | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+  const [mode, setMode] = useState<"upload" | "editor">("upload")
 
   useEffect(() => {
     const supabase = createClient()
@@ -91,7 +93,12 @@ export default function PresentationCreatePage() {
           </div>
         </div>
 
-        <PptxUploadZone />
+        {/* Content — upload zone or editor */}
+        {mode === "upload" ? (
+          <PptxUploadZone onFileAccepted={() => setMode("editor")} />
+        ) : (
+          <SlideEditor />
+        )}
       </div>
     </>
   )
