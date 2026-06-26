@@ -24,6 +24,12 @@ export default function PresentationCreatePage() {
   const [error, setError] = useState("")
   const [mode, setMode] = useState<"upload" | "editor">("upload")
   const [selectedVoiceId, setSelectedVoiceId] = useState("")
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null)
+
+  function handleFileAccepted(file: File) {
+    setUploadedFile(file)
+    setMode("editor")
+  }
 
   useEffect(() => {
     const supabase = createClient()
@@ -100,9 +106,9 @@ export default function PresentationCreatePage() {
 
         {/* Content — upload zone or editor */}
         {mode === "upload" ? (
-          <PptxUploadZone onFileAccepted={() => setMode("editor")} />
+          <PptxUploadZone onFileAccepted={handleFileAccepted} />
         ) : (
-          <SlideEditor voiceSelected={!!selectedVoiceId} />
+          <SlideEditor voiceSelected={!!selectedVoiceId} file={uploadedFile} />
         )}
       </div>
     </>

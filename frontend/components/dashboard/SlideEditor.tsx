@@ -1,81 +1,61 @@
 "use client"
 
-import { useState } from "react"
-import { ChevronLeft, ChevronRight, Play } from "lucide-react"
+import { useState, useEffect, useRef } from "react"
+import { ChevronLeft, ChevronRight, Play, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
-
-type SlideData = {
-  id: string
-  number: number
-  title: string
-  bullets: string[]
-  narrationText: string
-}
+import { renderPptx, type RenderedSlide } from "@/lib/pptx-renderer"
 
 const SLIDE_ACCENTS = ["#DC2626", "#2563EB", "#16A34A"]
 
-const MOCK_SLIDES: SlideData[] = [
-  {
-    id: "1",
-    number: 1,
-    title: "Security Awareness: Protecting Company Data",
-    bullets: [
-      "Always use strong, unique passwords for every work account — never reuse personal passwords.",
-      "Report suspicious emails, unexpected attachments, or unknown senders to IT immediately.",
-      "Lock your workstation (Win+L / Ctrl+Cmd+Q) whenever you step away, even briefly.",
-      "Share sensitive information only through approved, encrypted channels — never via personal email.",
-    ],
-    narrationText: "",
-  },
-  {
-    id: "2",
-    number: 2,
-    title: "Code of Conduct: Building a Respectful Workplace",
-    bullets: [
-      "Treat all colleagues with dignity and respect — every interaction matters.",
-      "Disclose any outside relationships or financial interests that could create a conflict.",
-      "Protect proprietary and personal information as if it were your own.",
-      "Speak up — report any observed policy violations through your manager or HR.",
-    ],
-    narrationText: "",
-  },
-  {
-    id: "3",
-    number: 3,
-    title: "Data Privacy: Handling Customer Information",
-    bullets: [
-      "Collect only the data you genuinely need — minimize what you store and process.",
-      "Encrypt customer data at rest and in transit using company-approved tools.",
-      "Access customer records only when necessary to perform your role — no exceptions.",
-      "Follow data retention schedules: purge records when the retention period expires.",
-    ],
-    narrationText: "",
-  },
-]
-
-export function SlideEditor({ voiceSelected }: { voiceSelected: boolean }) {
-  const [slides, setSlides] = useState<SlideData[]>(MOCK_SLIDES)
+export function SlideEditor({
+  voiceSelected,
+  file,
+}: {
+  voiceSelected: boolean
+  file: File | null
+}) {
+  const previewRef = useRef<HTMLDivElement>(null)
+  const [slides, setSlides] = useState<RenderedSlide[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [generating, setGenerating] = useState(false)
   const [audioGenerated, setAudioGenerated] = useState(false)
+  const [rendering, setRendering] = useState(true)
+  const [renderError, setRenderError] = useState("")
+
+  // Narrations stored per slide
+  const [narrations, setNarrations] = useState<Record<number, string>>({})
+
+  useEffect(() => {
+    if (!file) {
+      setRendering(false)
+      setRenderError("No file provided")
+      return
+    }
+
+    setRendering(true)
+    setRenderError("")
+
+    renderPptx(file)
+      .then((rendered) => {
+        setSlides(rendered)
+        setCurrentIndex(0)
+        setRendering(false)
+      })
+      .catch((err) => {
+        console.error("PPTX render error:", err)
+        setRenderError("Failed to render presentation. The file may be corrupted or incompatible.")
+        setRendering(false)
+      })
+  }, [file])
 
   const current = slides[currentIndex]
   const total = slides.length
 
-  if (!current) {
-    return (
-      <div className="flex flex-1 items-center justify-center">
-        <p className="text-sm text-[#71717A]">No slides loaded</p>
-      </div>
-    )
-  }
-
   function updateNarration(text: string) {
-    setSlides((prev) =>
-      prev.map((s) => (s.id === current.id ? { ...s, narrationText: text } : s)),
-    )
+    if (!current) return
+    setNarrations((prev) => ({ ...prev, [current.number]: text }))
   }
 
   function handleGenerate() {
@@ -92,6 +72,34 @@ export function SlideEditor({ voiceSelected }: { voiceSelected: boolean }) {
 
   function goNext() {
     setCurrentIndex((i) => Math.min(total - 1, i + 1))
+  }
+
+  // Loading state
+  if (rendering) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8">
+        <Loader2 className="h-6 w-6 animate-spin text-[#71717A]" />
+        <p className="text-sm text-[#71717A]">Rendering slides...</p>
+      </div>
+    )
+  }
+
+  // Error state
+  if (renderError) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center p-8">
+        <p className="text-sm text-red-600">{renderError}</p>
+      </div>
+    )
+  }
+
+  // No slides
+  if (!current) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center p-8">
+        <p className="text-sm text-[#71717A]">No slides found in this presentation.</p>
+      </div>
+    )
   }
 
   return (
@@ -121,29 +129,28 @@ export function SlideEditor({ voiceSelected }: { voiceSelected: boolean }) {
           </button>
         </div>
 
-        {/* Slide preview card */}
-        <div className="relative w-full max-w-[780px] overflow-hidden rounded-xl border-2 border-zinc-200 bg-white shadow-sm">
+        {/* Slide preview — rendered HTML */}
+        <div
+          className="relative w-full max-w-[780px] overflow-hidden rounded-xl border-2 border-zinc-200 bg-white shadow-sm"
+          style={{ minHeight: "360px" }}
+        >
           {/* Accent bar */}
           <div
-            className="absolute left-0 right-0 top-0 h-1"
+            className="absolute left-0 right-0 top-0 z-10 h-1"
             style={{ backgroundColor: SLIDE_ACCENTS[currentIndex % SLIDE_ACCENTS.length] }}
           />
-          <div className="flex flex-col justify-center p-8 pt-10">
-            <h2 className="text-xl font-bold tracking-tight text-[#18181B] md:text-2xl">
-              {current.title}
-            </h2>
-            <hr className="mb-5 mt-4 border-zinc-100" />
-            <ul className="space-y-3">
-              {current.bullets.map((bullet, i) => (
-                <li key={i} className="flex items-start gap-3">
-                  <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-zinc-400" />
-                  <span className="text-sm leading-relaxed text-[#71717A] md:text-base">
-                    {bullet}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
+          {/* Rendered slide content */}
+          <div
+            ref={previewRef}
+            className="pptx-preview"
+            style={{
+              width: "100%",
+              height: "100%",
+              minHeight: "360px",
+              overflow: "hidden",
+            }}
+            dangerouslySetInnerHTML={{ __html: current.html }}
+          />
         </div>
 
         {/* Dot indicators */}
@@ -173,7 +180,7 @@ export function SlideEditor({ voiceSelected }: { voiceSelected: boolean }) {
             Narration Script
           </label>
           <Textarea
-            value={current.narrationText}
+            value={narrations[current.number] ?? ""}
             onChange={(e) => updateNarration(e.target.value)}
             placeholder="AI-generated narration will appear here..."
             className="min-h-[140px] resize-none"
@@ -208,9 +215,7 @@ export function SlideEditor({ voiceSelected }: { voiceSelected: boolean }) {
         <div
           className={cn(
             "overflow-hidden transition-all duration-500",
-            audioGenerated
-              ? "max-h-24 opacity-100"
-              : "max-h-0 opacity-0",
+            audioGenerated ? "max-h-24 opacity-100" : "max-h-0 opacity-0",
           )}
         >
           <div className="flex items-center gap-4 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
