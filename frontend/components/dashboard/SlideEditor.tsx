@@ -9,14 +9,54 @@ import { cn } from "@/lib/utils"
 type SlideData = {
   id: string
   number: number
+  title: string
+  bullets: string[]
   narrationText: string
   audioGenerated: boolean
 }
 
+const SLIDE_ACCENTS = ["#DC2626", "#2563EB", "#16A34A"]
+
 const MOCK_SLIDES: SlideData[] = [
-  { id: "1", number: 1, narrationText: "", audioGenerated: false },
-  { id: "2", number: 2, narrationText: "", audioGenerated: false },
-  { id: "3", number: 3, narrationText: "", audioGenerated: false },
+  {
+    id: "1",
+    number: 1,
+    title: "Security Awareness: Protecting Company Data",
+    bullets: [
+      "Always use strong, unique passwords for every work account — never reuse personal passwords.",
+      "Report suspicious emails, unexpected attachments, or unknown senders to IT immediately.",
+      "Lock your workstation (Win+L / Ctrl+Cmd+Q) whenever you step away, even briefly.",
+      "Share sensitive information only through approved, encrypted channels — never via personal email.",
+    ],
+    narrationText: "",
+    audioGenerated: false,
+  },
+  {
+    id: "2",
+    number: 2,
+    title: "Code of Conduct: Building a Respectful Workplace",
+    bullets: [
+      "Treat all colleagues with dignity and respect — every interaction matters.",
+      "Disclose any outside relationships or financial interests that could create a conflict.",
+      "Protect proprietary and personal information as if it were your own.",
+      "Speak up — report any observed policy violations through your manager or HR.",
+    ],
+    narrationText: "",
+    audioGenerated: false,
+  },
+  {
+    id: "3",
+    number: 3,
+    title: "Data Privacy: Handling Customer Information",
+    bullets: [
+      "Collect only the data you genuinely need — minimize what you store and process.",
+      "Encrypt customer data at rest and in transit using company-approved tools.",
+      "Access customer records only when necessary to perform your role — no exceptions.",
+      "Follow data retention schedules: purge records when the retention period expires.",
+    ],
+    narrationText: "",
+    audioGenerated: false,
+  },
 ]
 
 export function SlideEditor() {
@@ -54,9 +94,10 @@ export function SlideEditor() {
   }
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center p-8">
-      <div className="flex w-full max-w-2xl flex-col items-center gap-6">
-        {/* Navigation */}
+    <div className="flex flex-1 flex-col gap-6 p-8 lg:flex-row lg:items-start">
+      {/* Left column — slide preview */}
+      <div className="flex flex-1 flex-col items-center gap-4">
+        {/* Navigation arrows + counter */}
         <div className="flex items-center gap-4 text-sm text-[#71717A]">
           <button
             type="button"
@@ -79,15 +120,54 @@ export function SlideEditor() {
           </button>
         </div>
 
-        {/* Slide preview */}
-        <div className="flex aspect-video w-full max-w-xl items-center justify-center rounded-xl border-2 border-zinc-200 bg-white shadow-sm">
-          <span className="text-4xl font-semibold text-zinc-300">
-            Slide {current.number}
-          </span>
+        {/* Slide preview card */}
+        <div className="relative w-full max-w-[780px] overflow-hidden rounded-xl border-2 border-zinc-200 bg-white shadow-sm">
+          {/* Accent bar */}
+          <div
+            className="absolute left-0 right-0 top-0 h-1"
+            style={{ backgroundColor: SLIDE_ACCENTS[currentIndex % SLIDE_ACCENTS.length] }}
+          />
+          <div className="flex flex-col justify-center p-8 pt-10">
+            <h2 className="text-xl font-bold tracking-tight text-[#18181B] md:text-2xl">
+              {current.title}
+            </h2>
+            <hr className="mb-5 mt-4 border-zinc-100" />
+            <ul className="space-y-3">
+              {current.bullets.map((bullet, i) => (
+                <li key={i} className="flex items-start gap-3">
+                  <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-zinc-400" />
+                  <span className="text-sm leading-relaxed text-[#71717A] md:text-base">
+                    {bullet}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
 
+        {/* Dot indicators */}
+        <div className="flex items-center justify-center gap-1.5">
+          {slides.map((_, i) => (
+            <div
+              key={i}
+              className={cn(
+                "h-2 w-2 rounded-full transition-colors",
+                i === currentIndex ? "bg-[#18181B]" : "bg-zinc-300",
+              )}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Right column — controls */}
+      <div className="flex w-full flex-col gap-5 lg:w-[380px] lg:flex-shrink-0 lg:overflow-y-auto lg:sticky lg:top-8 lg:max-h-[calc(100vh-10rem)]">
+        {/* Slide number */}
+        <p className="text-sm font-medium text-[#71717A]">
+          Slide {current.number} of {total}
+        </p>
+
         {/* Narration textarea */}
-        <div className="w-full space-y-2">
+        <div className="space-y-2">
           <label className="text-sm font-semibold text-[#18181B]">
             Narration Script
           </label>
@@ -95,7 +175,7 @@ export function SlideEditor() {
             value={current.narrationText}
             onChange={(e) => updateNarration(e.target.value)}
             placeholder="AI-generated narration will appear here..."
-            className="min-h-[100px] resize-none"
+            className="min-h-[140px] resize-none"
           />
         </div>
 
@@ -115,9 +195,9 @@ export function SlideEditor() {
         {/* Audio player */}
         <div
           className={cn(
-            "w-full overflow-hidden transition-all duration-500",
+            "overflow-hidden transition-all duration-500",
             current.audioGenerated
-              ? "max-h-20 opacity-100"
+              ? "max-h-24 opacity-100"
               : "max-h-0 opacity-0",
           )}
         >
