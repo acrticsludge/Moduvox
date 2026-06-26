@@ -55,7 +55,7 @@ const MOCK_SLIDES: SlideData[] = [
   },
 ]
 
-export function SlideEditor() {
+export function SlideEditor({ voiceSelected }: { voiceSelected: boolean }) {
   const [slides, setSlides] = useState<SlideData[]>(MOCK_SLIDES)
   const [currentIndex, setCurrentIndex] = useState(0)
   const [generating, setGenerating] = useState(false)
@@ -182,13 +182,20 @@ export function SlideEditor() {
 
         {/* Global Generate button */}
         {!audioGenerated && (
-          <Button
-            onClick={handleGenerate}
-            disabled={generating}
-            className="w-full"
-          >
-            {generating ? "Generating audio for all slides..." : "Generate Narration"}
-          </Button>
+          <div className="space-y-1">
+            <Button
+              onClick={handleGenerate}
+              disabled={generating || !voiceSelected}
+              className="w-full"
+            >
+              {generating ? "Generating audio for all slides..." : "Generate Narration"}
+            </Button>
+            {!voiceSelected && (
+              <p className="text-xs text-[#71717A]">
+                Select a voice in the sidebar to enable generation.
+              </p>
+            )}
+          </div>
         )}
 
         {audioGenerated && (

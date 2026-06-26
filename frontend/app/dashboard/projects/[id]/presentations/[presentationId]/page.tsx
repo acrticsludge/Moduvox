@@ -23,6 +23,7 @@ export default function PresentationCreatePage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [mode, setMode] = useState<"upload" | "editor">("upload")
+  const [selectedVoiceId, setSelectedVoiceId] = useState("")
 
   useEffect(() => {
     const supabase = createClient()
@@ -68,7 +69,11 @@ export default function PresentationCreatePage() {
   return (
     <>
       {/* Sidebar — absolute within main, spans from below navbar to above footer */}
-      <CreatePageSidebar className="absolute bottom-0 left-0 top-0 z-30" />
+      <CreatePageSidebar
+        className="absolute bottom-0 left-0 top-0 z-30"
+        selectedVoiceId={selectedVoiceId}
+        onVoiceChange={setSelectedVoiceId}
+      />
 
       {/* Content offset by sidebar width */}
       <div className="ml-80 flex flex-1 flex-col">
@@ -97,7 +102,7 @@ export default function PresentationCreatePage() {
         {mode === "upload" ? (
           <PptxUploadZone onFileAccepted={() => setMode("editor")} />
         ) : (
-          <SlideEditor />
+          <SlideEditor voiceSelected={!!selectedVoiceId} />
         )}
       </div>
     </>

@@ -24,11 +24,22 @@ type Voice = {
   preset_id: string | null
 }
 
-export function CreatePageSidebar({ className }: { className?: string }) {
+export function CreatePageSidebar({
+  className,
+  selectedVoiceId: externalVoiceId,
+  onVoiceChange,
+}: {
+  className?: string
+  selectedVoiceId?: string
+  onVoiceChange?: (voiceId: string) => void
+}) {
   const [voices, setVoices] = useState<Voice[]>([])
-  const [selectedVoiceId, setSelectedVoiceId] = useState("")
+  const [internalVoiceId, setInternalVoiceId] = useState("")
   const [controlInstructions, setControlInstructions] = useState("")
   const [ultimateMode, setUltimateMode] = useState(false)
+
+  // Use controlled value if provided, otherwise internal state
+  const selectedVoiceId = externalVoiceId ?? internalVoiceId
 
   const selectedVoice = voices.find((v) => v.id === selectedVoiceId)
   const isCloned = selectedVoice?.type === "cloned"
@@ -52,7 +63,8 @@ export function CreatePageSidebar({ className }: { className?: string }) {
   const clonedVoices = voices.filter((v) => v.type === "cloned")
 
   function handleVoiceChange(value: string) {
-    setSelectedVoiceId(value)
+    setInternalVoiceId(value)
+    onVoiceChange?.(value)
     const voice = voices.find((v) => v.id === value)
     if (voice?.type === "preset") {
       setUltimateMode(false)
