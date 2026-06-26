@@ -118,12 +118,15 @@ export function CreatePageSidebar({ className }: { className?: string }) {
           }
           value={controlInstructions}
           onChange={(e) => setControlInstructions(e.target.value)}
+          disabled={isCloned && ultimateMode}
           className="min-h-[100px] resize-none"
         />
         <p className="text-xs text-[#71717A]">
-          {isCloned
-            ? "Guidance for how the cloned voice should deliver the narration."
-            : "Describe the voice style (e.g. 'A calm, professional male voice')."}
+          {isCloned && ultimateMode
+            ? "Disabled when Ultimate Clone is active."
+            : isCloned
+              ? "Guidance for how the cloned voice should deliver the narration."
+              : "Describe the voice style (e.g. 'A calm, professional male voice')."}
         </p>
       </div>
 
