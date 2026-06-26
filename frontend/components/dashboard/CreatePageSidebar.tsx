@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { Mic, Info } from "lucide-react"
+import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import {
   Select,
@@ -23,7 +24,7 @@ type Voice = {
   preset_id: string | null
 }
 
-export function CreatePageSidebar() {
+export function CreatePageSidebar({ className }: { className?: string }) {
   const [voices, setVoices] = useState<Voice[]>([])
   const [selectedVoiceId, setSelectedVoiceId] = useState("")
   const [controlInstructions, setControlInstructions] = useState("")
@@ -59,7 +60,7 @@ export function CreatePageSidebar() {
   }
 
   return (
-    <aside className="flex w-80 flex-shrink-0 flex-col gap-6 border-r border-[var(--color-border-faint)] bg-white p-5">
+    <aside className={cn("flex w-80 flex-col gap-6 border-r border-[var(--color-border-faint)] bg-white p-5", className)}>
       {/* Voice selector */}
       <div className="space-y-2">
         <Label htmlFor="voice-select" className="flex items-center gap-2 text-sm font-semibold text-[#18181B]">

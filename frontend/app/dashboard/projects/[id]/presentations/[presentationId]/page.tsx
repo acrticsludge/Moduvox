@@ -64,33 +64,35 @@ export default function PresentationCreatePage() {
   }
 
   return (
-    <div className="flex flex-1 flex-col">
-      {/* Top bar */}
-      <div className="flex items-center justify-between border-b border-[var(--color-border-faint)] bg-white px-6 py-4">
-        <div className="flex items-center gap-2 text-sm">
-          <a
-            href="/dashboard"
-            className="font-medium text-[#71717A] transition-colors hover:text-[#18181B]"
-          >
-            All Projects
-          </a>
-          <ChevronRight className="h-3.5 w-3.5 text-zinc-300" />
-          <a
-            href={`/dashboard/projects/${presentation.project_id}`}
-            className="font-medium text-[#71717A] transition-colors hover:text-[#18181B]"
-          >
-            Project
-          </a>
-          <ChevronRight className="h-3.5 w-3.5 text-zinc-300" />
-          <span className="font-medium text-[#18181B]">{presentation.title}</span>
-        </div>
-      </div>
+    <>
+      {/* Sidebar — absolute within main, spans from below navbar to above footer */}
+      <CreatePageSidebar className="absolute bottom-0 left-0 top-0 z-30" />
 
-      {/* Sidebar + Main */}
-      <div className="flex flex-1">
-        <CreatePageSidebar />
+      {/* Content offset by sidebar width */}
+      <div className="ml-80 flex flex-1 flex-col">
+        {/* Top bar */}
+        <div className="flex items-center justify-between border-b border-[var(--color-border-faint)] bg-white px-6 py-4">
+          <div className="flex items-center gap-2 text-sm">
+            <a
+              href="/dashboard"
+              className="font-medium text-[#71717A] transition-colors hover:text-[#18181B]"
+            >
+              All Projects
+            </a>
+            <ChevronRight className="h-3.5 w-3.5 text-zinc-300" />
+            <a
+              href={`/dashboard/projects/${presentation.project_id}`}
+              className="font-medium text-[#71717A] transition-colors hover:text-[#18181B]"
+            >
+              Project
+            </a>
+            <ChevronRight className="h-3.5 w-3.5 text-zinc-300" />
+            <span className="font-medium text-[#18181B]">{presentation.title}</span>
+          </div>
+        </div>
+
         <PptxUploadZone />
       </div>
-    </div>
+    </>
   )
 }
