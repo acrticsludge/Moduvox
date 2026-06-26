@@ -12,7 +12,6 @@ type SlideData = {
   title: string
   bullets: string[]
   narrationText: string
-  audioGenerated: boolean
 }
 
 const SLIDE_ACCENTS = ["#DC2626", "#2563EB", "#16A34A"]
@@ -29,7 +28,6 @@ const MOCK_SLIDES: SlideData[] = [
       "Share sensitive information only through approved, encrypted channels — never via personal email.",
     ],
     narrationText: "",
-    audioGenerated: false,
   },
   {
     id: "2",
@@ -42,7 +40,6 @@ const MOCK_SLIDES: SlideData[] = [
       "Speak up — report any observed policy violations through your manager or HR.",
     ],
     narrationText: "",
-    audioGenerated: false,
   },
   {
     id: "3",
@@ -55,7 +52,6 @@ const MOCK_SLIDES: SlideData[] = [
       "Follow data retention schedules: purge records when the retention period expires.",
     ],
     narrationText: "",
-    audioGenerated: false,
   },
 ]
 
@@ -63,9 +59,18 @@ export function SlideEditor() {
   const [slides, setSlides] = useState<SlideData[]>(MOCK_SLIDES)
   const [currentIndex, setCurrentIndex] = useState(0)
   const [generating, setGenerating] = useState(false)
+  const [audioGenerated, setAudioGenerated] = useState(false)
 
   const current = slides[currentIndex]
   const total = slides.length
+
+  if (!current) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <p className="text-sm text-[#71717A]">No slides loaded</p>
+      </div>
+    )
+  }
 
   function updateNarration(text: string) {
     setSlides((prev) =>
@@ -76,13 +81,9 @@ export function SlideEditor() {
   function handleGenerate() {
     setGenerating(true)
     setTimeout(() => {
-      setSlides((prev) =>
-        prev.map((s) =>
-          s.id === current.id ? { ...s, audioGenerated: true } : s,
-        ),
-      )
+      setAudioGenerated(true)
       setGenerating(false)
-    }, 800)
+    }, 1200)
   }
 
   function goPrev() {
@@ -179,24 +180,28 @@ export function SlideEditor() {
           />
         </div>
 
-        {/* Generate button */}
-        <Button
-          onClick={handleGenerate}
-          disabled={generating || current.audioGenerated}
-          className="w-full"
-        >
-          {generating
-            ? "Generating..."
-            : current.audioGenerated
-              ? "Generated"
-              : "Generate Narration"}
-        </Button>
+        {/* Global Generate button */}
+        {!audioGenerated && (
+          <Button
+            onClick={handleGenerate}
+            disabled={generating}
+            className="w-full"
+          >
+            {generating ? "Generating audio for all slides..." : "Generate Narration"}
+          </Button>
+        )}
 
-        {/* Audio player */}
+        {audioGenerated && (
+          <div className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+            Audio generated for all {total} slides
+          </div>
+        )}
+
+        {/* Audio player — shows per slide after global generation */}
         <div
           className={cn(
             "overflow-hidden transition-all duration-500",
-            current.audioGenerated
+            audioGenerated
               ? "max-h-24 opacity-100"
               : "max-h-0 opacity-0",
           )}
