@@ -106,7 +106,12 @@ export function CreatePageSidebar({ className }: { className?: string }) {
 
       {/* Control instructions */}
       <div className="space-y-2">
-        <Label htmlFor="control-instructions" className="text-sm font-semibold text-[#18181B]">
+        <Label
+          htmlFor="control-instructions"
+          className={`text-sm font-semibold transition-all duration-300 ${
+            isCloned && ultimateMode ? "text-[#71717A]" : "text-[#18181B]"
+          }`}
+        >
           Control Instructions
         </Label>
         <Textarea
@@ -119,9 +124,13 @@ export function CreatePageSidebar({ className }: { className?: string }) {
           value={controlInstructions}
           onChange={(e) => setControlInstructions(e.target.value)}
           disabled={isCloned && ultimateMode}
-          className="min-h-[100px] resize-none"
+          className={`min-h-[100px] resize-none transition-all duration-300 ${
+            isCloned && ultimateMode ? "opacity-40" : "opacity-100"
+          }`}
         />
-        <p className="text-xs text-[#71717A]">
+        <p className={`text-xs transition-all duration-300 ${
+          isCloned && ultimateMode ? "text-zinc-300" : "text-[#71717A]"
+        }`}>
           {isCloned && ultimateMode
             ? "Disabled when Ultimate Clone is active."
             : isCloned
