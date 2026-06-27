@@ -105,10 +105,10 @@ export function SlideEditor({
     setCurrentIndex(idx)
     setSlideInput(String(idx + 1))
 
-    // Reload Office viewer at the target slide (0-indexed)
+    // Reload Office viewer at the target slide
     if (baseViewerUrl) {
       setViewerUrl(
-        `https://view.officeapps.live.com/op/embed.aspx?src=${baseViewerUrl}&wdSlideIndex=${idx}`,
+        `https://view.officeapps.live.com/op/embed.aspx?src=${baseViewerUrl}&wdSlideIndex=${slideNumber}`,
       )
     }
   }
