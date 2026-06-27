@@ -108,7 +108,7 @@ export default function PresentationCreatePage() {
         {mode === "upload" ? (
           <PptxUploadZone onFileAccepted={handleFileAccepted} />
         ) : (
-          <SlideEditor voiceSelected={!!selectedVoiceId} file={uploadedFile} />
+          <SlideEditor voiceSelected={!!selectedVoiceId} file={uploadedFile} presentationId={params.presentationId} />
         )}
       </div>
     </>

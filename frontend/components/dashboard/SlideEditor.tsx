@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ChevronLeft, ChevronRight, Play, Loader2 } from "lucide-react"
+import { ChevronLeft, ChevronRight, Play, Loader2, ExternalLink } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
@@ -10,9 +10,11 @@ import { renderPptx, type RenderedSlide } from "@/lib/pptx-renderer"
 export function SlideEditor({
   voiceSelected,
   file,
+  presentationId,
 }: {
   voiceSelected: boolean
   file: File | null
+  presentationId: string
 }) {
   const [slides, setSlides] = useState<RenderedSlide[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -20,6 +22,8 @@ export function SlideEditor({
   const [audioGenerated, setAudioGenerated] = useState(false)
   const [rendering, setRendering] = useState(true)
   const [renderError, setRenderError] = useState("")
+  const [uploading, setUploading] = useState(false)
+  const [signedUrl, setSignedUrl] = useState<string | null>(null)
 
   // Narrations stored per slide
   const [narrations, setNarrations] = useState<Record<number, string>>({})
@@ -31,6 +35,28 @@ export function SlideEditor({
       return
     }
 
+    // Step 1: Upload the file
+    setUploading(true)
+    const formData = new FormData()
+    formData.append("file", file)
+
+    fetch(`/api/presentations/${presentationId}/upload`, {
+      method: "POST",
+      body: formData,
+    })
+      .then((res) => res.json())
+      .then((json) => {
+        setUploading(false)
+        if (json.data?.signedUrl) {
+          setSignedUrl(json.data.signedUrl)
+        }
+      })
+      .catch(() => {
+        setUploading(false)
+        // Continue with rendering even if upload fails
+      })
+
+    // Step 2: Render slides
     setRendering(true)
     setRenderError("")
 
@@ -45,7 +71,7 @@ export function SlideEditor({
         setRenderError("Failed to render presentation. The file may be corrupted or incompatible.")
         setRendering(false)
       })
-  }, [file])
+  }, [file, presentationId])
 
   const current = slides[currentIndex]
   const total = slides.length
@@ -72,11 +98,13 @@ export function SlideEditor({
   }
 
   // Loading state
-  if (rendering) {
+  if (rendering || uploading) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8">
         <Loader2 className="h-6 w-6 animate-spin text-[#71717A]" />
-        <p className="text-sm text-[#71717A]">Rendering slides...</p>
+        <p className="text-sm text-[#71717A]">
+          {uploading ? "Uploading presentation..." : "Rendering slides..."}
+        </p>
       </div>
     )
   }
@@ -140,6 +168,17 @@ export function SlideEditor({
           </div>
         )}
 
+        {signedUrl && (
+          <a
+            href={signedUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-xs text-[#71717A] hover:text-[#18181B] transition-colors"
+          >
+            <ExternalLink className="h-3 w-3" />
+            View original file
+          </a>
+        )}
       </div>
 
       {/* Right column — controls */}
