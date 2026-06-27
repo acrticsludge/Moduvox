@@ -40,25 +40,41 @@ export function SlideEditor({
     async function processFile() {
       if (!file) return
 
-      // Step 1: Upload to API
-      const formData = new FormData()
-      formData.append("file", file!)
-
-      let signedUrl: string | null = null
+      // Step 1: Get presigned upload URL from API
+      let storagePath = ""
       try {
         const res = await fetch(`/api/presentations/${presentationId}/upload`, {
           method: "POST",
-          body: formData,
         })
         const json = await res.json()
-        if (json.data?.signedUrl) {
-          signedUrl = json.data.signedUrl as string
-          const encodedUrl = encodeURIComponent(signedUrl as string)
-          setBaseViewerUrl(encodedUrl)
-          if (!cancelled) {
-            setViewerUrl(
-              `https://view.officeapps.live.com/op/embed.aspx?src=${encodedUrl}`,
-            )
+        if (json.data?.presignedUrl) {
+          storagePath = json.data.path as string
+
+          // Step 1b: Upload file directly to Supabase Storage
+          const uploadRes = await fetch(json.data.presignedUrl, {
+            method: "PUT",
+            body: file,
+            headers: { "Content-Type": "application/vnd.openxmlformats-officedocument.presentationml.presentation" },
+          })
+
+          if (uploadRes.ok) {
+            // Step 1c: Generate viewer URL from the storage path
+            // Use the admin client to get a signed URL via a simple confirm endpoint
+            const confirmRes = await fetch(`/api/presentations/${presentationId}/upload/confirm`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ path: storagePath }),
+            })
+            const confirmJson = await confirmRes.json()
+            if (confirmJson.data?.viewerUrl) {
+              const encodedUrl = encodeURIComponent(confirmJson.data.viewerUrl)
+              setBaseViewerUrl(encodedUrl)
+              if (!cancelled) {
+                setViewerUrl(
+                  `https://view.officeapps.live.com/op/embed.aspx?src=${encodedUrl}`,
+                )
+              }
+            }
           }
         }
       } catch {

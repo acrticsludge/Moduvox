@@ -20,6 +20,7 @@ function formatDate(iso: string) {
 export default function PresentationCreatePage() {
   const params = useParams<{ id: string; presentationId: string }>()
   const [presentation, setPresentation] = useState<PresentationType | null>(null)
+  const [projectName, setProjectName] = useState("")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [mode, setMode] = useState<"upload" | "editor">("upload")
@@ -33,20 +34,21 @@ export default function PresentationCreatePage() {
 
   useEffect(() => {
     const supabase = createClient()
-    supabase
-      .from("presentations")
-      .select("*")
-      .eq("id", params.presentationId)
-      .single()
-      .then(({ data, error: err }) => {
-        if (err) {
-          setError("Failed to load presentation")
-        } else {
-          setPresentation(data as PresentationType | null)
-        }
-        setLoading(false)
-      })
-  }, [params.presentationId])
+
+    Promise.all([
+      supabase.from("presentations").select("*").eq("id", params.presentationId).single(),
+      // Also fetch project data for breadcrumb
+      supabase.from("projects").select("name").eq("id", params.id).single(),
+    ]).then(([presRes, projRes]) => {
+      if (presRes.error) {
+        setError("Failed to load presentation")
+      } else {
+        setPresentation(presRes.data as PresentationType | null)
+        if (projRes.data) setProjectName((projRes.data as { name: string }).name)
+      }
+      setLoading(false)
+    })
+  }, [params.presentationId, params.id])
 
   if (loading) {
     return (
@@ -97,7 +99,7 @@ export default function PresentationCreatePage() {
               href={`/dashboard/projects/${presentation.project_id}`}
               className="font-medium text-[#71717A] transition-colors hover:text-[#18181B]"
             >
-              Project
+              {projectName || "Project"}
             </a>
             <ChevronRight className="h-3.5 w-3.5 text-zinc-300" />
             <span className="font-medium text-[#18181B]">{presentation.title}</span>
