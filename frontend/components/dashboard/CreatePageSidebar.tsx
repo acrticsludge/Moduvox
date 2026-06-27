@@ -29,18 +29,28 @@ export function CreatePageSidebar({
   className,
   selectedVoiceId: externalVoiceId,
   onVoiceChange,
+  controlInstructions: externalCi,
+  onControlInstructionsChange,
+  ultimateMode: externalUltimateMode,
+  onUltimateModeChange,
 }: {
   className?: string
   selectedVoiceId?: string
   onVoiceChange?: (voiceId: string) => void
+  controlInstructions?: string
+  onControlInstructionsChange?: (v: string) => void
+  ultimateMode?: boolean
+  onUltimateModeChange?: (v: boolean) => void
 }) {
   const [voices, setVoices] = useState<Voice[]>([])
   const [internalVoiceId, setInternalVoiceId] = useState("")
-  const [controlInstructions, setControlInstructions] = useState("")
-  const [ultimateMode, setUltimateMode] = useState(false)
+  const [internalCi, setInternalCi] = useState("")
+  const [internalUlt, setInternalUlt] = useState(false)
 
-  // Use controlled value if provided, otherwise internal state
+  // Use controlled values when provided, otherwise internal state
   const selectedVoiceId = externalVoiceId ?? internalVoiceId
+  const controlInstructions = externalCi ?? internalCi
+  const ultimateMode = externalUltimateMode ?? internalUlt
 
   const selectedVoice = voices.find((v) => v.id === selectedVoiceId)
   const isCloned = selectedVoice?.type === "cloned"
@@ -69,10 +79,13 @@ export function CreatePageSidebar({
     onVoiceChange?.(value)
     const voice = voices.find((v) => v.id === value)
     if (voice?.type === "preset") {
-      setUltimateMode(false)
-      setControlInstructions(voice.control_instruction || "")
+      setInternalUlt(false)
+      onUltimateModeChange?.(false)
+      setInternalCi(voice.control_instruction || "")
+      onControlInstructionsChange?.(voice.control_instruction || "")
     } else {
-      setControlInstructions("")
+      setInternalCi("")
+      onControlInstructionsChange?.("")
     }
   }
 
@@ -141,7 +154,8 @@ export function CreatePageSidebar({
           value={controlInstructions}
           onChange={(e) => {
             if (isPresetWithCi) return
-            setControlInstructions(e.target.value)
+            setInternalCi(e.target.value)
+            onControlInstructionsChange?.(e.target.value)
           }}
           disabled={(isCloned && ultimateMode) || isPresetWithCi}
           className={`min-h-[100px] resize-none transition-all duration-300 ${
@@ -171,7 +185,10 @@ export function CreatePageSidebar({
             <Switch
               id="ultimate-mode"
               checked={ultimateMode}
-              onCheckedChange={setUltimateMode}
+              onCheckedChange={(v) => {
+                setInternalUlt(v)
+                onUltimateModeChange?.(v)
+              }}
             />
           </div>
           <div className="flex gap-2 text-xs text-[#71717A]">

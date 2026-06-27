@@ -11,22 +11,34 @@ export function SlideEditor({
   voiceSelected,
   file,
   presentationId,
+  narrations: externalNarrations,
+  onNarrationsChange,
+  audioGenerated: externalAudioGenerated,
+  onAudioGeneratedChange,
 }: {
   voiceSelected: boolean
   file: File | null
   presentationId: string
+  narrations?: Record<number, string>
+  onNarrationsChange?: (v: Record<number, string>) => void
+  audioGenerated?: boolean
+  onAudioGeneratedChange?: (v: boolean) => void
 }) {
   const [slides, setSlides] = useState<ParsedSlide[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [generating, setGenerating] = useState(false)
-  const [audioGenerated, setAudioGenerated] = useState(false)
+  const [internalAudioGenerated, setInternalAudioGenerated] = useState(false)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState("")
   const [viewerUrl, setViewerUrl] = useState<string | null>(null)
   const [baseViewerUrl, setBaseViewerUrl] = useState<string>("")
   const [slideInput, setSlideInput] = useState("")
   const [showSlideInfo, setShowSlideInfo] = useState(false)
-  const [narrations, setNarrations] = useState<Record<number, string>>({})
+  const [internalNarrations, setInternalNarrations] = useState<Record<number, string>>({})
+
+  // Use controlled props when provided, otherwise internal state
+  const narrations = externalNarrations ?? internalNarrations
+  const audioGenerated = externalAudioGenerated ?? internalAudioGenerated
 
   useEffect(() => {
     if (!file) {
@@ -106,13 +118,16 @@ export function SlideEditor({
 
   function updateNarration(text: string) {
     if (!current) return
-    setNarrations((prev) => ({ ...prev, [current.number]: text }))
+    const next = { ...narrations, [current.number]: text }
+    setInternalNarrations(next)
+    onNarrationsChange?.(next)
   }
 
   function handleGenerate() {
     setGenerating(true)
     setTimeout(() => {
-      setAudioGenerated(true)
+      setInternalAudioGenerated(true)
+      onAudioGeneratedChange?.(true)
       setGenerating(false)
     }, 1200)
   }

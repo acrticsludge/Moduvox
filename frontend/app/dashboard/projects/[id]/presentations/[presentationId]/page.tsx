@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef, useCallback } from "react"
 import { useParams } from "next/navigation"
 import { ChevronRight, Presentation } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
@@ -8,6 +8,15 @@ import type { Presentation as PresentationType } from "@/lib/validations/present
 import { CreatePageSidebar } from "@/components/dashboard/CreatePageSidebar"
 import { PptxUploadZone } from "@/components/dashboard/PptxUploadZone"
 import { SlideEditor } from "@/components/dashboard/SlideEditor"
+
+type EditorState = {
+  selectedVoiceId?: string
+  controlInstructions?: string
+  ultimateMode?: boolean
+  currentSlide?: number
+  narrations?: Record<number, string>
+  audioGenerated?: boolean
+}
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -25,30 +34,73 @@ export default function PresentationCreatePage() {
   const [error, setError] = useState("")
   const [mode, setMode] = useState<"upload" | "editor">("upload")
   const [selectedVoiceId, setSelectedVoiceId] = useState("")
+  const [controlInstructions, setControlInstructions] = useState("")
+  const [ultimateMode, setUltimateMode] = useState(false)
+  const [narrations, setNarrations] = useState<Record<number, string>>({})
+  const [audioGenerated, setAudioGenerated] = useState(false)
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
+  const [editorReady, setEditorReady] = useState(false)
+
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   function handleFileAccepted(file: File) {
     setUploadedFile(file)
     setMode("editor")
   }
 
+  // Load editor state from presentation DB record
   useEffect(() => {
     const supabase = createClient()
 
     Promise.all([
       supabase.from("presentations").select("*").eq("id", params.presentationId).single(),
-      // Also fetch project data for breadcrumb
       supabase.from("projects").select("name").eq("id", params.id).single(),
     ]).then(([presRes, projRes]) => {
       if (presRes.error) {
         setError("Failed to load presentation")
       } else {
-        setPresentation(presRes.data as PresentationType | null)
+        const p = presRes.data as PresentationType & { editor_state?: EditorState }
+        setPresentation(p)
         if (projRes.data) setProjectName((projRes.data as { name: string }).name)
+
+        // Restore saved editor state
+        const saved = p.editor_state
+        if (saved) {
+          if (saved.selectedVoiceId) setSelectedVoiceId(saved.selectedVoiceId)
+          if (saved.controlInstructions) setControlInstructions(saved.controlInstructions)
+          if (saved.ultimateMode) setUltimateMode(saved.ultimateMode)
+          if (saved.narrations) setNarrations(saved.narrations)
+          if (saved.audioGenerated) setAudioGenerated(saved.audioGenerated)
+        }
       }
       setLoading(false)
     })
   }, [params.presentationId, params.id])
+
+  // Auto-save with 2s debounce
+  const saveState = useCallback(() => {
+    if (saveTimer.current) clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(() => {
+      const state: EditorState = {
+        selectedVoiceId,
+        controlInstructions,
+        ultimateMode,
+        narrations,
+        audioGenerated,
+      }
+      fetch(`/api/presentations/${params.presentationId}/state`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(state),
+      }).catch(() => {})
+    }, 2000)
+  }, [selectedVoiceId, controlInstructions, ultimateMode, narrations, audioGenerated, params.presentationId])
+
+  // Trigger auto-save when any editor state changes
+  useEffect(() => {
+    if (loading) return
+    saveState()
+  }, [saveState, loading])
 
   if (loading) {
     return (
@@ -76,14 +128,18 @@ export default function PresentationCreatePage() {
 
   return (
     <>
-      {/* Sidebar — absolute within main, spans from below navbar to above footer */}
+      {/* Sidebar */}
       <CreatePageSidebar
         className="absolute bottom-0 left-0 top-0 z-30"
         selectedVoiceId={selectedVoiceId}
         onVoiceChange={setSelectedVoiceId}
+        controlInstructions={controlInstructions}
+        onControlInstructionsChange={setControlInstructions}
+        ultimateMode={ultimateMode}
+        onUltimateModeChange={setUltimateMode}
       />
 
-      {/* Content offset by sidebar width */}
+      {/* Content */}
       <div className="ml-80 flex flex-1 flex-col">
         {/* Top bar */}
         <div className="flex items-center justify-between border-b border-[var(--color-border-faint)] bg-white px-6 py-4">
@@ -106,11 +162,19 @@ export default function PresentationCreatePage() {
           </div>
         </div>
 
-        {/* Content — upload zone or editor */}
+        {/* Content */}
         {mode === "upload" ? (
           <PptxUploadZone onFileAccepted={handleFileAccepted} />
         ) : (
-          <SlideEditor voiceSelected={!!selectedVoiceId} file={uploadedFile} presentationId={params.presentationId} />
+          <SlideEditor
+            voiceSelected={!!selectedVoiceId}
+            file={uploadedFile}
+            presentationId={params.presentationId}
+            narrations={narrations}
+            onNarrationsChange={setNarrations}
+            audioGenerated={audioGenerated}
+            onAudioGeneratedChange={setAudioGenerated}
+          />
         )}
       </div>
     </>
