@@ -29,6 +29,9 @@ export async function POST(
   const admin = createAdminClient()
   const filePath = `${user.id}/${presentationId}.pptx`
 
+  // Remove any existing file at this path (from previous failed uploads)
+  await admin.storage.from("presentation-files").remove([filePath])
+
   // Generate a presigned URL for direct browser-to-Storage upload
   const { data: uploadData, error: uploadError } = await admin.storage
     .from("presentation-files")
