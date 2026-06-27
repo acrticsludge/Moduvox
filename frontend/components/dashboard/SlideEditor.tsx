@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Play, Loader2, ExternalLink } from "lucide-react"
+import { Play, Loader2, ExternalLink, FileText, ChevronRight, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
@@ -25,6 +25,7 @@ export function SlideEditor({
   const [viewerUrl, setViewerUrl] = useState<string | null>(null)
   const [baseViewerUrl, setBaseViewerUrl] = useState<string>("")
   const [slideInput, setSlideInput] = useState("")
+  const [showSlideInfo, setShowSlideInfo] = useState(false)
   const [narrations, setNarrations] = useState<Record<number, string>>({})
 
   useEffect(() => {
@@ -226,26 +227,61 @@ export function SlideEditor({
           </div>
         </div>
 
-        {/* Slide title */}
+        {/* Slide info button + modal */}
         <div>
-          <h3 className="text-base font-semibold text-[#18181B] leading-snug">
-            {current.title}
-          </h3>
-          {current.bullets.length > 0 && (
-            <ul className="mt-2 space-y-1">
-              {current.bullets.slice(0, 3).map((b, i) => (
-                <li key={i} className="text-xs text-[#71717A] leading-relaxed">
-                  • {b}
-                </li>
-              ))}
-              {current.bullets.length > 3 && (
-                <li className="text-xs text-zinc-400">
-                  +{current.bullets.length - 3} more items
-                </li>
-              )}
-            </ul>
-          )}
+          <button
+            type="button"
+            onClick={() => setShowSlideInfo(true)}
+            className="flex w-full items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-left text-sm text-[#71717A] transition-colors hover:border-zinc-300 hover:text-[#18181B]"
+          >
+            <FileText className="h-4 w-4 flex-shrink-0" />
+            <span className="flex-1">View parsed information from current slide</span>
+            <ChevronRight className="h-3.5 w-3.5 flex-shrink-0 text-zinc-300" />
+          </button>
         </div>
+
+        {/* Slide info modal */}
+        {showSlideInfo && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#18181B]/40">
+            <div className="mx-4 w-full max-w-lg rounded-xl border border-zinc-200 bg-white p-6 shadow-xl">
+              <div className="flex items-center justify-between">
+                <h2 className="text-base font-semibold text-[#18181B]">
+                  Slide {current.number} — {current.title}
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setShowSlideInfo(false)}
+                  className="text-[#71717A] hover:text-[#18181B]"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              {current.bullets.length > 0 ? (
+                <ul className="mt-4 space-y-2">
+                  {current.bullets.map((b, i) => (
+                    <li key={i} className="flex gap-2 text-sm text-[#71717A]">
+                      <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-zinc-300" />
+                      <span className="leading-relaxed">{b}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-4 text-sm text-[#71717A]">
+                  No additional content extracted for this slide.
+                </p>
+              )}
+              <div className="mt-6 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowSlideInfo(false)}
+                  className="rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-[#71717A] hover:text-[#18181B]"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Narration textarea */}
         <div className="space-y-2">
