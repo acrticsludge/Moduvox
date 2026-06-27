@@ -63,10 +63,10 @@ export async function POST(
     return NextResponse.json({ error: "Failed to upload file" }, { status: 500 })
   }
 
-  // Update presentation with the file path
+  // Update presentation status to indicate file is uploaded
   const { error: updateError } = await supabase
     .from("presentations")
-    .update({ original_pptx_path: filePath })
+    .update({ status: "ready" })
     .eq("id", presentationId)
 
   if (updateError) {
