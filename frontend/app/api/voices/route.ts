@@ -46,6 +46,7 @@ export async function POST(request: Request) {
       name: parsed.data.name,
       type: "preset",
       preset_id: parsed.data.preset_id,
+      control_instruction: parsed.data.control_instruction || null,
       sample_path: null,
       sample_duration_seconds: null,
       emotion_default: parsed.data.emotion_default,

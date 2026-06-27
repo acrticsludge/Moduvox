@@ -4,6 +4,7 @@ export const createPresetVoiceSchema = z.object({
   name: z.string().min(1, "Name is required").max(100),
   type: z.literal("preset"),
   preset_id: z.string().min(1),
+  control_instruction: z.string().max(500).optional().default(""),
   emotion_default: z.string().default("calm"),
 })
 

@@ -22,6 +22,7 @@ type Voice = {
   name: string
   type: "preset" | "cloned"
   preset_id: string | null
+  control_instruction: string | null
 }
 
 export function CreatePageSidebar({
@@ -43,6 +44,7 @@ export function CreatePageSidebar({
 
   const selectedVoice = voices.find((v) => v.id === selectedVoiceId)
   const isCloned = selectedVoice?.type === "cloned"
+  const isPresetWithCi = !isCloned && !!selectedVoice?.control_instruction
 
   useEffect(() => {
     const supabase = createClient()
@@ -50,7 +52,7 @@ export function CreatePageSidebar({
       if (!user) return
       supabase
         .from("voices")
-        .select("id, name, type, preset_id")
+        .select("id, name, type, preset_id, control_instruction")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .then(({ data }) => {
@@ -68,6 +70,9 @@ export function CreatePageSidebar({
     const voice = voices.find((v) => v.id === value)
     if (voice?.type === "preset") {
       setUltimateMode(false)
+      setControlInstructions(voice.control_instruction || "")
+    } else {
+      setControlInstructions("")
     }
   }
 
@@ -134,20 +139,25 @@ export function CreatePageSidebar({
               : "Describe the voice you want to create..."
           }
           value={controlInstructions}
-          onChange={(e) => setControlInstructions(e.target.value)}
-          disabled={isCloned && ultimateMode}
+          onChange={(e) => {
+            if (isPresetWithCi) return
+            setControlInstructions(e.target.value)
+          }}
+          disabled={(isCloned && ultimateMode) || isPresetWithCi}
           className={`min-h-[100px] resize-none transition-all duration-300 ${
-            isCloned && ultimateMode ? "opacity-40" : "opacity-100"
+            (isCloned && ultimateMode) || isPresetWithCi ? "opacity-40" : "opacity-100"
           }`}
         />
         <p className={`text-xs transition-all duration-300 ${
-          isCloned && ultimateMode ? "text-zinc-300" : "text-[#71717A]"
+          (isCloned && ultimateMode) || isPresetWithCi ? "text-zinc-300" : "text-[#71717A]"
         }`}>
           {isCloned && ultimateMode
             ? "Disabled when Ultimate Clone is active."
-            : isCloned
-              ? "Guidance for how the cloned voice should deliver the narration."
-              : "Describe the voice style (e.g. 'A calm, professional male voice')."}
+            : isPresetWithCi
+              ? "Pre-set for this voice. Edit in My Voices to change."
+              : isCloned
+                ? "Guidance for how the cloned voice should deliver the narration."
+                : "Describe the voice style (e.g. 'A calm, professional male voice')."}
         </p>
       </div>
 
