@@ -23,6 +23,8 @@ export function SlideEditor({
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState("")
   const [viewerUrl, setViewerUrl] = useState<string | null>(null)
+  const [baseViewerUrl, setBaseViewerUrl] = useState<string>("")
+  const [slideInput, setSlideInput] = useState("")
   const [narrations, setNarrations] = useState<Record<number, string>>({})
 
   useEffect(() => {
@@ -51,6 +53,7 @@ export function SlideEditor({
         if (json.data?.signedUrl) {
           signedUrl = json.data.signedUrl as string
           const encodedUrl = encodeURIComponent(signedUrl as string)
+          setBaseViewerUrl(encodedUrl)
           if (!cancelled) {
             setViewerUrl(
               `https://view.officeapps.live.com/op/embed.aspx?src=${encodedUrl}`,
@@ -96,6 +99,37 @@ export function SlideEditor({
       setGenerating(false)
     }, 1200)
   }
+
+  function jumpToSlide(slideNumber: number) {
+    const idx = Math.max(0, Math.min(slideNumber - 1, total - 1))
+    setCurrentIndex(idx)
+    setSlideInput(String(idx + 1))
+
+    // Reload Office viewer at the target slide (0-indexed)
+    if (baseViewerUrl) {
+      setViewerUrl(
+        `https://view.officeapps.live.com/op/embed.aspx?src=${baseViewerUrl}&wdSlideIndex=${idx}`,
+      )
+    }
+  }
+
+  function handleSlideJump(e: React.FormEvent) {
+    e.preventDefault()
+    const num = parseInt(slideInput, 10)
+    if (!isNaN(num) && num >= 1 && num <= total) {
+      jumpToSlide(num)
+    }
+  }
+
+  // Keyboard nav: ← → arrow keys to navigate slides
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "ArrowLeft") jumpToSlide(current.number - 1)
+      if (e.key === "ArrowRight") jumpToSlide(current.number + 1)
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  })
 
   if (loading) {
     return (
@@ -157,15 +191,25 @@ export function SlideEditor({
 
       {/* Right — Controls panel */}
       <div className="flex w-full flex-col gap-5 border-t border-[var(--color-border-faint)] bg-white p-6 lg:w-[380px] lg:flex-shrink-0 lg:border-l lg:border-t-0 lg:overflow-y-auto lg:max-h-[calc(100vh-8rem)]">
-        {/* Slide info */}
-        <div className="flex items-center justify-between">
-          <p className="text-sm font-medium text-[#71717A]">
-            Slide {current.number} of {total}
-          </p>
+        {/* Slide info + jump input */}
+        <div className="flex items-center justify-between gap-2">
+          <form onSubmit={handleSlideJump} className="flex items-center gap-1.5">
+            <span className="text-sm text-[#71717A]">Slide</span>
+            <input
+              type="number"
+              min={1}
+              max={total}
+              value={slideInput || current.number}
+              onChange={(e) => setSlideInput(e.target.value)}
+              onBlur={() => setSlideInput(String(current.number))}
+              className="w-12 rounded border border-zinc-200 px-1.5 py-0.5 text-center text-sm font-medium text-[#18181B] focus:border-zinc-400 focus:outline-none"
+            />
+            <span className="text-sm text-[#71717A]">of {total}</span>
+          </form>
           <div className="flex gap-1">
             <button
               type="button"
-              onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
+              onClick={() => jumpToSlide(current.number - 1)}
               disabled={currentIndex === 0}
               className="flex h-7 w-7 items-center justify-center rounded text-xs text-[#71717A] transition-colors hover:bg-zinc-100 hover:text-[#18181B] disabled:opacity-30"
             >
@@ -173,7 +217,7 @@ export function SlideEditor({
             </button>
             <button
               type="button"
-              onClick={() => setCurrentIndex((i) => Math.min(total - 1, i + 1))}
+              onClick={() => jumpToSlide(current.number + 1)}
               disabled={currentIndex === total - 1}
               className="flex h-7 w-7 items-center justify-center rounded text-xs text-[#71717A] transition-colors hover:bg-zinc-100 hover:text-[#18181B] disabled:opacity-30"
             >
