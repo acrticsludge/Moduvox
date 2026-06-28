@@ -58,6 +58,16 @@ export default function PresentationCreatePage() {
     setMode("editor")
   }
 
+  function handleChangedSlidesChange(slides: number[]) {
+    setChangedSlides(slides)
+    // Immediately persist changedSlides so it survives page reload
+    fetch(`/api/presentations/${params.presentationId}/state`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ changedSlides: slides.length > 0 ? slides : undefined }),
+    }).catch(() => {})
+  }
+
   function handleStoragePathChange(path: string) {
     setStoragePath(path)
   }
@@ -246,7 +256,7 @@ export default function PresentationCreatePage() {
               slideData={slideData}
               onSlideDataChange={setSlideData}
               changedSlides={changedSlides}
-              onChangedSlidesChange={setChangedSlides}
+              onChangedSlidesChange={handleChangedSlidesChange}
             />
           </ErrorBoundary>
         )}
