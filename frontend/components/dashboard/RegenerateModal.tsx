@@ -1,29 +1,31 @@
 "use client"
 
-import { Loader2, Eye } from "lucide-react"
+import { useState } from "react"
+import { Loader2, ChevronDown, ChevronRight } from "lucide-react"
 import type { ParsedSlide } from "@/lib/pptx-renderer"
 
 export function RegenerateModal({
   slides,
-  narrations,
   changedSlides,
   generating,
   onNavigate,
-  onViewParsed,
   onConfirm,
   onCancel,
 }: {
   slides: ParsedSlide[]
-  narrations: Record<number, string>
   changedSlides: number[]
   generating: boolean
   onNavigate: (slideNumber: number) => void
-  onViewParsed: (slideNumber: number) => void
   onConfirm: () => void
   onCancel: () => void
 }) {
+  const [expandedSlide, setExpandedSlide] = useState<number | null>(null)
   const changedSet = new Set(changedSlides)
   const displaySlides = slides.filter((s) => changedSet.has(s.number))
+
+  function toggleExpand(num: number) {
+    setExpandedSlide(expandedSlide === num ? null : num)
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-[#18181B]/40 pt-24">
@@ -43,7 +45,7 @@ export function RegenerateModal({
         </div>
 
         {/* Slide list */}
-        <div className="max-h-[50vh] overflow-y-auto px-6 py-4">
+        <div className="max-h-[calc(100vh-12rem)] overflow-y-auto px-6 py-4">
           {displaySlides.length === 0 ? (
             <p className="text-sm text-[#71717A]">No modified slides to regenerate.</p>
           ) : (
@@ -51,34 +53,59 @@ export function RegenerateModal({
               {displaySlides.map((slide) => (
                 <div
                   key={slide.number}
-                  className="flex items-center gap-3 rounded-lg border border-zinc-100 px-3 py-2.5 transition-colors hover:border-zinc-200"
+                  className="overflow-hidden rounded-lg border border-zinc-100"
                 >
-                  {/* Clickable slide info */}
-                  <button
-                    type="button"
-                    onClick={() => onNavigate(slide.number)}
-                    className="flex flex-1 items-center gap-2 text-left"
-                  >
-                    <span className="w-7 flex-shrink-0 text-xs font-medium text-zinc-400">
-                      #{slide.number}
-                    </span>
-                    <span className="flex-1 truncate text-sm text-[#18181B]">
-                      {slide.title}
-                    </span>
-                    <span className="flex-shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
-                      Modified
-                    </span>
-                  </button>
+                  {/* Slide row */}
+                  <div className="flex items-center gap-2 px-3 py-2.5">
+                    {/* Expand toggle */}
+                    <button
+                      type="button"
+                      onClick={() => toggleExpand(slide.number)}
+                      className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-[#18181B]"
+                      title="View parsed text"
+                    >
+                      {expandedSlide === slide.number ? (
+                        <ChevronDown className="h-3.5 w-3.5" />
+                      ) : (
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      )}
+                    </button>
 
-                  {/* View parsed text */}
-                  <button
-                    type="button"
-                    onClick={() => onViewParsed(slide.number)}
-                    className="flex h-7 w-7 items-center justify-center rounded text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-[#18181B]"
-                    title="View parsed text"
-                  >
-                    <Eye className="h-3.5 w-3.5" />
-                  </button>
+                    {/* Slide info – clickable to navigate */}
+                    <button
+                      type="button"
+                      onClick={() => onNavigate(slide.number)}
+                      className="flex flex-1 items-center gap-2 text-left"
+                    >
+                      <span className="w-7 flex-shrink-0 text-xs font-medium text-zinc-400">
+                        #{slide.number}
+                      </span>
+                      <span className="flex-1 break-words text-sm text-[#18181B]">
+                        {slide.title}
+                      </span>
+                      <span className="flex-shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+                        Modified
+                      </span>
+                    </button>
+                  </div>
+
+                  {/* Expanded parsed text */}
+                  {expandedSlide === slide.number && (
+                    <div className="border-t border-zinc-100 px-3 pb-2.5 pt-2">
+                      {slide.bullets.length > 0 ? (
+                        <ul className="space-y-1">
+                          {slide.bullets.map((b, i) => (
+                            <li key={i} className="flex gap-2 text-sm text-[#71717A]">
+                              <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-zinc-300" />
+                              <span className="break-words leading-relaxed">{b}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-sm text-[#71717A]">No additional content.</p>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

@@ -631,14 +631,9 @@ export function SlideEditor({
       {showRegenModal && (
         <RegenerateModal
           slides={slides}
-          narrations={narrations}
           changedSlides={changedSlides}
           generating={generating}
           onNavigate={(num) => jumpToSlide(num)}
-          onViewParsed={(num) => {
-            jumpToSlide(num)
-            setShowSlideInfo(true)
-          }}
           onConfirm={() => handleGenerate(new Set(changedSlides))}
           onCancel={() => setShowRegenModal(false)}
         />
