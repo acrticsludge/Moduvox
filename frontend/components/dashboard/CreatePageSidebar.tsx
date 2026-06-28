@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { Mic, Info } from "lucide-react"
+import { useEffect, useState, useRef } from "react"
+import { Mic, Play, Loader2, Info } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import {
@@ -46,6 +46,8 @@ export function CreatePageSidebar({
   const [internalVoiceId, setInternalVoiceId] = useState("")
   const [internalCi, setInternalCi] = useState("")
   const [internalUlt, setInternalUlt] = useState(false)
+  const [previewLoading, setPreviewLoading] = useState(false)
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null)
 
   // Use controlled values when provided, otherwise internal state
   const selectedVoiceId = externalVoiceId ?? internalVoiceId
@@ -90,6 +92,29 @@ export function CreatePageSidebar({
     }
   }
 
+  async function handlePreviewVoice() {
+    if (!selectedVoiceId || previewLoading) return
+    setPreviewLoading(true)
+    try {
+      const res = await fetch("/api/generate/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ voiceId: selectedVoiceId }),
+      })
+      const json = await res.json()
+      if (json.data?.audioUrl) {
+        if (previewAudioRef.current) {
+          previewAudioRef.current.pause()
+          previewAudioRef.current.currentTime = 0
+        }
+        const audio = new Audio(json.data.audioUrl)
+        previewAudioRef.current = audio
+        audio.play()
+      }
+    } catch { /* preview failed */ }
+    setPreviewLoading(false)
+  }
+
   return (
     <aside className={cn("flex w-80 flex-col gap-6 border-r border-[var(--color-border-faint)] bg-white p-5", className)}>
       {/* Voice selector */}
@@ -98,41 +123,60 @@ export function CreatePageSidebar({
           <Mic className="h-4 w-4" />
           Voice
         </Label>
-        <Select value={selectedVoiceId} onValueChange={handleVoiceChange}>
-          <SelectTrigger id="voice-select" className="w-full">
-            <SelectValue placeholder="Select a voice..." />
-          </SelectTrigger>
-          <SelectContent>
-            {voices.length === 0 && (
-              <div className="px-2 py-4 text-center text-sm text-[#71717A]">
-                No voices yet.{" "}
-                <a href="/dashboard/voices" className="underline hover:text-[#18181B]">
-                  Create one
-                </a>
-              </div>
-            )}
-            {presetVoices.length > 0 && (
-              <SelectGroup>
-                <SelectLabel>Preset Voices</SelectLabel>
-                {presetVoices.map((v) => (
-                  <SelectItem key={v.id} value={v.id}>
-                    {v.name}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            )}
-            {clonedVoices.length > 0 && (
-              <SelectGroup>
-                <SelectLabel>Cloned Voices</SelectLabel>
-                {clonedVoices.map((v) => (
-                  <SelectItem key={v.id} value={v.id}>
-                    {v.name}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            )}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          <div className="flex-1">
+            <Select value={selectedVoiceId} onValueChange={handleVoiceChange}>
+              <SelectTrigger id="voice-select" className="w-full">
+                <SelectValue placeholder="Select a voice..." />
+              </SelectTrigger>
+              <SelectContent>
+                {voices.length === 0 && (
+                  <div className="px-2 py-4 text-center text-sm text-[#71717A]">
+                    No voices yet.{" "}
+                    <a href="/dashboard/voices" className="underline hover:text-[#18181B]">
+                      Create one
+                    </a>
+                  </div>
+                )}
+                {presetVoices.length > 0 && (
+                  <SelectGroup>
+                    <SelectLabel>Preset Voices</SelectLabel>
+                    {presetVoices.map((v) => (
+                      <SelectItem key={v.id} value={v.id}>
+                        {v.name}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                )}
+                {clonedVoices.length > 0 && (
+                  <SelectGroup>
+                    <SelectLabel>Cloned Voices</SelectLabel>
+                    {clonedVoices.map((v) => (
+                      <SelectItem key={v.id} value={v.id}>
+                        {v.name}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+          {selectedVoiceId && (
+            <button
+              type="button"
+              onClick={handlePreviewVoice}
+              disabled={previewLoading}
+              className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-500 transition-colors hover:bg-zinc-50 hover:text-zinc-700 disabled:opacity-50"
+              title="Preview voice"
+            >
+              {previewLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Play className="h-4 w-4" />
+              )}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Control instructions */}

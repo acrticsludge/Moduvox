@@ -61,6 +61,7 @@ export function SlideEditor({
   const [pendingFile, setPendingFile] = useState<File | null>(null)
   const [reUploadParsing, setReUploadParsing] = useState(false)
   const [reUploading, setReUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
   const [viewerLoading, setViewerLoading] = useState(false)
   const [internalChangedSlides, setInternalChangedSlides] = useState<number[]>([])
   const [showRegenModal, setShowRegenModal] = useState(false)
@@ -78,8 +79,9 @@ export function SlideEditor({
     setLoadError("")
 
     async function processFile() {
+      setUploadProgress(0)
       if (!file && !externalStoragePath) {
-        if (!cancelled) { setLoading(false); setLoadError("No file provided") }
+        if (!cancelled) { setLoading(false); setLoadError("No file provided"); setUploadProgress(0) }
         return
       }
       // Clear any previous error
@@ -94,12 +96,20 @@ export function SlideEditor({
           const json = await res.json()
           if (json.data?.presignedUrl) {
             path = json.data.path as string
-            const uploadRes = await fetch(json.data.presignedUrl, {
-              method: "PUT",
-              body: file,
-              headers: { "Content-Type": "application/vnd.openxmlformats-officedocument.presentationml.presentation" },
+            const uploadOk = await new Promise<boolean>((resolve) => {
+              const xhr = new XMLHttpRequest()
+              xhr.open("PUT", json.data.presignedUrl)
+              xhr.setRequestHeader("Content-Type", "application/vnd.openxmlformats-officedocument.presentationml.presentation")
+              xhr.upload.onprogress = (e) => {
+                if (e.lengthComputable) {
+                  setUploadProgress(Math.round((e.loaded / e.total) * 100))
+                }
+              }
+              xhr.onload = () => resolve(xhr.status >= 200 && xhr.status < 300)
+              xhr.onerror = () => resolve(false)
+              xhr.send(file)
             })
-            if (uploadRes.ok) {
+            if (uploadOk) {
               onStoragePathChange?.(path)
             }
           }
@@ -169,7 +179,7 @@ export function SlideEditor({
         }
       }
 
-      if (!cancelled) setLoading(false)
+      if (!cancelled) { setLoading(false); setUploadProgress(0) }
     }
 
     processFile()
@@ -361,9 +371,20 @@ export function SlideEditor({
 
   if (loading) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8">
+      <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8">
         <Loader2 className="h-6 w-6 animate-spin text-[#71717A]" />
         <p className="text-sm text-[#71717A]">Processing presentation...</p>
+        {uploadProgress > 0 && (
+          <div className="w-48">
+            <div className="h-1.5 rounded-full bg-zinc-200">
+              <div
+                className="h-1.5 rounded-full bg-[#18181B] transition-all duration-300"
+                style={{ width: `${uploadProgress}%` }}
+              />
+            </div>
+            <p className="mt-1 text-center text-[11px] text-zinc-400">{uploadProgress}%</p>
+          </div>
+        )}
       </div>
     )
   }
@@ -463,7 +484,7 @@ export function SlideEditor({
             />
             <span className="text-sm text-[#71717A]">of {total}</span>
           </form>
-          <div className="flex gap-1">
+          <div className="flex gap-1" title="← → arrow keys to navigate">
             <button
               type="button"
               onClick={() => jumpToSlide(current.number - 1)}
@@ -589,6 +610,11 @@ export function SlideEditor({
             placeholder="AI-generated narration will appear here..."
             className="min-h-[120px] resize-none text-sm"
           />
+          {narrations[current.number] && (
+            <p className="text-xs text-zinc-400 text-right">
+              {narrations[current.number].split(/\s+/).filter(Boolean).length} words · {narrations[current.number].length} characters
+            </p>
+          )}
         </div>
 
         {/* Generate button */}
