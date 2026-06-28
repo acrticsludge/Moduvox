@@ -204,12 +204,6 @@ export function SlideEditor({
     setInternalIndex(idx)
     onCurrentSlideChange?.(idx)
     setSlideInput(String(idx + 1))
-    // Reload the Office viewer at the target slide
-    if (baseViewerUrl) {
-      setViewerUrl(
-        `https://view.officeapps.live.com/op/embed.aspx?src=${baseViewerUrl}&wdSlideIndex=${idx + 1}`,
-      )
-    }
   }
 
   function handleSlideJump(e: React.FormEvent) {
@@ -217,6 +211,12 @@ export function SlideEditor({
     const num = parseInt(slideInput, 10)
     if (!isNaN(num) && num >= 1 && num <= total) {
       jumpToSlide(num)
+      // Reload Office viewer at the target slide (user explicitly asked to jump)
+      if (baseViewerUrl) {
+        setViewerUrl(
+          `https://view.officeapps.live.com/op/embed.aspx?src=${baseViewerUrl}&wdSlideIndex=${num}`,
+        )
+      }
     }
   }
 
