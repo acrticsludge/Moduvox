@@ -66,14 +66,6 @@ export function SlideEditor({
       // Clear any previous error
       setLoadError("")
 
-      // If we have cached slide data (restored from editor_state), use it
-      if (externalSlideData && externalSlideData.length > 0 && !file) {
-        if (!cancelled) {
-          setSlides(externalSlideData as ParsedSlide[])
-          setInternalIndex(externalCurrentSlide ?? 0)
-        }
-      }
-
       let path = ""
 
       if (file) {
@@ -98,6 +90,7 @@ export function SlideEditor({
       }
 
       // Generate viewer URL from storage path
+      let signedViewerUrl = ""
       if (path) {
         try {
           const confirmRes = await fetch(`/api/presentations/${presentationId}/upload/confirm`, {
@@ -107,7 +100,8 @@ export function SlideEditor({
           })
           const confirmJson = await confirmRes.json()
           if (confirmJson.data?.viewerUrl) {
-            const encodedUrl = encodeURIComponent(confirmJson.data.viewerUrl)
+            signedViewerUrl = confirmJson.data.viewerUrl
+            const encodedUrl = encodeURIComponent(signedViewerUrl)
             setBaseViewerUrl(encodedUrl)
             if (!cancelled) {
               setViewerUrl(`https://view.officeapps.live.com/op/embed.aspx?src=${encodedUrl}`)
@@ -116,8 +110,15 @@ export function SlideEditor({
         } catch { /* confirm failed */ }
       }
 
-      // Extract text content for narration (only when we have a file to parse)
-      if (file && !externalSlideData) {
+      // Extract text content for slides
+      if (externalSlideData && externalSlideData.length > 0 && !file) {
+        // Restore from saved editor state
+        if (!cancelled) {
+          setSlides(externalSlideData as ParsedSlide[])
+          setInternalIndex(externalCurrentSlide ?? 0)
+        }
+      } else if (file) {
+        // Parse from uploaded file
         try {
           const parsed = await parsePptxText(file!)
           if (!cancelled) {
@@ -127,6 +128,20 @@ export function SlideEditor({
           }
         } catch {
           if (!cancelled) setLoadError("Failed to read presentation content.")
+        }
+      } else if (!file && signedViewerUrl) {
+        // Fallback: download PPTX from signed URL and parse it
+        try {
+          const blobRes = await fetch(signedViewerUrl)
+          const blob = await blobRes.blob()
+          const parsed = await parsePptxText(new File([blob], "slides.pptx"))
+          if (!cancelled) {
+            setSlides(parsed)
+            onSlideDataChange?.(parsed)
+            setInternalIndex(externalCurrentSlide ?? 0)
+          }
+        } catch {
+          // Fallback failed
         }
       }
 
