@@ -15,6 +15,10 @@ export function SlideEditor({
   onNarrationsChange,
   audioGenerated: externalAudioGenerated,
   onAudioGeneratedChange,
+  storagePath: externalStoragePath,
+  onStoragePathChange,
+  currentSlide: externalCurrentSlide,
+  onCurrentSlideChange,
 }: {
   voiceSelected: boolean
   file: File | null
@@ -23,9 +27,13 @@ export function SlideEditor({
   onNarrationsChange?: (v: Record<number, string>) => void
   audioGenerated?: boolean
   onAudioGeneratedChange?: (v: boolean) => void
+  storagePath?: string
+  onStoragePathChange?: (v: string) => void
+  currentSlide?: number
+  onCurrentSlideChange?: (v: number) => void
 }) {
   const [slides, setSlides] = useState<ParsedSlide[]>([])
-  const [currentIndex, setCurrentIndex] = useState(0)
+  const [internalIndex, setInternalIndex] = useState(0)
   const [generating, setGenerating] = useState(false)
   const [internalAudioGenerated, setInternalAudioGenerated] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -39,70 +47,71 @@ export function SlideEditor({
   // Use controlled props when provided, otherwise internal state
   const narrations = externalNarrations ?? internalNarrations
   const audioGenerated = externalAudioGenerated ?? internalAudioGenerated
+  const currentIndex = externalCurrentSlide ?? internalIndex
+  const total = slides.length
 
   useEffect(() => {
-    if (!file) {
-      setLoading(false)
-      setLoadError("No file provided")
-      return
-    }
-
     let cancelled = false
 
     async function processFile() {
-      if (!file) return
-
-      // Step 1: Get presigned upload URL from API
-      let storagePath = ""
-      try {
-        const res = await fetch(`/api/presentations/${presentationId}/upload`, {
-          method: "POST",
-        })
-        const json = await res.json()
-        if (json.data?.presignedUrl) {
-          storagePath = json.data.path as string
-
-          // Step 1b: Upload file directly to Supabase Storage
-          const uploadRes = await fetch(json.data.presignedUrl, {
-            method: "PUT",
-            body: file,
-            headers: { "Content-Type": "application/vnd.openxmlformats-officedocument.presentationml.presentation" },
-          })
-
-          if (uploadRes.ok) {
-            // Step 1c: Generate viewer URL from the storage path
-            // Use the admin client to get a signed URL via a simple confirm endpoint
-            const confirmRes = await fetch(`/api/presentations/${presentationId}/upload/confirm`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ path: storagePath }),
-            })
-            const confirmJson = await confirmRes.json()
-            if (confirmJson.data?.viewerUrl) {
-              const encodedUrl = encodeURIComponent(confirmJson.data.viewerUrl)
-              setBaseViewerUrl(encodedUrl)
-              if (!cancelled) {
-                setViewerUrl(
-                  `https://view.officeapps.live.com/op/embed.aspx?src=${encodedUrl}`,
-                )
-              }
-            }
-          }
-        }
-      } catch {
-        // Upload failed — continue without viewer
+      if (!file && !externalStoragePath) {
+        if (!cancelled) { setLoading(false); setLoadError("No file provided") }
+        return
       }
 
-      // Step 2: Extract text content for narration
-      try {
-        const parsed = await parsePptxText(file!)
-        if (!cancelled) {
-          setSlides(parsed)
-          setCurrentIndex(0)
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError("Failed to read presentation content.")
+      let path = ""
+
+      if (file) {
+        // Step 1: Upload new file via presigned URL
+        try {
+          const res = await fetch(`/api/presentations/${presentationId}/upload`, { method: "POST" })
+          const json = await res.json()
+          if (json.data?.presignedUrl) {
+            path = json.data.path as string
+            const uploadRes = await fetch(json.data.presignedUrl, {
+              method: "PUT",
+              body: file,
+              headers: { "Content-Type": "application/vnd.openxmlformats-officedocument.presentationml.presentation" },
+            })
+            if (uploadRes.ok) {
+              onStoragePathChange?.(path)
+            }
+          }
+        } catch { /* upload failed */ }
+      } else {
+        // Restore from saved storage path
+        path = externalStoragePath!
+      }
+
+      // Generate viewer URL from storage path
+      if (path) {
+        try {
+          const confirmRes = await fetch(`/api/presentations/${presentationId}/upload/confirm`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ path }),
+          })
+          const confirmJson = await confirmRes.json()
+          if (confirmJson.data?.viewerUrl) {
+            const encodedUrl = encodeURIComponent(confirmJson.data.viewerUrl)
+            setBaseViewerUrl(encodedUrl)
+            if (!cancelled) {
+              setViewerUrl(`https://view.officeapps.live.com/op/embed.aspx?src=${encodedUrl}`)
+            }
+          }
+        } catch { /* confirm failed */ }
+      }
+
+      // Extract text content for narration
+      if (file) {
+        try {
+          const parsed = await parsePptxText(file!)
+          if (!cancelled) {
+            setSlides(parsed)
+            setInternalIndex(externalCurrentSlide ?? 0)
+          }
+        } catch {
+          if (!cancelled) setLoadError("Failed to read presentation content.")
         }
       }
 
@@ -111,10 +120,9 @@ export function SlideEditor({
 
     processFile()
     return () => { cancelled = true }
-  }, [file, presentationId])
+  }, [file, presentationId, externalStoragePath, externalCurrentSlide])
 
   const current = slides[currentIndex]
-  const total = slides.length
 
   function updateNarration(text: string) {
     if (!current) return
@@ -134,7 +142,8 @@ export function SlideEditor({
 
   function jumpToSlide(slideNumber: number) {
     const idx = Math.max(0, Math.min(slideNumber - 1, total - 1))
-    setCurrentIndex(idx)
+    setInternalIndex(idx)
+    onCurrentSlideChange?.(idx)
     setSlideInput(String(idx + 1))
 
     // Reload Office viewer at the target slide

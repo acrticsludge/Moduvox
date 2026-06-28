@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from "react"
 import { useParams } from "next/navigation"
 import { ChevronRight, Presentation } from "lucide-react"
+import toast from "react-hot-toast"
 import { createClient } from "@/lib/supabase/client"
 import type { Presentation as PresentationType } from "@/lib/validations/presentation"
 import { CreatePageSidebar } from "@/components/dashboard/CreatePageSidebar"
@@ -16,6 +17,7 @@ type EditorState = {
   currentSlide?: number
   narrations?: Record<number, string>
   audioGenerated?: boolean
+  storagePath?: string
 }
 
 function formatDate(iso: string) {
@@ -39,13 +41,18 @@ export default function PresentationCreatePage() {
   const [narrations, setNarrations] = useState<Record<number, string>>({})
   const [audioGenerated, setAudioGenerated] = useState(false)
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
-  const [editorReady, setEditorReady] = useState(false)
+  const [storagePath, setStoragePath] = useState("")
+  const [currentSlide, setCurrentSlide] = useState(0)
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   function handleFileAccepted(file: File) {
     setUploadedFile(file)
     setMode("editor")
+  }
+
+  function handleStoragePathChange(path: string) {
+    setStoragePath(path)
   }
 
   // Load editor state from presentation DB record
@@ -68,9 +75,14 @@ export default function PresentationCreatePage() {
         if (saved) {
           if (saved.selectedVoiceId) setSelectedVoiceId(saved.selectedVoiceId)
           if (saved.controlInstructions) setControlInstructions(saved.controlInstructions)
-          if (saved.ultimateMode) setUltimateMode(saved.ultimateMode)
+          if (saved.ultimateMode !== undefined) setUltimateMode(saved.ultimateMode)
           if (saved.narrations) setNarrations(saved.narrations)
           if (saved.audioGenerated) setAudioGenerated(saved.audioGenerated)
+          if (saved.storagePath) {
+            setStoragePath(saved.storagePath)
+            setMode("editor")
+          }
+          if (saved.currentSlide !== undefined) setCurrentSlide(saved.currentSlide)
         }
       }
       setLoading(false)
@@ -87,14 +99,20 @@ export default function PresentationCreatePage() {
         ultimateMode,
         narrations,
         audioGenerated,
+        storagePath,
+        currentSlide,
       }
       fetch(`/api/presentations/${params.presentationId}/state`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(state),
-      }).catch(() => {})
+      })
+        .then((res) => {
+          if (res.ok) toast.success("Changes saved", { id: "editor-save" })
+        })
+        .catch(() => {})
     }, 2000)
-  }, [selectedVoiceId, controlInstructions, ultimateMode, narrations, audioGenerated, params.presentationId])
+  }, [selectedVoiceId, controlInstructions, ultimateMode, narrations, audioGenerated, storagePath, currentSlide, params.presentationId])
 
   // Trigger auto-save when any editor state changes
   useEffect(() => {
@@ -174,6 +192,10 @@ export default function PresentationCreatePage() {
             onNarrationsChange={setNarrations}
             audioGenerated={audioGenerated}
             onAudioGeneratedChange={setAudioGenerated}
+            storagePath={storagePath}
+            onStoragePathChange={handleStoragePathChange}
+            currentSlide={currentSlide}
+            onCurrentSlideChange={setCurrentSlide}
           />
         )}
       </div>
