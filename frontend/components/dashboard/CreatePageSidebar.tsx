@@ -75,6 +75,7 @@ export function CreatePageSidebar({
   const clonedVoices = voices.filter((v) => v.type === "cloned")
 
   function handleVoiceChange(value: string) {
+    if (value === internalVoiceId) return
     setInternalVoiceId(value)
     onVoiceChange?.(value)
     const voice = voices.find((v) => v.id === value)

@@ -117,8 +117,9 @@ export default function PresentationCreatePage() {
       })
         .then((res) => {
           if (res.ok) toast.success("Changes saved", { id: "editor-save" })
+          else toast.error("Failed to save changes", { id: "editor-save" })
         })
-        .catch(() => {})
+        .catch(() => toast.error("Failed to save changes", { id: "editor-save" }))
     }, 2000)
   }, [selectedVoiceId, controlInstructions, ultimateMode, narrations, audioGenerated, storagePath, currentSlide, slideData, changedSlides, params.presentationId])
 
@@ -127,6 +128,18 @@ export default function PresentationCreatePage() {
     if (loading) return
     saveState()
   }, [saveState, loading])
+
+  // Warn on navigate away with unsaved narration edits
+  useEffect(() => {
+    const hasContent = Object.keys(narrations).length > 0
+    if (!hasContent) return
+    function handleBeforeUnload(e: BeforeUnloadEvent) {
+      e.preventDefault()
+      e.returnValue = ""
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload)
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload)
+  }, [narrations])
 
   if (loading) {
     return (

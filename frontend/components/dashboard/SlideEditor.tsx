@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import { parsePptxText, type ParsedSlide } from "@/lib/pptx-renderer"
 import { compareSlides, type SlideDiff } from "@/lib/pptx-renderer"
+import toast from "react-hot-toast"
 import { ReUploadModal } from "./ReUploadModal"
 import { RegenerateModal } from "./RegenerateModal"
 
@@ -102,7 +103,9 @@ export function SlideEditor({
               onStoragePathChange?.(path)
             }
           }
-        } catch { /* upload failed */ }
+        } catch {
+          if (!cancelled) setLoadError("Failed to upload presentation.")
+        }
       } else {
         path = externalStoragePath!
       }
@@ -126,7 +129,9 @@ export function SlideEditor({
               setViewerUrl(`https://view.officeapps.live.com/op/embed.aspx?src=${encodedUrl}&wdSlideIndex=${slideIdx}`)
             }
           }
-        } catch { /* confirm failed */ }
+        } catch {
+          if (!cancelled) setLoadError("Failed to generate viewer link.")
+        }
       }
 
       // Extract text content for slides
@@ -160,7 +165,7 @@ export function SlideEditor({
             setInternalIndex(externalCurrentSlide ?? 0)
           }
         } catch {
-          // Fallback failed
+          if (!cancelled) setLoadError("Failed to download presentation preview.")
         }
       }
 
@@ -325,7 +330,9 @@ export function SlideEditor({
               }
             }
           }
-        } catch { /* upload failed */ }
+        } catch {
+          toast.error("Re-upload failed. Please try again.")
+        }
         setReUploading(false)
         setPendingFile(null)
       }
