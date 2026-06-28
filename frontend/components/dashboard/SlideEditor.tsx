@@ -264,11 +264,9 @@ export function SlideEditor({
     if (isReplacement) {
       setInternalNarrations({})
       onNarrationsChange?.({})
+      setInternalAudioGenerated(false)
+      onAudioGeneratedChange?.(false)
     }
-
-    // Audio is stale after any re-upload — reset
-    setInternalAudioGenerated(false)
-    onAudioGeneratedChange?.(false)
 
     // Always reset to first slide on re-upload
     setInternalIndex(0)
@@ -658,17 +656,19 @@ export function SlideEditor({
 
         {audioGenerated && (
           <>
-            <div
-              className={
-                lastRegenCount > 0
-                  ? "rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700"
-                  : "rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700"
-              }
-            >
-              {lastRegenCount > 0
-                ? `Audio regenerated for ${lastRegenCount} slide(s)`
-                : `Audio generated for all ${total} slides`}
-            </div>
+            {changedSlides.length === 0 && (
+              <div
+                className={
+                  lastRegenCount > 0
+                    ? "rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700"
+                    : "rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700"
+                }
+              >
+                {lastRegenCount > 0
+                  ? `Audio regenerated for ${lastRegenCount} slide(s)`
+                  : `Audio generated for all ${total} slides`}
+              </div>
+            )}
 
             {/* Global regenerate button */}
             <Button
