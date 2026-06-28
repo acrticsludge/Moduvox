@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import { parsePptxText, type ParsedSlide } from "@/lib/pptx-renderer"
-import { compareSlides, type SlideDiff, type SlideChangeInfo } from "@/lib/pptx-renderer"
+import { compareSlides, type SlideDiff } from "@/lib/pptx-renderer"
 import { ReUploadModal } from "./ReUploadModal"
 import { RegenerateModal } from "./RegenerateModal"
 
