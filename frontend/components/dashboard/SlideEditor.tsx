@@ -252,6 +252,7 @@ export function SlideEditor({
     // Always reset to first slide on re-upload
     setInternalIndex(0)
     onCurrentSlideChange?.(0)
+    setSlideInput("1")
 
     // Replace slide data
     setSlides(pendingSlides)
