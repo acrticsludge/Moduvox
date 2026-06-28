@@ -104,7 +104,8 @@ export function SlideEditor({
             const encodedUrl = encodeURIComponent(signedViewerUrl)
             setBaseViewerUrl(encodedUrl)
             if (!cancelled) {
-              setViewerUrl(`https://view.officeapps.live.com/op/embed.aspx?src=${encodedUrl}`)
+              const slideIdx = (externalCurrentSlide ?? 0) + 1
+              setViewerUrl(`https://view.officeapps.live.com/op/embed.aspx?src=${encodedUrl}&wdSlideIndex=${slideIdx}`)
             }
           }
         } catch { /* confirm failed */ }
