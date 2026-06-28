@@ -21,6 +21,7 @@ type EditorState = {
   storagePath?: string
   slideData?: { title: string; bullets: string[] }[]
   changedSlides?: number[]
+  slideCount?: number
 }
 
 function formatDate(iso: string) {
@@ -112,6 +113,7 @@ export default function PresentationCreatePage() {
         currentSlide,
         slideData,
         changedSlides: changedSlides.length > 0 ? changedSlides : undefined,
+        slideCount: slideData.length > 0 ? slideData.length : undefined,
       }
       fetch(`/api/presentations/${params.presentationId}/state`, {
         method: "PATCH",

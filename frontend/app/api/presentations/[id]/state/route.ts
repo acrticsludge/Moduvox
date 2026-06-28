@@ -27,9 +27,16 @@ export async function PATCH(
 
   const body = await request.json()
 
+  // Update slide_count if provided (separate DB column)
+  const { slideCount, ...editorState } = body
+  const updateData: Record<string, unknown> = { editor_state: editorState }
+  if (typeof slideCount === "number") {
+    updateData.slide_count = slideCount
+  }
+
   const { error } = await supabase
     .from("presentations")
-    .update({ editor_state: body })
+    .update(updateData)
     .eq("id", presentationId)
 
   if (error) {

@@ -401,8 +401,11 @@ export function SlideEditor({
 
   if (!slides.length) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center p-8">
+      <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8">
         <p className="text-sm text-[#71717A]">No slides found in this presentation.</p>
+        <p className="max-w-xs text-center text-xs text-zinc-400">
+          The file may contain only images or unsupported content. Try re-uploading a file with text-based slides, or use the Re-upload button above.
+        </p>
       </div>
     )
   }
