@@ -60,6 +60,7 @@ export function SlideEditor({
   const [pendingFile, setPendingFile] = useState<File | null>(null)
   const [reUploadParsing, setReUploadParsing] = useState(false)
   const [reUploading, setReUploading] = useState(false)
+  const [viewerLoading, setViewerLoading] = useState(false)
   const [internalChangedSlides, setInternalChangedSlides] = useState<number[]>([])
   const [showRegenModal, setShowRegenModal] = useState(false)
   const [lastRegenCount, setLastRegenCount] = useState(0)
@@ -204,6 +205,13 @@ export function SlideEditor({
     setInternalIndex(idx)
     onCurrentSlideChange?.(idx)
     setSlideInput(String(idx + 1))
+    // Reload Office viewer at the target slide
+    if (baseViewerUrl) {
+      setViewerLoading(true)
+      setViewerUrl(
+        `https://view.officeapps.live.com/op/embed.aspx?src=${baseViewerUrl}&wdSlideIndex=${idx + 1}`,
+      )
+    }
   }
 
   function handleSlideJump(e: React.FormEvent) {
@@ -211,12 +219,6 @@ export function SlideEditor({
     const num = parseInt(slideInput, 10)
     if (!isNaN(num) && num >= 1 && num <= total) {
       jumpToSlide(num)
-      // Reload Office viewer at the target slide (user explicitly asked to jump)
-      if (baseViewerUrl) {
-        setViewerUrl(
-          `https://view.officeapps.live.com/op/embed.aspx?src=${baseViewerUrl}&wdSlideIndex=${num}`,
-        )
-      }
     }
   }
 
@@ -388,12 +390,20 @@ export function SlideEditor({
           </div>
         ) : viewerUrl ? (
           <>
-            <iframe
-              src={viewerUrl}
-              className="h-full w-full"
-              style={{ minHeight: "60vh" }}
-              title="Presentation preview"
-            />
+            <div className="relative flex-1">
+              <iframe
+                src={viewerUrl}
+                className="h-full w-full"
+                style={{ minHeight: "60vh" }}
+                title="Presentation preview"
+                onLoad={() => setViewerLoading(false)}
+              />
+              {viewerLoading && !reUploading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-zinc-100">
+                  <Loader2 className="h-5 w-5 animate-spin text-[#71717A]" />
+                </div>
+              )}
+            </div>
             <div className="absolute bottom-3 right-3 flex gap-2">
               <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-[#71717A] shadow-sm transition-colors hover:text-[#18181B]">
                 <FileText className="h-3 w-3" />
