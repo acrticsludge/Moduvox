@@ -62,6 +62,7 @@ export function SlideEditor({
   const [reUploading, setReUploading] = useState(false)
   const [internalChangedSlides, setInternalChangedSlides] = useState<number[]>([])
   const [showRegenModal, setShowRegenModal] = useState(false)
+  const [lastRegenCount, setLastRegenCount] = useState(0)
 
   // Use controlled props when provided, otherwise internal state
   const narrations = externalNarrations ?? internalNarrations
@@ -180,6 +181,7 @@ export function SlideEditor({
 
   function handleGenerate(selectedSlides?: Set<number>) {
     setGenerating(true)
+    setLastRegenCount(selectedSlides?.size ?? 0)
     setTimeout(() => {
       setInternalAudioGenerated(true)
       onAudioGeneratedChange?.(true)
@@ -237,6 +239,7 @@ export function SlideEditor({
 
   function applyReUpload() {
     if (!pendingSlides.length) return
+    setLastRegenCount(0)
 
     const isReplacement = pendingDiff?.type === "replacement"
 
@@ -570,8 +573,16 @@ export function SlideEditor({
 
         {audioGenerated && (
           <>
-            <div className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
-              Audio generated for all {total} slides
+            <div
+              className={
+                lastRegenCount > 0
+                  ? "rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700"
+                  : "rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700"
+              }
+            >
+              {lastRegenCount > 0
+                ? `Audio regenerated for ${lastRegenCount} slide(s)`
+                : `Audio generated for all ${total} slides`}
             </div>
 
             {/* Global regenerate button */}
