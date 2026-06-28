@@ -318,7 +318,7 @@ export function SlideEditor({
               if (confirmJson.data?.viewerUrl) {
                 const encodedUrl = encodeURIComponent(confirmJson.data.viewerUrl)
                 setBaseViewerUrl(encodedUrl)
-                setViewerUrl(`https://view.officeapps.live.com/op/embed.aspx?src=${encodedUrl}`)
+                setViewerUrl(`https://view.officeapps.live.com/op/embed.aspx?src=${encodedUrl}&wdSlideIndex=1`)
               }
             }
           }
