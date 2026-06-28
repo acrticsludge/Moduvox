@@ -71,7 +71,7 @@ function extractParagraphs(xml: string): string[] {
 export type SlideChangeInfo = {
   number: number
   oldNumber: number | null
-  status: "unchanged" | "modified" | "added"
+  status: "unchanged" | "modified" | "added" | "reordered"
 }
 
 export type SlideDiff = {
@@ -138,30 +138,49 @@ export function compareSlides(
     }
   }
 
-  // Changed — compute per-slide
+  // Changed — compute per-slide with reorder detection
   const changes: SlideChangeInfo[] = []
+  let unchangedCount = 0
   let changedCount = 0
   let addedCount = 0
-  let unchangedCount = 0
+  let reorderedCount = 0
 
-  const maxPos = Math.max(oldHashes.length, newHashes.length)
-  for (let i = 0; i < maxPos; i++) {
-    if (i >= newHashes.length) {
-      // Old slide with no new counterpart → removed (won't appear in new deck)
-    } else if (i >= oldHashes.length) {
-      // New slide with no old counterpart → added
+  // Track which old hashes have been claimed (reorder detection)
+  const claimedOld = new Set<number>()
+
+  for (let i = 0; i < newHashes.length; i++) {
+    const oldIdx = oldHashes.indexOf(newHashes[i])
+    if (oldIdx === -1) {
+      // Content is entirely new — added
       changes.push({ number: i + 1, oldNumber: null, status: "added" })
       addedCount++
-    } else if (newHashes[i] === oldHashes[i]) {
-      // Same position, same content → unchanged
+    } else if (oldIdx === i) {
+      // Same position, same content — unchanged
       changes.push({ number: i + 1, oldNumber: i + 1, status: "unchanged" })
       unchangedCount++
+      claimedOld.add(oldIdx)
+    } else if (!claimedOld.has(oldIdx)) {
+      // Content exists at a different position — reordered
+      changes.push({ number: i + 1, oldNumber: oldIdx + 1, status: "reordered" })
+      reorderedCount++
+      claimedOld.add(oldIdx)
     } else {
-      // Content at this position changed
-      changes.push({ number: i + 1, oldNumber: i + 1, status: "modified" })
-      changedCount++
+      // Content was already claimed by another new slide — this position is new content
+      changes.push({ number: i + 1, oldNumber: null, status: "added" })
+      addedCount++
     }
   }
 
-  return { type: "changed", added: addedCount, removed: oldHashes.length - (newHashes.length - addedCount), changed: changedCount, unchanged: unchangedCount, message: `${changedCount} slide(s) changed, ${addedCount} added, ${Math.max(0, oldHashes.length - (newHashes.length - addedCount))} removed.`, changes }
+  // Reordered counts as changed for summary purposes
+  changedCount = reorderedCount
+
+  return {
+    type: "changed",
+    added: addedCount,
+    removed: oldHashes.length - claimedOld.size,
+    changed: changedCount,
+    unchanged: unchangedCount,
+    message: `${changedCount} slide(s) changed, ${addedCount} added, ${Math.max(0, oldHashes.length - claimedOld.size)} removed.`,
+    changes,
+  }
 }

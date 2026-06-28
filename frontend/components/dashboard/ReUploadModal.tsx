@@ -1,6 +1,6 @@
 "use client"
 
-import { AlertTriangle, FileText, Info } from "lucide-react"
+import { AlertTriangle, FileText, Info, ArrowRight } from "lucide-react"
 import type { SlideDiff } from "@/lib/pptx-renderer"
 
 export function ReUploadModal({
@@ -16,6 +16,10 @@ export function ReUploadModal({
 }) {
   const isReplacement = diff.type === "replacement"
   const isIdentical = diff.type === "identical"
+
+  // Only show slides that aren't unchanged
+  const activeChanges = diff.changes.filter((c) => c.status !== "unchanged")
+  const unchangedCount = diff.changes.filter((c) => c.status === "unchanged").length
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#18181B]/40">
@@ -46,20 +50,31 @@ export function ReUploadModal({
               : diff.message}
         </p>
 
-        {!isReplacement && !isIdentical && diff.changes.length > 0 && (
+        {!isReplacement && !isIdentical && activeChanges.length > 0 && (
           <div className="mt-4 space-y-1.5">
             <p className="text-xs font-medium text-zinc-400 uppercase tracking-wide">Per-slide changes</p>
             <div className="max-h-40 overflow-y-auto space-y-1">
-              {diff.changes.map((c) => (
+              {activeChanges.map((c) => (
                 <div key={c.number} className="flex items-center gap-2 text-sm">
                   <span className="text-zinc-400 w-6 flex-shrink-0">#{c.number}</span>
-                  {c.status === "unchanged" && <span className="text-zinc-500">— unchanged</span>}
                   {c.status === "modified" && <span className="text-amber-600">~ modified</span>}
                   {c.status === "added" && <span className="text-green-600">+ added</span>}
+                  {c.status === "reordered" && (
+                    <span className="flex items-center gap-1 text-blue-600">
+                      ↔ reordered from #{c.oldNumber}
+                    </span>
+                  )}
                 </div>
               ))}
             </div>
+            {unchangedCount > 0 && (
+              <p className="text-xs text-zinc-400">{unchangedCount} slide(s) unchanged — not listed</p>
+            )}
           </div>
+        )}
+
+        {!isReplacement && !isIdentical && activeChanges.length === 0 && unchangedCount > 0 && (
+          <div className="mt-4 text-center text-sm text-zinc-500">All slides unchanged.</div>
         )}
 
         {isReplacement && (

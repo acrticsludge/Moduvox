@@ -292,6 +292,14 @@ export function SlideEditor({
           if (slide) {
             mergedNarrations[change.number] = slide.title + (slide.bullets.length > 0 ? "\n" + slide.bullets.join("\n") : "")
           }
+        } else if (change.status === "reordered" && change.oldNumber) {
+          // Carry narration from old position to new position
+          changed.push(change.number)
+          const oldNarration = mergedNarrations[change.oldNumber]
+          if (oldNarration) {
+            mergedNarrations[change.number] = oldNarration
+            delete mergedNarrations[change.oldNumber]
+          }
         }
       }
 
