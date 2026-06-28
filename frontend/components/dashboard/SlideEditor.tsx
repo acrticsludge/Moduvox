@@ -56,12 +56,15 @@ export function SlideEditor({
 
   useEffect(() => {
     let cancelled = false
+    setLoadError("")
 
     async function processFile() {
       if (!file && !externalStoragePath) {
         if (!cancelled) { setLoading(false); setLoadError("No file provided") }
         return
       }
+      // Clear any previous error
+      setLoadError("")
 
       // If we have cached slide data (restored from editor_state), use it
       if (externalSlideData && externalSlideData.length > 0 && !file) {
