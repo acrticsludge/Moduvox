@@ -19,6 +19,7 @@ type EditorState = {
   audioGenerated?: boolean
   storagePath?: string
   slideData?: { title: string; bullets: string[] }[]
+  changedSlides?: number[]
 }
 
 function formatDate(iso: string) {
@@ -45,6 +46,7 @@ export default function PresentationCreatePage() {
   const [storagePath, setStoragePath] = useState("")
   const [currentSlide, setCurrentSlide] = useState(0)
   const [slideData, setSlideData] = useState<{ title: string; bullets: string[] }[]>([])
+  const [changedSlides, setChangedSlides] = useState<number[]>([])
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -86,6 +88,7 @@ export default function PresentationCreatePage() {
           }
           if (saved.currentSlide !== undefined) setCurrentSlide(saved.currentSlide)
           if (saved.slideData) setSlideData(saved.slideData)
+          if (saved.changedSlides) setChangedSlides(saved.changedSlides)
         }
       }
       setLoading(false)
@@ -105,6 +108,7 @@ export default function PresentationCreatePage() {
         storagePath,
         currentSlide,
         slideData,
+        changedSlides: changedSlides.length > 0 ? changedSlides : undefined,
       }
       fetch(`/api/presentations/${params.presentationId}/state`, {
         method: "PATCH",
@@ -116,7 +120,7 @@ export default function PresentationCreatePage() {
         })
         .catch(() => {})
     }, 2000)
-  }, [selectedVoiceId, controlInstructions, ultimateMode, narrations, audioGenerated, storagePath, currentSlide, slideData, params.presentationId])
+  }, [selectedVoiceId, controlInstructions, ultimateMode, narrations, audioGenerated, storagePath, currentSlide, slideData, changedSlides, params.presentationId])
 
   // Trigger auto-save when any editor state changes
   useEffect(() => {
@@ -202,6 +206,8 @@ export default function PresentationCreatePage() {
             onCurrentSlideChange={setCurrentSlide}
             slideData={slideData}
             onSlideDataChange={setSlideData}
+            changedSlides={changedSlides}
+            onChangedSlidesChange={setChangedSlides}
           />
         )}
       </div>

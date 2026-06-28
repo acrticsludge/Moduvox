@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import { parsePptxText, type ParsedSlide } from "@/lib/pptx-renderer"
-import { compareSlides, type SlideDiff } from "@/lib/pptx-renderer"
+import { compareSlides, type SlideDiff, type SlideChangeInfo } from "@/lib/pptx-renderer"
 import { ReUploadModal } from "./ReUploadModal"
+import { RegenerateModal } from "./RegenerateModal"
 
 export function SlideEditor({
   voiceSelected,
@@ -23,6 +24,8 @@ export function SlideEditor({
   onCurrentSlideChange,
   slideData: externalSlideData,
   onSlideDataChange,
+  changedSlides: externalChangedSlides,
+  onChangedSlidesChange,
 }: {
   voiceSelected: boolean
   file: File | null
@@ -37,6 +40,8 @@ export function SlideEditor({
   onCurrentSlideChange?: (v: number) => void
   slideData?: { title: string; bullets: string[] }[]
   onSlideDataChange?: (v: { title: string; bullets: string[] }[]) => void
+  changedSlides?: number[]
+  onChangedSlidesChange?: (v: number[]) => void
 }) {
   const [slides, setSlides] = useState<ParsedSlide[]>([])
   const [internalIndex, setInternalIndex] = useState(0)
@@ -55,11 +60,14 @@ export function SlideEditor({
   const [pendingFile, setPendingFile] = useState<File | null>(null)
   const [reUploadParsing, setReUploadParsing] = useState(false)
   const [reUploading, setReUploading] = useState(false)
+  const [internalChangedSlides, setInternalChangedSlides] = useState<number[]>([])
+  const [showRegenModal, setShowRegenModal] = useState(false)
 
   // Use controlled props when provided, otherwise internal state
   const narrations = externalNarrations ?? internalNarrations
   const audioGenerated = externalAudioGenerated ?? internalAudioGenerated
   const currentIndex = externalCurrentSlide ?? internalIndex
+  const changedSlides = externalChangedSlides ?? internalChangedSlides
   const total = slides.length
 
   useEffect(() => {
@@ -170,11 +178,21 @@ export function SlideEditor({
     onNarrationsChange?.(next)
   }
 
-  function handleGenerate() {
+  function handleGenerate(selectedSlides?: Set<number>) {
     setGenerating(true)
     setTimeout(() => {
       setInternalAudioGenerated(true)
       onAudioGeneratedChange?.(true)
+      // Clear changed status for regenerated slides
+      if (selectedSlides) {
+        const remaining = changedSlides.filter((s) => !selectedSlides.has(s))
+        setInternalChangedSlides(remaining)
+        onChangedSlidesChange?.(remaining)
+      } else {
+        setInternalChangedSlides([])
+        onChangedSlidesChange?.([])
+      }
+      setShowRegenModal(false)
       setGenerating(false)
     }, 1200)
   }
@@ -235,6 +253,38 @@ export function SlideEditor({
     // Replace slide data
     setSlides(pendingSlides)
     onSlideDataChange?.(pendingSlides)
+
+    // Merge narrations for "changed" type — preserve unchanged, keep modified, init added
+    if (!isReplacement && pendingDiff?.changes) {
+      const mergedNarrations = { ...narrations }
+      const changed: number[] = []
+
+      for (const change of pendingDiff.changes) {
+        if (change.status === "modified") {
+          changed.push(change.number)
+        } else if (change.status === "added") {
+          changed.push(change.number)
+          // Initialize narration from slide content for new slides
+          const slide = pendingSlides[change.number - 1]
+          if (slide) {
+            mergedNarrations[change.number] = slide.title + (slide.bullets.length > 0 ? "\n" + slide.bullets.join("\n") : "")
+          }
+        }
+      }
+
+      // Clean up narrations for slides that no longer exist in new deck
+      const validSlideNumbers = new Set(pendingSlides.map((_, i) => i + 1))
+      for (const key of Object.keys(mergedNarrations)) {
+        if (!validSlideNumbers.has(Number(key))) {
+          delete mergedNarrations[Number(key)]
+        }
+      }
+
+      setInternalNarrations(mergedNarrations)
+      onNarrationsChange?.(mergedNarrations)
+      setInternalChangedSlides(changed)
+      onChangedSlidesChange?.(changed)
+    }
 
     // Handle overflow
     if (currentIndex >= pendingSlides.length) {
@@ -431,6 +481,14 @@ export function SlideEditor({
           </button>
         </div>
 
+        {/* Modified slides banner */}
+        {changedSlides.length > 0 && (
+          <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+            <span className="h-2 w-2 flex-shrink-0 rounded-full bg-amber-500" />
+            <span>{changedSlides.length} slide(s) modified since re-upload</span>
+          </div>
+        )}
+
         {/* Slide info modal */}
         {showSlideInfo && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#18181B]/40">
@@ -438,6 +496,11 @@ export function SlideEditor({
               <div className="flex items-center justify-between">
                 <h2 className="text-base font-semibold text-[#18181B]">
                   Slide {current.number} — {current.title}
+                  {changedSlides.includes(current.number) && (
+                    <span className="ml-2 inline-block rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-700">
+                      Modified
+                    </span>
+                  )}
                 </h2>
                 <button
                   type="button"
@@ -491,7 +554,7 @@ export function SlideEditor({
         {!audioGenerated && (
           <div className="space-y-1">
             <Button
-              onClick={handleGenerate}
+              onClick={() => handleGenerate()}
               disabled={generating || !voiceSelected}
               className="w-full"
             >
@@ -510,6 +573,15 @@ export function SlideEditor({
             <div className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
               Audio generated for all {total} slides
             </div>
+
+            {/* Global regenerate button */}
+            <Button
+              onClick={() => setShowRegenModal(true)}
+              variant="outline"
+              className="w-full"
+            >
+              Regenerate Audio
+            </Button>
 
             {/* Audio player */}
             <div
@@ -552,6 +624,23 @@ export function SlideEditor({
             setPendingSlides([])
           }}
           parsing={reUploadParsing}
+        />
+      )}
+
+      {/* Regenerate modal */}
+      {showRegenModal && (
+        <RegenerateModal
+          slides={slides}
+          narrations={narrations}
+          changedSlides={changedSlides}
+          generating={generating}
+          onNavigate={(num) => jumpToSlide(num)}
+          onViewParsed={(num) => {
+            jumpToSlide(num)
+            setShowSlideInfo(true)
+          }}
+          onConfirm={(selected) => handleGenerate(selected)}
+          onCancel={() => setShowRegenModal(false)}
         />
       )}
     </>
