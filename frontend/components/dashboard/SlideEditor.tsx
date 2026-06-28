@@ -167,7 +167,7 @@ export function SlideEditor({
 
     processFile()
     return () => { cancelled = true }
-  }, [file, presentationId, externalStoragePath, externalCurrentSlide, externalSlideData])
+  }, [file, presentationId])
 
   const current = slides[currentIndex]
 
