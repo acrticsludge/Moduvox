@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState } from "react"
 import { Mic, Play, Loader2, Info } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
@@ -47,7 +47,7 @@ export function CreatePageSidebar({
   const [internalCi, setInternalCi] = useState("")
   const [internalUlt, setInternalUlt] = useState(false)
   const [previewLoading, setPreviewLoading] = useState(false)
-  const previewAudioRef = useRef<HTMLAudioElement | null>(null)
+  const [previewAudioUrl, setPreviewAudioUrl] = useState<string | null>(null)
 
   // Use controlled values when provided, otherwise internal state
   const selectedVoiceId = externalVoiceId ?? internalVoiceId
@@ -80,6 +80,7 @@ export function CreatePageSidebar({
     if (value === internalVoiceId) return
     setInternalVoiceId(value)
     onVoiceChange?.(value)
+    setPreviewAudioUrl(null)
     const voice = voices.find((v) => v.id === value)
     if (voice?.type === "preset") {
       setInternalUlt(false)
@@ -99,17 +100,11 @@ export function CreatePageSidebar({
       const res = await fetch("/api/generate/test", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ voiceId: selectedVoiceId }),
+        body: JSON.stringify({ voice_id: selectedVoiceId }),
       })
       const json = await res.json()
       if (json.data?.audioUrl) {
-        if (previewAudioRef.current) {
-          previewAudioRef.current.pause()
-          previewAudioRef.current.currentTime = 0
-        }
-        const audio = new Audio(json.data.audioUrl)
-        previewAudioRef.current = audio
-        audio.play()
+        setPreviewAudioUrl(json.data.audioUrl)
       }
     } catch { /* preview failed */ }
     setPreviewLoading(false)
@@ -177,6 +172,16 @@ export function CreatePageSidebar({
             </button>
           )}
         </div>
+        {previewAudioUrl && (
+          <audio
+            controls
+            src={previewAudioUrl}
+            className="w-full rounded-lg"
+            style={{ height: 36 }}
+          >
+            Your browser does not support the audio element.
+          </audio>
+        )}
       </div>
 
       {/* Control instructions */}
