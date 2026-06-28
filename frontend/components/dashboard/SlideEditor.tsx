@@ -54,6 +54,7 @@ export function SlideEditor({
   const [pendingSlides, setPendingSlides] = useState<ParsedSlide[]>([])
   const [pendingFile, setPendingFile] = useState<File | null>(null)
   const [reUploadParsing, setReUploadParsing] = useState(false)
+  const [reUploading, setReUploading] = useState(false)
 
   // Use controlled props when provided, otherwise internal state
   const narrations = externalNarrations ?? internalNarrations
@@ -241,6 +242,12 @@ export function SlideEditor({
       onCurrentSlideChange?.(pendingSlides.length - 1)
     }
 
+    // Show processing overlay
+    setShowReUpload(false)
+    setPendingDiff(null)
+    setPendingSlides([])
+    setReUploading(true)
+
     // Upload new file to storage and refresh viewer
     if (pendingFile) {
       const uploadAndRefresh = async () => {
@@ -269,14 +276,14 @@ export function SlideEditor({
             }
           }
         } catch { /* upload failed */ }
+        setReUploading(false)
+        setPendingFile(null)
       }
       uploadAndRefresh()
+    } else {
+      setReUploading(false)
+      setPendingFile(null)
     }
-
-    setShowReUpload(false)
-    setPendingDiff(null)
-    setPendingSlides([])
-    setPendingFile(null)
   }
 
   // Keyboard nav: ← → arrow keys to navigate slides using a ref for stable handler
@@ -325,7 +332,13 @@ export function SlideEditor({
       <div className="flex flex-1 flex-col gap-0 lg:flex-row">
       {/* Left — Office Online viewer showing the actual PPTX */}
       <div className="relative flex flex-1 flex-col bg-zinc-100">
-        {viewerUrl ? (
+        {/* Processing overlay during re-upload */}
+        {reUploading ? (
+          <div className="flex h-full min-h-[60vh] flex-col items-center justify-center gap-3">
+            <Loader2 className="h-6 w-6 animate-spin text-[#71717A]" />
+            <p className="text-sm text-[#71717A]">Processing PPTX...</p>
+          </div>
+        ) : viewerUrl ? (
           <>
             <iframe
               src={viewerUrl}
