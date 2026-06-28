@@ -2,12 +2,13 @@
 
 import { useState, createContext, useContext } from "react"
 import { usePathname } from "next/navigation"
+import { Toaster } from "react-hot-toast"
 import { Navbar } from "@/components/ui/Navbar"
 import { Footer } from "@/components/landing/footer"
 import { LayoutGrid, Mic, Settings, Archive, Trash2, Menu } from "lucide-react"
 
 const SIDEBAR_MAIN = [
-  { label: "All Projects", icon: LayoutGrid, href: "/dashboard", match: /^\/dashboard(\/projects\/?.*)?$/ },
+  { label: "All Projects", icon: LayoutGrid, href: "/dashboard", match: /^\/dashboard(\/projects\/?.*|\/presentations\/?.*)?$/ },
   { label: "My Voices", icon: Mic, href: "/dashboard/voices", match: /^\/dashboard\/voices/ },
   { label: "Settings", icon: Settings, href: "/dashboard/settings", match: /^\/dashboard\/settings/ },
 ]
@@ -42,6 +43,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <SidebarContext.Provider value={ctx}>
+      <Toaster
+        position="bottom-right"
+        toastOptions={{
+          duration: 2000,
+          style: { fontSize: "13px", background: "#18181B", color: "#FAFAFA", borderRadius: "8px" },
+        }}
+      />
       <div className="flex min-h-screen flex-col bg-[#F9FAFB]">
         <Navbar />
 

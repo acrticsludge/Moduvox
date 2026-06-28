@@ -15,6 +15,7 @@ type Voice = {
   sample_path: string | null
   sample_duration_seconds: number | null
   emotion_default: string
+  control_instruction: string | null
   is_active: boolean
   created_at: string
 }
@@ -154,6 +155,7 @@ function AddVoiceModal({
   const [step, setStep] = useState<"choose" | "preset" | "clone">("choose")
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null)
   const [voiceName, setVoiceName] = useState("")
+  const [controlInstruction, setControlInstruction] = useState("")
   const [file, setFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -173,6 +175,7 @@ function AddVoiceModal({
           name: voiceName.trim(),
           type: "preset",
           preset_id: selectedPreset,
+          control_instruction: controlInstruction.trim() || undefined,
         }),
       })
       const json = await res.json()
@@ -318,10 +321,26 @@ function AddVoiceModal({
               />
             </div>
 
+            <div className="mt-4">
+              <label className="mb-1.5 block text-sm font-medium text-[#18181B]">
+                Control instruction <span className="text-xs text-[#71717A]">(optional)</span>
+              </label>
+              <textarea
+                value={controlInstruction}
+                onChange={(e) => setControlInstruction(e.target.value)}
+                placeholder="Describe how this voice should sound — e.g. 'A calm, professional male voice with clear enunciation...'"
+                rows={3}
+                className="w-full resize-none rounded-lg border border-zinc-200 px-3 py-2 text-sm text-[#18181B] outline-none transition-colors placeholder:text-zinc-400 focus:border-zinc-400"
+              />
+              <p className="mt-1 text-xs text-[#71717A]">
+                This instruction will be pre-filled and locked when you use this voice in the editor.
+              </p>
+            </div>
+
             <div className="mt-6 flex items-center justify-between">
               <button
                 type="button"
-                onClick={() => { setStep("choose"); setSelectedPreset(null); setVoiceName(""); }}
+                onClick={() => { setStep("choose"); setSelectedPreset(null); setVoiceName(""); setControlInstruction(""); }}
                 className="text-sm font-medium text-[#71717A] transition-colors hover:text-[#18181B]"
               >
                 Back
