@@ -151,9 +151,16 @@ export function compareSlides(
   for (let i = 0; i < newHashes.length; i++) {
     const oldIdx = oldHashes.indexOf(newHashes[i])
     if (oldIdx === -1) {
-      // Content is entirely new — added
-      changes.push({ number: i + 1, oldNumber: null, status: "added" })
-      addedCount++
+      // Content not found in old deck
+      if (i < oldHashes.length) {
+        // Position existed in old deck — content changed
+        changes.push({ number: i + 1, oldNumber: i + 1, status: "modified" })
+        changedCount++
+      } else {
+        // Position beyond old deck — truly new slide
+        changes.push({ number: i + 1, oldNumber: null, status: "added" })
+        addedCount++
+      }
     } else if (oldIdx === i) {
       // Same position, same content — unchanged
       changes.push({ number: i + 1, oldNumber: i + 1, status: "unchanged" })
@@ -165,14 +172,21 @@ export function compareSlides(
       reorderedCount++
       claimedOld.add(oldIdx)
     } else {
-      // Content was already claimed by another new slide — this position is new content
-      changes.push({ number: i + 1, oldNumber: null, status: "added" })
-      addedCount++
+      // Content already claimed by another new slide
+      if (i < oldHashes.length) {
+        // This position had content before — it's been modified
+        changes.push({ number: i + 1, oldNumber: i + 1, status: "modified" })
+        changedCount++
+      } else {
+        // Brand new slide at a new position
+        changes.push({ number: i + 1, oldNumber: null, status: "added" })
+        addedCount++
+      }
     }
   }
 
-  // Reordered counts as changed for summary purposes
-  changedCount = reorderedCount
+  // Reordered counts as changed for summary
+  changedCount += reorderedCount
 
   return {
     type: "changed",

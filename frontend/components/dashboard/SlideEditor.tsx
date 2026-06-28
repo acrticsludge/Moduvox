@@ -264,9 +264,11 @@ export function SlideEditor({
     if (isReplacement) {
       setInternalNarrations({})
       onNarrationsChange?.({})
-      setInternalAudioGenerated(false)
-      onAudioGeneratedChange?.(false)
     }
+
+    // Audio is stale after any re-upload — reset
+    setInternalAudioGenerated(false)
+    onAudioGeneratedChange?.(false)
 
     // Always reset to first slide on re-upload
     setInternalIndex(0)
