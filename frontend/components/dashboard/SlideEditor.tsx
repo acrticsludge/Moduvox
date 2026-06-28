@@ -639,7 +639,7 @@ export function SlideEditor({
             jumpToSlide(num)
             setShowSlideInfo(true)
           }}
-          onConfirm={(selected) => handleGenerate(selected)}
+          onConfirm={() => handleGenerate(new Set(changedSlides))}
           onCancel={() => setShowRegenModal(false)}
         />
       )}
