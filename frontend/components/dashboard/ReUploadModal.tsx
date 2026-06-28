@@ -46,12 +46,19 @@ export function ReUploadModal({
               : diff.message}
         </p>
 
-        {!isReplacement && !isIdentical && (
-          <div className="mt-4 space-y-1.5 text-sm">
-            {diff.added > 0 && <p className="text-green-600">+ {diff.added} slide(s) added</p>}
-            {diff.removed > 0 && <p className="text-red-600">- {diff.removed} slide(s) removed</p>}
-            {diff.changed > 0 && <p className="text-amber-600">~ {diff.changed} slide(s) changed</p>}
-            {diff.unchanged > 0 && <p className="text-zinc-500">{diff.unchanged} slide(s) unchanged</p>}
+        {!isReplacement && !isIdentical && diff.changes.length > 0 && (
+          <div className="mt-4 space-y-1.5">
+            <p className="text-xs font-medium text-zinc-400 uppercase tracking-wide">Per-slide changes</p>
+            <div className="max-h-40 overflow-y-auto space-y-1">
+              {diff.changes.map((c) => (
+                <div key={c.number} className="flex items-center gap-2 text-sm">
+                  <span className="text-zinc-400 w-6 flex-shrink-0">#{c.number}</span>
+                  {c.status === "unchanged" && <span className="text-zinc-500">— unchanged</span>}
+                  {c.status === "modified" && <span className="text-amber-600">~ modified</span>}
+                  {c.status === "added" && <span className="text-green-600">+ added</span>}
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
