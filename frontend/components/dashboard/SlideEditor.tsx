@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import { parsePptxText, type ParsedSlide } from "@/lib/pptx-renderer"
+import { compareSlides, type SlideDiff } from "@/lib/pptx-renderer"
+import { ReUploadModal } from "./ReUploadModal"
 
 export function SlideEditor({
   voiceSelected,
@@ -47,6 +49,10 @@ export function SlideEditor({
   const [slideInput, setSlideInput] = useState("")
   const [showSlideInfo, setShowSlideInfo] = useState(false)
   const [internalNarrations, setInternalNarrations] = useState<Record<number, string>>({})
+  const [showReUpload, setShowReUpload] = useState(false)
+  const [pendingDiff, setPendingDiff] = useState<SlideDiff | null>(null)
+  const [pendingSlides, setPendingSlides] = useState<ParsedSlide[]>([])
+  const [reUploadParsing, setReUploadParsing] = useState(false)
 
   // Use controlled props when provided, otherwise internal state
   const narrations = externalNarrations ?? internalNarrations
@@ -194,6 +200,33 @@ export function SlideEditor({
     }
   }
 
+  function handleReUploadFile(file: File) {
+    setReUploadParsing(true)
+    parsePptxText(file).then((newSlides) => {
+      const diff = compareSlides(
+        slides.map((s) => ({ title: s.title, bullets: s.bullets })),
+        newSlides.map((s) => ({ title: s.title, bullets: s.bullets })),
+      )
+      setPendingSlides(newSlides)
+      setPendingDiff(diff)
+      setShowReUpload(true)
+      setReUploadParsing(false)
+    })
+  }
+
+  function applyReUpload() {
+    if (!pendingSlides.length) return
+    setSlides(pendingSlides)
+    onSlideDataChange?.(pendingSlides)
+    if (currentIndex >= pendingSlides.length) {
+      setInternalIndex(pendingSlides.length - 1)
+      onCurrentSlideChange?.(pendingSlides.length - 1)
+    }
+    setShowReUpload(false)
+    setPendingDiff(null)
+    setPendingSlides([])
+  }
+
   // Keyboard nav: ← → arrow keys to navigate slides using a ref for stable handler
   const jumpRef = useRef(jumpToSlide)
   jumpRef.current = jumpToSlide
@@ -236,7 +269,8 @@ export function SlideEditor({
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-0 lg:flex-row">
+    <>
+      <div className="flex flex-1 flex-col gap-0 lg:flex-row">
       {/* Left — Office Online viewer showing the actual PPTX */}
       <div className="relative flex flex-1 flex-col bg-zinc-100">
         {viewerUrl ? (
@@ -248,6 +282,20 @@ export function SlideEditor({
               title="Presentation preview"
             />
             <div className="absolute bottom-3 right-3 flex gap-2">
+              <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-[#71717A] shadow-sm transition-colors hover:text-[#18181B]">
+                <FileText className="h-3 w-3" />
+                Re-upload
+                <input
+                  type="file"
+                  accept=".pptx"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0]
+                    if (f) handleReUploadFile(f)
+                    e.target.value = ""
+                  }}
+                />
+              </label>
               <a
                 href={viewerUrl.replace("embed.aspx", "view.aspx")}
                 target="_blank"
@@ -427,5 +475,20 @@ export function SlideEditor({
         )}
       </div>
     </div>
+
+      {/* Re-upload modal overlay */}
+      {showReUpload && pendingDiff && (
+        <ReUploadModal
+          diff={pendingDiff}
+          onApply={applyReUpload}
+          onCancel={() => {
+            setShowReUpload(false)
+            setPendingDiff(null)
+            setPendingSlides([])
+          }}
+          parsing={reUploadParsing}
+        />
+      )}
+    </>
   )
 }
