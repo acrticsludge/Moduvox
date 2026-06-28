@@ -52,6 +52,7 @@ export function SlideEditor({
   const [showReUpload, setShowReUpload] = useState(false)
   const [pendingDiff, setPendingDiff] = useState<SlideDiff | null>(null)
   const [pendingSlides, setPendingSlides] = useState<ParsedSlide[]>([])
+  const [pendingFile, setPendingFile] = useState<File | null>(null)
   const [reUploadParsing, setReUploadParsing] = useState(false)
 
   // Use controlled props when provided, otherwise internal state
@@ -201,6 +202,7 @@ export function SlideEditor({
   }
 
   function handleReUploadFile(file: File) {
+    setPendingFile(file)
     setReUploadParsing(true)
     parsePptxText(file).then((newSlides) => {
       const diff = compareSlides(
@@ -216,15 +218,65 @@ export function SlideEditor({
 
   function applyReUpload() {
     if (!pendingSlides.length) return
+
+    const isReplacement = pendingDiff?.type === "replacement"
+
+    // Reset all settings on replacement
+    if (isReplacement) {
+      setInternalNarrations({})
+      onNarrationsChange?.({})
+      setInternalAudioGenerated(false)
+      onAudioGeneratedChange?.(false)
+      setInternalIndex(0)
+      onCurrentSlideChange?.(0)
+    }
+
+    // Replace slide data
     setSlides(pendingSlides)
     onSlideDataChange?.(pendingSlides)
+
+    // Handle overflow
     if (currentIndex >= pendingSlides.length) {
       setInternalIndex(pendingSlides.length - 1)
       onCurrentSlideChange?.(pendingSlides.length - 1)
     }
+
+    // Upload new file to storage and refresh viewer
+    if (pendingFile) {
+      const uploadAndRefresh = async () => {
+        try {
+          const res = await fetch(`/api/presentations/${presentationId}/upload`, { method: "POST" })
+          const json = await res.json()
+          if (json.data?.presignedUrl) {
+            const uploadRes = await fetch(json.data.presignedUrl, {
+              method: "PUT",
+              body: pendingFile,
+              headers: { "Content-Type": "application/vnd.openxmlformats-officedocument.presentationml.presentation" },
+            })
+            if (uploadRes.ok) {
+              onStoragePathChange?.(json.data.path)
+              const confirmRes = await fetch(`/api/presentations/${presentationId}/upload/confirm`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ path: json.data.path }),
+              })
+              const confirmJson = await confirmRes.json()
+              if (confirmJson.data?.viewerUrl) {
+                const encodedUrl = encodeURIComponent(confirmJson.data.viewerUrl)
+                setBaseViewerUrl(encodedUrl)
+                setViewerUrl(`https://view.officeapps.live.com/op/embed.aspx?src=${encodedUrl}`)
+              }
+            }
+          }
+        } catch { /* upload failed */ }
+      }
+      uploadAndRefresh()
+    }
+
     setShowReUpload(false)
     setPendingDiff(null)
     setPendingSlides([])
+    setPendingFile(null)
   }
 
   // Keyboard nav: ← → arrow keys to navigate slides using a ref for stable handler
