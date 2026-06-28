@@ -499,44 +499,70 @@ export function SlideEditor({
 
         {/* Slide info modal */}
         {showSlideInfo && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#18181B]/40">
-            <div className="mx-4 w-full max-w-lg rounded-xl border border-zinc-200 bg-white p-6 shadow-xl">
-              <div className="flex items-center justify-between">
-                <h2 className="text-base font-semibold text-[#18181B]">
-                  Slide {current.number} — {current.title}
+          <div className="fixed inset-0 z-50 flex items-start justify-center bg-[#18181B]/40 pt-[10vh]">
+            <div className="mx-4 w-full max-w-lg rounded-xl border border-zinc-200 bg-white shadow-xl">
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-4">
+                <div className="flex items-center gap-3">
+                  <span className="inline-flex items-center rounded-md bg-zinc-100 px-2 py-0.5 text-[11px] font-semibold tracking-wider text-zinc-500 uppercase">
+                    Slide {current.number}
+                  </span>
                   {changedSlides.includes(current.number) && (
-                    <span className="ml-2 inline-block rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-700">
+                    <span className="inline-flex items-center rounded-md bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
                       Modified
                     </span>
                   )}
-                </h2>
+                </div>
                 <button
                   type="button"
                   onClick={() => setShowSlideInfo(false)}
-                  className="text-[#71717A] hover:text-[#18181B]"
+                  className="rounded-md p-1 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600"
                 >
                   <X className="h-4 w-4" />
                 </button>
               </div>
-              {current.bullets.length > 0 ? (
-                <ul className="mt-4 space-y-2">
-                  {current.bullets.map((b, i) => (
-                    <li key={i} className="flex gap-2 text-sm text-[#71717A]">
-                      <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-zinc-300" />
-                      <span className="leading-relaxed">{b}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="mt-4 text-sm text-[#71717A]">
-                  No additional content extracted for this slide.
-                </p>
-              )}
-              <div className="mt-6 flex justify-end">
+
+              {/* Title */}
+              <div className="px-5 pt-4 pb-2">
+                <h2 className="text-lg font-semibold leading-snug text-[#18181B]">
+                  {current.title}
+                </h2>
+              </div>
+
+              {/* Content */}
+              <div className="max-h-[50vh] overflow-y-auto px-5 pb-4">
+                {current.bullets.length > 0 ? (
+                  <div className="space-y-1.5">
+                    {current.bullets.map((b, i) => (
+                      <div
+                        key={i}
+                        className="group flex gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-zinc-50"
+                      >
+                        <div className="mt-0.5 w-0.5 flex-shrink-0 rounded-full bg-zinc-200 group-hover:bg-zinc-400" />
+                        <p className="text-sm leading-relaxed text-zinc-600 group-hover:text-zinc-800">
+                          {b}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center rounded-lg border border-dashed border-zinc-200 py-8">
+                    <p className="text-sm text-zinc-400">No additional content extracted</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="flex items-center justify-between border-t border-zinc-100 px-5 py-3">
+                <span className="text-[11px] text-zinc-400">
+                  {current.bullets.length > 0
+                    ? `${current.bullets.length} item${current.bullets.length === 1 ? "" : "s"}`
+                    : "Empty slide"}
+                </span>
                 <button
                   type="button"
                   onClick={() => setShowSlideInfo(false)}
-                  className="rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-[#71717A] hover:text-[#18181B]"
+                  className="inline-flex items-center justify-center rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-zinc-900"
                 >
                   Close
                 </button>
