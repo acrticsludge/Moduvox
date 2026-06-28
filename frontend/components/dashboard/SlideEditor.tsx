@@ -63,6 +63,7 @@ export function SlideEditor({
   const [reUploading, setReUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [viewerLoading, setViewerLoading] = useState(false)
+  const [iframeError, setIframeError] = useState(false)
   const [internalChangedSlides, setInternalChangedSlides] = useState<number[]>([])
   const [showRegenModal, setShowRegenModal] = useState(false)
   const [lastRegenCount, setLastRegenCount] = useState(0)
@@ -223,6 +224,7 @@ export function SlideEditor({
     // Reload Office viewer at the target slide
     if (baseViewerUrl) {
       setViewerLoading(true)
+      setIframeError(false)
       setViewerUrl(
         `https://view.officeapps.live.com/op/embed.aspx?src=${baseViewerUrl}&wdSlideIndex=${idx + 1}`,
       )
@@ -416,7 +418,7 @@ export function SlideEditor({
             <Loader2 className="h-6 w-6 animate-spin text-[#71717A]" />
             <p className="text-sm text-[#71717A]">Processing PPTX...</p>
           </div>
-        ) : viewerUrl ? (
+        ) : viewerUrl && !iframeError ? (
           <>
             <div className="relative flex-1">
               <iframe
@@ -424,7 +426,8 @@ export function SlideEditor({
                 className="h-full w-full"
                 style={{ minHeight: "60vh" }}
                 title="Presentation preview"
-                onLoad={() => setViewerLoading(false)}
+                onLoad={() => { setViewerLoading(false); setIframeError(false) }}
+                onError={() => setIframeError(true)}
               />
               {viewerLoading && !reUploading && (
                 <div className="absolute inset-0 flex items-center justify-center bg-zinc-100">
@@ -458,6 +461,11 @@ export function SlideEditor({
               </a>
             </div>
           </>
+        ) : iframeError ? (
+          <div className="flex h-full min-h-[60vh] flex-col items-center justify-center gap-2 p-8">
+            <p className="text-sm text-amber-600">Failed to load presentation preview.</p>
+            <p className="text-xs text-[#71717A]">Try refreshing or re-uploading the file.</p>
+          </div>
         ) : (
           <div className="flex h-full min-h-[60vh] items-center justify-center">
             <p className="text-sm text-[#71717A]">

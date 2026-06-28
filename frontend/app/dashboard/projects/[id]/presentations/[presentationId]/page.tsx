@@ -9,6 +9,7 @@ import type { Presentation as PresentationType } from "@/lib/validations/present
 import { CreatePageSidebar } from "@/components/dashboard/CreatePageSidebar"
 import { PptxUploadZone } from "@/components/dashboard/PptxUploadZone"
 import { SlideEditor } from "@/components/dashboard/SlideEditor"
+import { ErrorBoundary } from "@/components/dashboard/ErrorBoundary"
 
 type EditorState = {
   selectedVoiceId?: string
@@ -47,6 +48,7 @@ export default function PresentationCreatePage() {
   const [currentSlide, setCurrentSlide] = useState(0)
   const [slideData, setSlideData] = useState<{ title: string; bullets: string[] }[]>([])
   const [changedSlides, setChangedSlides] = useState<number[]>([])
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle")
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -98,6 +100,7 @@ export default function PresentationCreatePage() {
   // Auto-save with 2s debounce
   const saveState = useCallback(() => {
     if (saveTimer.current) clearTimeout(saveTimer.current)
+    setSaveStatus("saving")
     saveTimer.current = setTimeout(() => {
       const state: EditorState = {
         selectedVoiceId,
@@ -116,10 +119,10 @@ export default function PresentationCreatePage() {
         body: JSON.stringify(state),
       })
         .then((res) => {
-          if (res.ok) toast.success("Changes saved", { id: "editor-save" })
-          else toast.error("Failed to save changes", { id: "editor-save" })
+          if (res.ok) { setSaveStatus("saved"); toast.success("Changes saved", { id: "editor-save" }) }
+          else { setSaveStatus("error"); toast.error("Failed to save changes", { id: "editor-save" }) }
         })
-        .catch(() => toast.error("Failed to save changes", { id: "editor-save" }))
+        .catch(() => { setSaveStatus("error"); toast.error("Failed to save changes", { id: "editor-save" }) })
     }, 2000)
   }, [selectedVoiceId, controlInstructions, ultimateMode, narrations, audioGenerated, storagePath, currentSlide, slideData, changedSlides, params.presentationId])
 
@@ -199,29 +202,51 @@ export default function PresentationCreatePage() {
             <ChevronRight className="h-3.5 w-3.5 text-zinc-300" />
             <span className="font-medium text-[#18181B]">{presentation.title}</span>
           </div>
+          <div className="flex items-center gap-2">
+            {saveStatus === "saving" && (
+              <span className="flex items-center gap-1.5 text-xs text-zinc-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-zinc-300" />
+                Saving…
+              </span>
+            )}
+            {saveStatus === "saved" && (
+              <span className="flex items-center gap-1.5 text-xs text-green-600">
+                <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+                Saved
+              </span>
+            )}
+            {saveStatus === "error" && (
+              <span className="flex items-center gap-1.5 text-xs text-red-500">
+                <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+                Save failed
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Content */}
         {mode === "upload" ? (
           <PptxUploadZone onFileAccepted={handleFileAccepted} />
         ) : (
-          <SlideEditor
-            voiceSelected={!!selectedVoiceId}
-            file={uploadedFile}
-            presentationId={params.presentationId}
-            narrations={narrations}
-            onNarrationsChange={setNarrations}
-            audioGenerated={audioGenerated}
-            onAudioGeneratedChange={setAudioGenerated}
-            storagePath={storagePath}
-            onStoragePathChange={handleStoragePathChange}
-            currentSlide={currentSlide}
-            onCurrentSlideChange={setCurrentSlide}
-            slideData={slideData}
-            onSlideDataChange={setSlideData}
-            changedSlides={changedSlides}
-            onChangedSlidesChange={setChangedSlides}
-          />
+          <ErrorBoundary>
+            <SlideEditor
+              voiceSelected={!!selectedVoiceId}
+              file={uploadedFile}
+              presentationId={params.presentationId}
+              narrations={narrations}
+              onNarrationsChange={setNarrations}
+              audioGenerated={audioGenerated}
+              onAudioGeneratedChange={setAudioGenerated}
+              storagePath={storagePath}
+              onStoragePathChange={handleStoragePathChange}
+              currentSlide={currentSlide}
+              onCurrentSlideChange={setCurrentSlide}
+              slideData={slideData}
+              onSlideDataChange={setSlideData}
+              changedSlides={changedSlides}
+              onChangedSlidesChange={setChangedSlides}
+            />
+          </ErrorBoundary>
         )}
       </div>
     </>
