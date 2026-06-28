@@ -18,6 +18,7 @@ type EditorState = {
   narrations?: Record<number, string>
   audioGenerated?: boolean
   storagePath?: string
+  slideData?: { title: string; bullets: string[] }[]
 }
 
 function formatDate(iso: string) {
@@ -43,6 +44,7 @@ export default function PresentationCreatePage() {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
   const [storagePath, setStoragePath] = useState("")
   const [currentSlide, setCurrentSlide] = useState(0)
+  const [slideData, setSlideData] = useState<{ title: string; bullets: string[] }[]>([])
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -83,6 +85,7 @@ export default function PresentationCreatePage() {
             setMode("editor")
           }
           if (saved.currentSlide !== undefined) setCurrentSlide(saved.currentSlide)
+          if (saved.slideData) setSlideData(saved.slideData)
         }
       }
       setLoading(false)
@@ -101,6 +104,7 @@ export default function PresentationCreatePage() {
         audioGenerated,
         storagePath,
         currentSlide,
+        slideData,
       }
       fetch(`/api/presentations/${params.presentationId}/state`, {
         method: "PATCH",
@@ -112,7 +116,7 @@ export default function PresentationCreatePage() {
         })
         .catch(() => {})
     }, 2000)
-  }, [selectedVoiceId, controlInstructions, ultimateMode, narrations, audioGenerated, storagePath, currentSlide, params.presentationId])
+  }, [selectedVoiceId, controlInstructions, ultimateMode, narrations, audioGenerated, storagePath, currentSlide, slideData, params.presentationId])
 
   // Trigger auto-save when any editor state changes
   useEffect(() => {
@@ -196,6 +200,8 @@ export default function PresentationCreatePage() {
             onStoragePathChange={handleStoragePathChange}
             currentSlide={currentSlide}
             onCurrentSlideChange={setCurrentSlide}
+            slideData={slideData}
+            onSlideDataChange={setSlideData}
           />
         )}
       </div>

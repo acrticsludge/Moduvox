@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { Play, Loader2, ExternalLink, FileText, ChevronRight, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -19,6 +19,8 @@ export function SlideEditor({
   onStoragePathChange,
   currentSlide: externalCurrentSlide,
   onCurrentSlideChange,
+  slideData: externalSlideData,
+  onSlideDataChange,
 }: {
   voiceSelected: boolean
   file: File | null
@@ -31,6 +33,8 @@ export function SlideEditor({
   onStoragePathChange?: (v: string) => void
   currentSlide?: number
   onCurrentSlideChange?: (v: number) => void
+  slideData?: { title: string; bullets: string[] }[]
+  onSlideDataChange?: (v: { title: string; bullets: string[] }[]) => void
 }) {
   const [slides, setSlides] = useState<ParsedSlide[]>([])
   const [internalIndex, setInternalIndex] = useState(0)
@@ -59,6 +63,14 @@ export function SlideEditor({
         return
       }
 
+      // If we have cached slide data (restored from editor_state), use it
+      if (externalSlideData && externalSlideData.length > 0 && !file) {
+        if (!cancelled) {
+          setSlides(externalSlideData as ParsedSlide[])
+          setInternalIndex(externalCurrentSlide ?? 0)
+        }
+      }
+
       let path = ""
 
       if (file) {
@@ -79,7 +91,6 @@ export function SlideEditor({
           }
         } catch { /* upload failed */ }
       } else {
-        // Restore from saved storage path
         path = externalStoragePath!
       }
 
@@ -102,12 +113,13 @@ export function SlideEditor({
         } catch { /* confirm failed */ }
       }
 
-      // Extract text content for narration
-      if (file) {
+      // Extract text content for narration (only when we have a file to parse)
+      if (file && !externalSlideData) {
         try {
           const parsed = await parsePptxText(file!)
           if (!cancelled) {
             setSlides(parsed)
+            onSlideDataChange?.(parsed)
             setInternalIndex(externalCurrentSlide ?? 0)
           }
         } catch {
@@ -120,7 +132,7 @@ export function SlideEditor({
 
     processFile()
     return () => { cancelled = true }
-  }, [file, presentationId, externalStoragePath, externalCurrentSlide])
+  }, [file, presentationId, externalStoragePath, externalCurrentSlide, externalSlideData])
 
   const current = slides[currentIndex]
 
@@ -162,15 +174,21 @@ export function SlideEditor({
     }
   }
 
-  // Keyboard nav: ← → arrow keys to navigate slides
+  // Keyboard nav: ← → arrow keys to navigate slides using a ref for stable handler
+  const jumpRef = useRef(jumpToSlide)
+  jumpRef.current = jumpToSlide
+
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "ArrowLeft") jumpToSlide(current.number - 1)
-      if (e.key === "ArrowRight") jumpToSlide(current.number + 1)
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      const currentSlide = slides[currentIndex]
+      if (!currentSlide) return
+      if (e.key === "ArrowLeft") jumpRef.current(currentSlide.number - 1)
+      if (e.key === "ArrowRight") jumpRef.current(currentSlide.number + 1)
     }
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  })
+  }, [slides, currentIndex])
 
   if (loading) {
     return (
