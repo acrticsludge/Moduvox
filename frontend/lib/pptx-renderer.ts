@@ -68,6 +68,12 @@ function extractParagraphs(xml: string): string[] {
   return paragraphs
 }
 
+export type SlideChangeInfo = {
+  number: number
+  oldNumber: number | null
+  status: "unchanged" | "modified" | "added"
+}
+
 export type SlideDiff = {
   type: "identical" | "changed" | "replacement"
   added: number
@@ -75,6 +81,7 @@ export type SlideDiff = {
   changed: number
   unchanged: number
   message: string
+  changes: SlideChangeInfo[]
 }
 
 export function slideHash(title: string, bullets: string[]): string {
@@ -93,7 +100,12 @@ export function compareSlides(
   newSlides: { title: string; bullets: string[] }[],
 ): SlideDiff {
   if (oldSlides.length === 0) {
-    return { type: "changed", added: newSlides.length, removed: 0, changed: 0, unchanged: 0, message: `${newSlides.length} new slide(s) detected.` }
+    const changes: SlideChangeInfo[] = newSlides.map((_, i) => ({
+      number: i + 1,
+      oldNumber: null,
+      status: "added" as const,
+    }))
+    return { type: "changed", added: newSlides.length, removed: 0, changed: 0, unchanged: 0, message: `${newSlides.length} new slide(s) detected.`, changes }
   }
 
   const oldHashes = oldSlides.map((s) => slideHash(s.title, s.bullets))
@@ -103,10 +115,17 @@ export function compareSlides(
   const maxLen = Math.max(oldHashes.length, newHashes.length)
   const matchRatio = maxLen > 0 ? matchCount / maxLen : 1
 
+  // Identical
   if (matchRatio === 1 && oldHashes.length === newHashes.length) {
-    return { type: "identical", added: 0, removed: 0, changed: 0, unchanged: oldHashes.length, message: "No changes detected." }
+    const changes: SlideChangeInfo[] = newSlides.map((_, i) => ({
+      number: i + 1,
+      oldNumber: i + 1,
+      status: "unchanged" as const,
+    }))
+    return { type: "identical", added: 0, removed: 0, changed: 0, unchanged: oldHashes.length, message: "No changes detected.", changes }
   }
 
+  // Replacement
   if (matchRatio < 0.3 || Math.abs(oldHashes.length - newHashes.length) > Math.max(3, oldHashes.length * 0.3)) {
     return {
       type: "replacement",
@@ -115,12 +134,34 @@ export function compareSlides(
       changed: 0,
       unchanged: matchCount,
       message: "This appears to be a completely different presentation.",
+      changes: [],
     }
   }
 
-  const added = newHashes.filter((h) => !oldHashes.includes(h)).length
-  const removed = oldHashes.filter((h) => !newHashes.includes(h)).length
-  const changed = maxLen - matchCount - Math.min(added, removed)
+  // Changed — compute per-slide
+  const changes: SlideChangeInfo[] = []
+  let changedCount = 0
+  let addedCount = 0
+  let unchangedCount = 0
 
-  return { type: "changed", added, removed, changed: Math.max(0, changed), unchanged: matchCount, message: `${Math.max(0, changed)} slide(s) changed, ${added} added, ${removed} removed.` }
+  const maxPos = Math.max(oldHashes.length, newHashes.length)
+  for (let i = 0; i < maxPos; i++) {
+    if (i >= newHashes.length) {
+      // Old slide with no new counterpart → removed (won't appear in new deck)
+    } else if (i >= oldHashes.length) {
+      // New slide with no old counterpart → added
+      changes.push({ number: i + 1, oldNumber: null, status: "added" })
+      addedCount++
+    } else if (newHashes[i] === oldHashes[i]) {
+      // Same position, same content → unchanged
+      changes.push({ number: i + 1, oldNumber: i + 1, status: "unchanged" })
+      unchangedCount++
+    } else {
+      // Content at this position changed
+      changes.push({ number: i + 1, oldNumber: i + 1, status: "modified" })
+      changedCount++
+    }
+  }
+
+  return { type: "changed", added: addedCount, removed: oldHashes.length - (newHashes.length - addedCount), changed: changedCount, unchanged: unchangedCount, message: `${changedCount} slide(s) changed, ${addedCount} added, ${Math.max(0, oldHashes.length - (newHashes.length - addedCount))} removed.`, changes }
 }
