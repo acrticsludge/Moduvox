@@ -247,9 +247,11 @@ export function SlideEditor({
       onNarrationsChange?.({})
       setInternalAudioGenerated(false)
       onAudioGeneratedChange?.(false)
-      setInternalIndex(0)
-      onCurrentSlideChange?.(0)
     }
+
+    // Always reset to first slide on re-upload
+    setInternalIndex(0)
+    onCurrentSlideChange?.(0)
 
     // Replace slide data
     setSlides(pendingSlides)
@@ -285,12 +287,6 @@ export function SlideEditor({
       onNarrationsChange?.(mergedNarrations)
       setInternalChangedSlides(changed)
       onChangedSlidesChange?.(changed)
-    }
-
-    // Handle overflow
-    if (currentIndex >= pendingSlides.length) {
-      setInternalIndex(pendingSlides.length - 1)
-      onCurrentSlideChange?.(pendingSlides.length - 1)
     }
 
     // Show processing overlay
