@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { generateAudio, generateWithPreset } from "@/lib/voxcpm"
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
@@ -11,7 +12,42 @@ const presetAudioSchema = z.object({
   target_text: z.string().min(1, "target_text is required"),
   voice_description: z.string().min(1, "voice_description is required"),
   cfg_value: z.number().min(1).max(3).optional(),
+  presentation_id: z.string().uuid().optional(),
 }).strict()
+
+async function saveAudioToStorage(
+  audioUrl: string,
+  userId: string,
+  presentationId: string,
+): Promise<{ storagePath: string; signedUrl: string }> {
+  const admin = createAdminClient()
+  const storagePath = `${userId}/audio/${presentationId}.wav`
+
+  // Download audio from Gradio
+  const response = await fetch(audioUrl)
+  if (!response.ok) throw new Error("Failed to download generated audio")
+  const audioBuffer = Buffer.from(await response.arrayBuffer())
+
+  // Remove old audio if exists, then upload
+  await admin.storage.from("presentation-files").remove([storagePath]).catch(() => {})
+  const { error: uploadError } = await admin.storage
+    .from("presentation-files")
+    .upload(storagePath, audioBuffer, {
+      contentType: "audio/wav",
+      upsert: true,
+    })
+
+  if (uploadError) throw new Error(`Failed to save audio: ${uploadError.message}`)
+
+  // Generate signed URL (7 day expiry)
+  const { data: signed } = await admin.storage
+    .from("presentation-files")
+    .createSignedUrl(storagePath, 604800) // 7 days
+
+  if (!signed) throw new Error("Failed to generate signed URL")
+
+  return { storagePath, signedUrl: signed.signedUrl }
+}
 
 export async function POST(request: Request) {
   const supabase = await createClient()
@@ -83,6 +119,21 @@ export async function POST(request: Request) {
         parsed.data.voice_description.trim(),
         parsed.data.cfg_value ?? 2.0,
       )
+
+      // If presentation_id is provided, save audio to persistent storage
+      if (parsed.data.presentation_id) {
+        const { storagePath, signedUrl } = await saveAudioToStorage(
+          result.audioUrl,
+          user.id,
+          parsed.data.presentation_id,
+        )
+
+        return NextResponse.json({
+          data: { audioUrl: signedUrl, storagePath },
+        })
+      }
+
+      // Fallback: return Gradio URL (no persistence)
       return NextResponse.json({ data: result })
     } catch (err) {
       console.error("POST /api/generate/audio (preset):", err)

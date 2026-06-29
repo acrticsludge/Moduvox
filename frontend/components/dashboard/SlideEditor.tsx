@@ -10,6 +10,7 @@ import { compareSlides, type SlideDiff } from "@/lib/pptx-renderer"
 import toast from "react-hot-toast"
 import { ReUploadModal } from "./ReUploadModal"
 import { RegenerateModal } from "./RegenerateModal"
+import { AudioPlayer } from "./AudioPlayer"
 
 export function SlideEditor({
   voiceSelected,
@@ -28,6 +29,11 @@ export function SlideEditor({
   changedSlides: externalChangedSlides,
   onChangedSlidesChange,
   onRemovePpt,
+  voiceDescription,
+  audioUrl: externalAudioUrl,
+  onAudioUrlChange,
+  audioStoragePath: externalAudioStoragePath,
+  onAudioStoragePathChange,
 }: {
   voiceSelected: boolean
   file: File | null
@@ -45,6 +51,11 @@ export function SlideEditor({
   changedSlides?: number[]
   onChangedSlidesChange?: (v: number[]) => void
   onRemovePpt?: () => void
+  voiceDescription?: string
+  audioUrl?: string | null
+  onAudioUrlChange?: (v: string | null) => void
+  audioStoragePath?: string | null
+  onAudioStoragePathChange?: (v: string | null) => void
 }) {
   const [slides, setSlides] = useState<ParsedSlide[]>([])
   const [internalIndex, setInternalIndex] = useState(0)
@@ -71,6 +82,10 @@ export function SlideEditor({
   const [lastRegenCount, setLastRegenCount] = useState(0)
   const [generatingNarrations, setGeneratingNarrations] = useState(false)
   const [generationFailed, setGenerationFailed] = useState(false)
+  const [internalAudioUrl, setInternalAudioUrl] = useState<string | null>(null)
+  const [generatingAudio, setGeneratingAudio] = useState(false)
+
+  const audioUrl = externalAudioUrl ?? internalAudioUrl
   const [removingPpt, setRemovingPpt] = useState(false)
   const [removeConfirm, setRemoveConfirm] = useState(false)
 
@@ -377,6 +392,10 @@ export function SlideEditor({
       setViewerLoading(false)
       setIframeError(false)
       setSlideInput("1")
+
+      setInternalAudioUrl(null)
+      onAudioUrlChange?.(null)
+      onAudioStoragePathChange?.(null)
 
       // Signal parent to switch mode to upload
       onRemovePpt?.()
@@ -841,15 +860,66 @@ export function SlideEditor({
         {Object.keys(narrations).length > 0 && !audioGenerated && !generationFailed && (
           <Button
             onClick={async () => {
-              // TODO: wire actual TTS via POST /api/generate/audio
-              setInternalAudioGenerated(true)
-              onAudioGeneratedChange?.(true)
+              if (generatingAudio) return
+              setGeneratingAudio(true)
+
+              // Concatenate all narrations in slide order
+              const fullText = slides
+                .slice()
+                .sort((a, b) => a.number - b.number)
+                .map((s) => narrations[s.number] || "")
+                .filter(Boolean)
+                .join("\n\n")
+
+              if (!fullText.trim()) {
+                toast.error("No narration text to generate audio from.")
+                setGeneratingAudio(false)
+                return
+              }
+
+              try {
+                const res = await fetch("/api/generate/audio", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    target_text: fullText.trim(),
+                    voice_description: voiceDescription || "Natural, clear, professional speaking voice",
+                    cfg_value: 2.0,
+                    presentation_id: presentationId,
+                  }),
+                })
+
+                const json = await res.json()
+                if (!res.ok || !json.data?.audioUrl) {
+                  throw new Error(typeof json.error === "string" ? json.error : "Audio generation failed")
+                }
+
+                setInternalAudioUrl(json.data.audioUrl)
+                onAudioUrlChange?.(json.data.audioUrl)
+                if (json.data.storagePath) {
+                  onAudioStoragePathChange?.(json.data.storagePath)
+                }
+                setInternalAudioGenerated(true)
+                onAudioGeneratedChange?.(true)
+              } catch (err) {
+                toast.error(err instanceof Error ? err.message : "Audio generation failed. Please try again.")
+              }
+              setGeneratingAudio(false)
             }}
-            disabled={generatingNarrations}
+            disabled={generatingNarrations || generatingAudio}
             className="w-full"
           >
-            <Play className="h-4 w-4" />
-            Generate Audio
+            {generatingAudio ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Generating Audio…
+              </>
+            ) : (
+              <>
+                <Play className="h-4 w-4" />
+                Generate Audio
+              </>
+            )}
           </Button>
         )}
 
@@ -880,30 +950,9 @@ export function SlideEditor({
             </Button>
 
             {/* Audio player */}
-            <div
-              className={cn(
-                "overflow-hidden transition-all duration-500",
-                audioGenerated ? "max-h-24 opacity-100" : "max-h-0 opacity-0",
-              )}
-            >
-              <div className="flex items-center gap-4 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
-                <button
-                  type="button"
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-[#18181B] text-white transition-colors hover:bg-[#27272A]"
-                >
-                  <Play className="h-4 w-4" />
-                </button>
-                <div className="flex flex-1 items-center gap-2">
-                  <span className="text-xs text-[#71717A]">0:00</span>
-                  <div className="flex-1">
-                    <div className="h-1.5 rounded-full bg-zinc-200">
-                      <div className="h-1.5 w-0 rounded-full bg-[#18181B]" />
-                    </div>
-                  </div>
-                  <span className="text-xs text-[#71717A]">0:00</span>
-                </div>
-              </div>
-            </div>
+            {audioUrl && (
+              <AudioPlayer audioUrl={audioUrl} />
+            )}
           </>
         )}
       </div>
