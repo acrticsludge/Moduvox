@@ -237,11 +237,12 @@ export function SlideEditor({
                 toast.error(`Rate limit reached. Try again in ${remaining}s, or add your own API key in Settings.`, { id: toastId })
                 remaining--
               } else {
-                clearInterval(interval)
+                clearInterval(rateLimitIntervalRef.current)
+                rateLimitIntervalRef.current = undefined
               }
             }
             updateMsg()
-            const interval = setInterval(updateMsg, 1000)
+            rateLimitIntervalRef.current = setInterval(updateMsg, 1000)
           } else {
             toast.error(json.message || "Generation limit reached. Add your Gemini API key in Settings.")
           }
@@ -352,7 +353,11 @@ export function SlideEditor({
     setRemovingPpt(true)
     setRemoveConfirm(false)
     try {
-      await fetch(`/api/presentations/${presentationId}/file`, { method: "DELETE" })
+      const res = await fetch(`/api/presentations/${presentationId}/file`, { method: "DELETE" })
+      if (!res.ok) {
+        toast.error("Failed to remove PPTX. Please try again.")
+        return
+      }
 
       // Reset all editor state (voice settings preserved by parent)
       setInternalNarrations({})
@@ -377,8 +382,9 @@ export function SlideEditor({
       onRemovePpt?.()
     } catch {
       toast.error("Failed to remove PPTX")
+    } finally {
+      setRemovingPpt(false)
     }
-    setRemovingPpt(false)
   }
 
   function applyReUpload() {
@@ -497,6 +503,17 @@ export function SlideEditor({
       setPendingFile(null)
     }
   }
+
+  // Ref to clean up rate limit countdown interval on unmount
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rateLimitIntervalRef = useRef<any>(undefined)
+
+  // Clean up rate limit interval on unmount
+  useEffect(() => {
+    return () => {
+      if (rateLimitIntervalRef.current) clearInterval(rateLimitIntervalRef.current)
+    }
+  }, [])
 
   // Keyboard nav: ← → arrow keys to navigate slides using a ref for stable handler
   const jumpRef = useRef(jumpToSlide)

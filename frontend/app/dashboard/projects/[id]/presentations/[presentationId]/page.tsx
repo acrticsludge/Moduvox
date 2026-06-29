@@ -282,7 +282,7 @@ export default function PresentationCreatePage() {
               onSlideDataChange={setSlideData}
               changedSlides={changedSlides}
               onChangedSlidesChange={handleChangedSlidesChange}
-              onRemovePpt={() => setMode("upload")}
+              onRemovePpt={() => { setMode("upload"); setStoragePath("") }}
             />
           </ErrorBoundary>
         )}

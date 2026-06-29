@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Plus, ChevronRight, FileText, Pencil, FolderKanban, BookOpen, GraduationCap, Shield, Presentation, Notebook, ClipboardList } from "lucide-react"
+import toast from "react-hot-toast"
 import { createClient } from "@/lib/supabase/client"
 import type { Project } from "@/lib/validations/project"
 import type { Presentation as PresentationType } from "@/lib/validations/presentation"
@@ -70,7 +71,7 @@ export default function ProjectDetailPage() {
         body: JSON.stringify({ status: "archived" }),
       })
       if (res.ok) fetchData()
-    } catch { /* ignore */ }
+    } catch { toast.error("Failed to archive presentation") }
     setArchiving((prev) => { const next = new Set(prev); next.delete(p.id); return next })
   }
 
@@ -83,7 +84,7 @@ export default function ProjectDetailPage() {
         body: JSON.stringify({ status: "draft" }),
       })
       if (res.ok) fetchData()
-    } catch { /* ignore */ }
+    } catch { toast.error("Failed to restore presentation") }
     setArchiving((prev) => { const next = new Set(prev); next.delete(p.id); return next })
   }
 
