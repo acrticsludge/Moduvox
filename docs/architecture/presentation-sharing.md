@@ -152,7 +152,7 @@ import { z } from "zod"
 export const updateShareSettingsSchema = z.object({
   email_gate_enabled: z.boolean().optional(),
   password: z.string().min(1).max(128).nullable().optional(),  // set to null to clear
-  expires_at: z.string().datetime().nullable().optional(),       // ISO 8601 or null to clear
+  expires_at: z.string().datetime().nullable().optional(),       // ISO 8601 datetime (e.g. 2026-07-15T14:30:00Z) or null to clear
 })
 
 export const emailGateSchema = z.object({
@@ -189,7 +189,7 @@ export type TrackEventInput = z.infer<typeof trackEventSchema>
 
 | Component | Path | Purpose |
 |---|---|---|
-| `ShareSettingsPanel` | `components/dashboard/ShareSettingsPanel.tsx` | Panel in editor: toggle email gate, set/clear password, set expiration, copy link, copy invite message, info tooltip about magic link verification |
+| `ShareSettingsPanel` | `components/dashboard/ShareSettingsPanel.tsx` | Panel in editor: toggle email gate, set/clear password, set expiration date & time, copy link, copy invite message, info tooltip about magic link verification |
 | `ViewerTable` | `components/dashboard/ViewerTable.tsx` | Table: Name, Email, Status, Completion %, Time, Date. Sortable. CSV export button. |
 | `ViewPlayer` | `components/view/ViewPlayer.tsx` | Guest-facing player — slide display, combined audio with auto-advance, prev/next, play/pause, progress bar |
 | `EmailGateDialog` | `components/view/EmailGateDialog.tsx` | Modal: name + email + consent checkbox + "Send Verification Link" button |
@@ -219,7 +219,7 @@ export type TrackEventInput = z.infer<typeof trackEventSchema>
 Editor Page → Share tab/section (shown after audio generated)
   → Toggle email gate on/off
   → Set/clear password (POST /api/presentations/[id]/share — bcrypt hashed)
-  → Set expiration date
+  → Set expiration date & time (viewer cannot access after this moment)
   → Copy link: moduvox.com/view/{share_token}
   → Copy invite message (pre-formatted with link + instructions)
 ```
@@ -330,7 +330,7 @@ The player maintains a `currentTime` tracker on the combined `<audio>` element. 
 
 ### Phase 2: API — Share Settings
 
-**Goal:** Owner can toggle email gate, set/clear password, set expiration.
+**Goal:** Owner can toggle email gate, set/clear password, set expiration date & time.
 
 **Steps:**
 
@@ -348,7 +348,7 @@ The player maintains a `currentTime` tracker on the combined `<audio>` element. 
   - Shows share link with copy button
   - Email gate toggle with info text about magic link verification
   - Password set/clear (input to set, button to clear)
-  - Expiration date picker (basic `<input type="date">`)
+  - Expiration date & time picker (`<input type="datetime-local">`, converted to ISO 8601 before sending to API)
   - "Copy Invite" button — copies pre-formatted message
   - Fetches from `GET /api/presentations/[id]/share` on mount
   - Mutations via `PATCH` on change
@@ -356,7 +356,7 @@ The player maintains a `currentTime` tracker on the combined `<audio>` element. 
   - Show as a tab or expandable section below the audio player
   - Only visible when `audioGenerated === true`
 
-**Verification:** Owner can toggle email gate, set password (reload — hash persists), set expiration, copy link.
+**Verification:** Owner can toggle email gate, set password (reload — hash persists), set expiration date & time, copy link.
 
 ---
 

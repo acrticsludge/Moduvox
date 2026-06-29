@@ -56,7 +56,7 @@ export function RegenerateModal({
         )}
 
         {/* Slide list */}
-        <div className="flex-1 overflow-y-auto px-6 py-4 thin-scrollbar">
+        <div className="flex-1 overflow-y-auto px-6 py-4 hide-scrollbar">
           {affectedSlides.length === 0 ? (
             <p className="text-sm text-[#71717A]">No modified slides to regenerate.</p>
           ) : (
