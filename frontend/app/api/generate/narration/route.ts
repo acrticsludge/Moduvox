@@ -11,7 +11,7 @@ type SlideInput = {
 // ── Rate limiter (shared-key only) ──────────────────────────
 const rateLimitMap = new Map<string, number[]>()
 const RATE_LIMIT_WINDOW = 60_000 // 1 minute
-const RATE_LIMIT_MAX = 10        // 10 requests per minute per user
+const RATE_LIMIT_MAX = 5         // matches Gemini 2.5 Flash free tier
 
 function checkRateLimit(key: string): boolean {
   const now = Date.now()
@@ -92,7 +92,7 @@ export async function POST(request: Request) {
     }
 
     const genAI = new GoogleGenerativeAI(apiKey)
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" })
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" })
 
     // ── Build prompt with injection guard ───────────────────
     const TITLE_CAP = 200  // max chars per title

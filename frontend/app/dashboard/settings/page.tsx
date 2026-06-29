@@ -381,7 +381,7 @@ export default function SettingsPage() {
                 <h2 className="text-base font-semibold text-[#18181B]">Gemini API Key</h2>
                 <p className="mt-1 text-sm text-[#71717A]">
                   Used for AI narration generation. Add your own key for unlimited generation
-                  (shared key is capped at 10 requests/minute).
+                  (shared key is capped at 5 requests/minute).
                 </p>
 
                 {geminiMessage && (
