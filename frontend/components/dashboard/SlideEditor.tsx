@@ -27,6 +27,7 @@ export function SlideEditor({
   onSlideDataChange,
   changedSlides: externalChangedSlides,
   onChangedSlidesChange,
+  onRemovePpt,
 }: {
   voiceSelected: boolean
   file: File | null
@@ -43,6 +44,7 @@ export function SlideEditor({
   onSlideDataChange?: (v: { title: string; bullets: string[] }[]) => void
   changedSlides?: number[]
   onChangedSlidesChange?: (v: number[]) => void
+  onRemovePpt?: () => void
 }) {
   const [slides, setSlides] = useState<ParsedSlide[]>([])
   const [internalIndex, setInternalIndex] = useState(0)
@@ -69,6 +71,8 @@ export function SlideEditor({
   const [lastRegenCount, setLastRegenCount] = useState(0)
   const [generatingNarrations, setGeneratingNarrations] = useState(false)
   const [generationFailed, setGenerationFailed] = useState(false)
+  const [removingPpt, setRemovingPpt] = useState(false)
+  const [removeConfirm, setRemoveConfirm] = useState(false)
 
   // Use controlled props when provided, otherwise internal state
   const narrations = externalNarrations ?? internalNarrations
@@ -327,6 +331,40 @@ export function SlideEditor({
     })
   }
 
+  async function handleRemovePpt() {
+    if (removingPpt) return
+    setRemovingPpt(true)
+    setRemoveConfirm(false)
+    try {
+      await fetch(`/api/presentations/${presentationId}/file`, { method: "DELETE" })
+
+      // Reset all editor state (voice settings preserved by parent)
+      setInternalNarrations({})
+      onNarrationsChange?.({})
+      setInternalAudioGenerated(false)
+      onAudioGeneratedChange?.(false)
+      setSlides([])
+      setInternalIndex(0)
+      onCurrentSlideChange?.(0)
+      setViewerUrl(null)
+      setBaseViewerUrl("")
+      onSlideDataChange?.([])
+      setInternalChangedSlides([])
+      onChangedSlidesChange?.([])
+      setGenerationFailed(false)
+      setGeneratingNarrations(false)
+      setViewerLoading(false)
+      setIframeError(false)
+      setSlideInput("1")
+
+      // Signal parent to switch mode to upload
+      onRemovePpt?.()
+    } catch {
+      toast.error("Failed to remove PPTX")
+    }
+    setRemovingPpt(false)
+  }
+
   function applyReUpload() {
     if (!pendingSlides.length) return
     setLastRegenCount(0)
@@ -539,9 +577,35 @@ export function SlideEditor({
                     const f = e.target.files?.[0]
                     if (f) handleReUploadFile(f)
                     e.target.value = ""
+                    setRemoveConfirm(false)
                   }}
                 />
               </label>
+              <button
+                type="button"
+                onClick={() => {
+                  if (removeConfirm) {
+                    setRemoveConfirm(false)
+                    handleRemovePpt()
+                  } else {
+                    setRemoveConfirm(true)
+                  }
+                }}
+                disabled={removingPpt}
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium shadow-sm transition-colors ${
+                  removeConfirm
+                    ? "border-red-300 bg-red-50 text-red-600 hover:bg-red-100"
+                    : "border-zinc-200 bg-white text-[#71717A] hover:text-red-600"
+                }`}
+              >
+                {removingPpt ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : removeConfirm ? (
+                  "Confirm?"
+                ) : (
+                  "Remove PPT"
+                )}
+              </button>
               <a
                 href={viewerUrl.replace("embed.aspx", "view.aspx")}
                 target="_blank"
