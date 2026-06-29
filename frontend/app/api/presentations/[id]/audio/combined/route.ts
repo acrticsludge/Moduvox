@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { concatWavBuffers } from "@/lib/wav-utils"
+import { concatWavBuffers, isValidWav } from "@/lib/wav-utils"
 
 export async function GET(
   _request: Request,
@@ -24,7 +24,7 @@ export async function GET(
     .list(slidesDir, { limit: 200 })
 
   if (!files || files.length === 0) {
-    return new NextResponse("No audio found", { status: 404 })
+    return NextResponse.json({ error: "No audio found" }, { status: 404 })
   }
 
   // Parse slide numbers from filenames, sort ascending
@@ -37,7 +37,7 @@ export async function GET(
     .sort((a, b) => a!.number - b!.number)
 
   if (slideFiles.length === 0) {
-    return new NextResponse("No slide audio files found", { status: 404 })
+    return NextResponse.json({ error: "No slide audio files found" }, { status: 404 })
   }
 
   // Read and concatenate all per-slide WAVs
@@ -48,7 +48,12 @@ export async function GET(
       .download(`${slidesDir}/${sf!.name}`)
 
     if (data) {
-      wavBuffers.push(Buffer.from(await data.arrayBuffer()))
+      const buf = Buffer.from(await data.arrayBuffer())
+      if (isValidWav(buf)) {
+        wavBuffers.push(buf)
+      } else {
+        console.warn(`Skipping invalid WAV: ${sf!.name} (${buf.length} bytes)`)
+      }
     }
   }
 

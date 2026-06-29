@@ -3,6 +3,7 @@ import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { generateWithPreset } from "@/lib/voxcpm"
+import { isValidWav } from "@/lib/wav-utils"
 
 const slideSchema = z.object({
   slide_number: z.number().int().min(1),
@@ -43,6 +44,11 @@ export async function POST(request: Request) {
     const gradioRes = await fetch(result.audioUrl)
     if (!gradioRes.ok) throw new Error("Failed to download generated audio")
     const audioBuffer = Buffer.from(await gradioRes.arrayBuffer())
+
+    if (!isValidWav(audioBuffer)) {
+      const preview = audioBuffer.subarray(0, 200).toString("utf8").slice(0, 100)
+      throw new Error(`Gradio response is not a valid WAV (starts with: ${preview})`)
+    }
 
     // Save to storage
     const storagePath = `${user.id}/audio/${presentation_id}/slides/slide-${slide_number}.wav`

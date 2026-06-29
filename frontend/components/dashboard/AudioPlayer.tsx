@@ -13,9 +13,11 @@ function formatTime(seconds: number): string {
 export function AudioPlayer({
   audioUrl,
   onEnded,
+  onError,
 }: {
   audioUrl: string | null
   onEnded?: () => void
+  onError?: () => void
 }) {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const [playing, setPlaying] = useState(false)
@@ -23,6 +25,7 @@ export function AudioPlayer({
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const [seeking, setSeeking] = useState(false)
+  const [error, setError] = useState(false)
   const progressRef = useRef<HTMLDivElement>(null)
 
   // Reset when audioUrl changes
@@ -31,6 +34,7 @@ export function AudioPlayer({
     setCurrentTime(0)
     setDuration(0)
     setLoading(true)
+    setError(false)
   }, [audioUrl])
 
   const handleTimeUpdate = useCallback(() => {
@@ -73,6 +77,15 @@ export function AudioPlayer({
   }
 
   if (!audioUrl) return null
+
+  if (error) {
+    return (
+      <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-600">
+        <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-red-500" />
+        Failed to load audio. Try generating audio again.
+      </div>
+    )
+  }
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0
 
@@ -130,7 +143,7 @@ export function AudioPlayer({
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
         onEnded={handleEnded}
-        onError={() => setLoading(false)}
+        onError={() => { setLoading(false); setError(true); onError?.() }}
       />
     </div>
   )

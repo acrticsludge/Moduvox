@@ -199,6 +199,14 @@ ${slideBlocks.join("\n\n")}`
       }, { status: 429 })
     }
 
+    // Detect 503 Service Unavailable (temporary — retryable)
+    if (msg.includes("503") || msg.includes("Service Unavailable")) {
+      return NextResponse.json({
+        error: "service_unavailable",
+        message: "Gemini is temporarily overloaded. Wait a moment and try again, or add your own API key in Settings.",
+      }, { status: 503 })
+    }
+
     return NextResponse.json({ error: "Failed to generate narrations. Please try again." }, { status: 500 })
   }
 }

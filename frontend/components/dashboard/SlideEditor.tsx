@@ -276,6 +276,12 @@ export function SlideEditor({
         return false
       }
 
+      // 503 Service Unavailable — temporary, retryable
+      if (json.error === "service_unavailable") {
+        toast.error(json.message || "Gemini is temporarily overloaded. Wait a moment and try again.")
+        return false
+      }
+
       if (json.data?.narrations && Object.keys(json.data.narrations).length > 0) {
         // Merge new narrations with existing ones
         const updated = { ...narrations, ...json.data.narrations }
@@ -1042,7 +1048,16 @@ export function SlideEditor({
 
             {/* Audio player */}
             {audioUrl && (
-              <AudioPlayer audioUrl={audioUrl} />
+              <AudioPlayer
+                audioUrl={audioUrl}
+                onError={() => {
+                  setInternalAudioGenerated(false)
+                  onAudioGeneratedChange?.(false)
+                  setInternalAudioUrl(null)
+                  onAudioUrlChange?.(null)
+                  onAudioStoragePathChange?.(null)
+                }}
+              />
             )}
           </>
         )}
