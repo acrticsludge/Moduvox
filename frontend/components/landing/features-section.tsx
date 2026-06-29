@@ -12,7 +12,7 @@ const featureGroups = [
       {
         icon: Upload,
         name: "PPTX Upload & Parsing",
-        desc: "Drop in any .pptx file. We extract every slide, speaker notes, and text — no formatting lost.",
+        desc: "Drop in any .pptx file. We extract every slide, speaker notes, and text with full formatting preserved.",
       },
       {
         icon: FileText,
@@ -42,12 +42,12 @@ const featureGroups = [
       {
         icon: Smile,
         name: "Emotion Control",
-        desc: "12 emotions — excited, calm, angry, whisper, and more. Change delivery per slide, not just words.",
+        desc: "Pick from 12 emotions like excited, calm, angry, or whisper. Change delivery per slide, not just words.",
       },
       {
         icon: Music,
         name: "Audio Assembly",
-        desc: "Per-slide audio is stitched together seamlessly. No clicks, no dead air, no manual syncing.",
+        desc: "Per-slide audio is stitched together automatically. No clicks, no dead air, no manual syncing.",
       },
     ],
   },
@@ -72,12 +72,12 @@ const featureGroups = [
       {
         icon: Link,
         name: "Shareable Link + Password",
-        desc: "Get a unique URL per presentation. Optionally protect it with a password — like a Google Doc.",
+        desc: "Get a unique URL per presentation. Optionally protect it with a password, just like a Google Doc.",
       },
     ],
   },
   {
-    title: "Smarter Updates",
+    title: "Updates",
     features: [
       {
         icon: RotateCcw,
