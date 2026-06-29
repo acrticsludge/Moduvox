@@ -8,6 +8,7 @@ export function RegenerateModal({
   slides,
   changedSlides,
   generating,
+  voiceChangedSinceAudio,
   onNavigate,
   onConfirm,
   onCancel,
@@ -15,13 +16,16 @@ export function RegenerateModal({
   slides: ParsedSlide[]
   changedSlides: number[]
   generating: boolean
+  voiceChangedSinceAudio?: boolean
   onNavigate: (slideNumber: number) => void
   onConfirm: () => void
   onCancel: () => void
 }) {
   const [expandedSlide, setExpandedSlide] = useState<number | null>(null)
-  const changedSet = new Set(changedSlides)
-  const displaySlides = slides.filter((s) => changedSet.has(s.number))
+  // When voice changed, ALL slides need regeneration
+  const affectedSlides = voiceChangedSinceAudio
+    ? slides
+    : slides.filter((s) => new Set(changedSlides).has(s.number))
 
   function toggleExpand(num: number) {
     setExpandedSlide(expandedSlide === num ? null : num)
@@ -44,13 +48,20 @@ export function RegenerateModal({
           </button>
         </div>
 
+        {/* Voice changed banner */}
+        {voiceChangedSinceAudio && (
+          <div className="flex-shrink-0 mx-6 mt-4 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">
+            Voice settings changed. All slides will be regenerated with the new voice.
+          </div>
+        )}
+
         {/* Slide list */}
         <div className="flex-1 overflow-y-auto px-6 py-4">
-          {displaySlides.length === 0 ? (
+          {affectedSlides.length === 0 ? (
             <p className="text-sm text-[#71717A]">No modified slides to regenerate.</p>
           ) : (
             <div className="space-y-1">
-              {displaySlides.map((slide) => (
+              {affectedSlides.map((slide) => (
                 <div
                   key={slide.number}
                   className="overflow-hidden rounded-lg border border-zinc-100"
@@ -117,7 +128,7 @@ export function RegenerateModal({
           <button
             type="button"
             onClick={onConfirm}
-            disabled={displaySlides.length === 0 || generating}
+            disabled={affectedSlides.length === 0 || generating}
             className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#18181B] px-4 py-2.5 text-sm font-medium text-white transition-all hover:bg-[#27272A] disabled:opacity-50"
           >
             {generating ? (
@@ -126,7 +137,7 @@ export function RegenerateModal({
                 Regenerating...
               </>
             ) : (
-              `Regenerate Audio for ${displaySlides.length} slide(s)`
+              `Regenerate Audio for ${affectedSlides.length} slide(s)`
             )}
           </button>
         </div>

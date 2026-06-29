@@ -92,6 +92,7 @@ export function SlideEditor({
   const [audioGenError, setAudioGenError] = useState<string | null>(null)
   const [audioGenFailed, setAudioGenFailed] = useState(false)
   const originalNarrationsRef = useRef<Record<number, string>>({})
+  const generatedWithVoiceRef = useRef<{ voiceId: string | null; description: string } | null>(null)
 
   const audioUrl = externalAudioUrl ?? internalAudioUrl
   const [removingPpt, setRemovingPpt] = useState(false)
@@ -234,6 +235,17 @@ export function SlideEditor({
       originalNarrationsRef.current = { ...narrations }
     }
   }, [narrations])
+
+  // Track whether voice settings changed since last audio gen — used by regenerate modal
+  const [voiceChangedSinceAudio, setVoiceChangedSinceAudio] = useState(false)
+  useEffect(() => {
+    if (!audioGenerated) return
+    const snap = generatedWithVoiceRef.current
+    if (!snap) return
+    const voiceChanged = snap.voiceId !== (selectedVoiceId ?? null)
+    const descChanged = snap.description !== (voiceDescription ?? "")
+    setVoiceChangedSinceAudio(voiceChanged || descChanged)
+  }, [selectedVoiceId, voiceDescription, audioGenerated])
 
   // Shared helper: generate narrations via API. Returns true if narrations were generated.
   async function generateNarrations(targetSlides: ParsedSlide[], showRateLimitPrompt = true): Promise<boolean> {
@@ -403,6 +415,7 @@ export function SlideEditor({
       onAudioUrlChange?.(combinedUrl)
       setInternalAudioGenerated(true)
       onAudioGeneratedChange?.(true)
+      generatedWithVoiceRef.current = { voiceId: selectedVoiceId ?? null, description: voiceDescription ?? "" }
 
       // Clear changed status for regenerated slides
       if (selectedSlides) {
@@ -1027,6 +1040,7 @@ export function SlideEditor({
               onAudioUrlChange?.(combinedUrl)
               setInternalAudioGenerated(true)
               onAudioGeneratedChange?.(true)
+              generatedWithVoiceRef.current = { voiceId: selectedVoiceId ?? null, description: voiceDescription ?? "" }
               setGeneratingAudio(false)
               setAudioGenProgress(null)
             }}
@@ -1075,6 +1089,13 @@ export function SlideEditor({
                 {lastRegenCount > 0
                   ? `Audio regenerated for ${lastRegenCount} slide(s)`
                   : `Audio generated for all ${total} slides`}
+              </div>
+            )}
+
+            {/* Voice changed banner */}
+            {voiceChangedSinceAudio && (
+              <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">
+                Voice settings changed. Regenerate audio to apply the new voice.
               </div>
             )}
 
@@ -1127,8 +1148,9 @@ export function SlideEditor({
           slides={slides}
           changedSlides={changedSlides}
           generating={generating}
+          voiceChangedSinceAudio={voiceChangedSinceAudio}
           onNavigate={(num) => jumpToSlide(num)}
-          onConfirm={() => handleGenerate(new Set(changedSlides))}
+          onConfirm={() => handleGenerate(voiceChangedSinceAudio ? undefined : new Set(changedSlides))}
           onCancel={() => setShowRegenModal(false)}
         />
       )}
