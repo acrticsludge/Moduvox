@@ -92,7 +92,7 @@ export async function POST(request: Request) {
     }
 
     const genAI = new GoogleGenerativeAI(apiKey)
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" })
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro" })
 
     // ── Build prompt with injection guard ───────────────────
     const TITLE_CAP = 200  // max chars per title
@@ -140,8 +140,16 @@ ${slideBlocks.join("\n\n")}`
       }, { status: 502 })
     }
 
-    // Warn if some slides were skipped
+    // Return error if Gemini skipped ALL slides (empty/invalid response)
     const missing = slides.filter((s) => !(s.number in narrations))
+    if (missing.length === slides.length) {
+      console.error(`Gemini returned empty response for all ${slides.length} slides`)
+      return NextResponse.json({
+        error: "AI returned an empty response. Please try again.",
+      }, { status: 502 })
+    }
+
+    // Warn if some slides were skipped (partial response)
     if (missing.length > 0) {
       console.warn(`Gemini skipped ${missing.length}/${slides.length} slides:`, missing.map((s) => s.number))
     }

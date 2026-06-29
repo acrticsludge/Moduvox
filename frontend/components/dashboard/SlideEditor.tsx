@@ -68,6 +68,7 @@ export function SlideEditor({
   const [showRegenModal, setShowRegenModal] = useState(false)
   const [lastRegenCount, setLastRegenCount] = useState(0)
   const [generatingNarrations, setGeneratingNarrations] = useState(false)
+  const [generationFailed, setGenerationFailed] = useState(false)
 
   // Use controlled props when provided, otherwise internal state
   const narrations = externalNarrations ?? internalNarrations
@@ -194,11 +195,9 @@ export function SlideEditor({
     if (Object.keys(narrations).length > 0) return
     if (generatingNarrations) return
     if (!file) return // Only auto-generate for freshly uploaded files, not restored state
+    setGenerationFailed(false)
     generateNarrations(slides).then((ok) => {
-      if (ok) {
-        setInternalAudioGenerated(true)
-        onAudioGeneratedChange?.(true)
-      }
+      if (!ok) setGenerationFailed(true)
     })
   }, [slides, file])
 
@@ -236,7 +235,7 @@ export function SlideEditor({
         return false
       }
 
-      if (json.data?.narrations) {
+      if (json.data?.narrations && Object.keys(json.data.narrations).length > 0) {
         // Merge new narrations with existing ones
         const updated = { ...narrations, ...json.data.narrations }
         setInternalNarrations(updated)
@@ -271,6 +270,7 @@ export function SlideEditor({
 
     // Only mark as generated and clean up if narrations were actually created
     if (ok) {
+      setGenerationFailed(false)
       setInternalAudioGenerated(true)
       onAudioGeneratedChange?.(true)
 
@@ -392,7 +392,9 @@ export function SlideEditor({
       // Auto-generate AI narrations for changed/added slides (silent — no toast on rate limit)
       const slidesToRegen = pendingSlides.filter((s) => changed.includes(s.number))
       if (slidesToRegen.length > 0) {
-        generateNarrations(slidesToRegen, false)
+        generateNarrations(slidesToRegen, false).then((ok) => {
+          if (!ok) setGenerationFailed(true)
+        })
       }
     }
 
@@ -715,34 +717,46 @@ export function SlideEditor({
           )}
         </div>
 
-        {/* Generate Audio button — shown until first generation */}
-        {!audioGenerated && (
-          <div className="space-y-1">
-            <Button
-              onClick={() => handleGenerate()}
-              disabled={generating || generatingNarrations || !voiceSelected}
-              className="w-full"
-            >
-              {generating || generatingNarrations ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Generating Audio…
-                </>
-              ) : (
-                <>
-                  <Play className="h-4 w-4" />
-                  Generate Audio
-                </>
-              )}
-            </Button>
-            {!voiceSelected && (
-              <p className="text-xs text-[#71717A] text-center">
-                Select a voice first to generate audio.
-              </p>
+        {/* Try Again — shown when auto-gen narration failed (no narrations) */}
+        {generationFailed && (
+          <Button
+            onClick={async () => {
+              setGenerationFailed(false)
+              const ok = await generateNarrations(slides, true)
+              if (!ok) setGenerationFailed(true)
+            }}
+            disabled={generating || generatingNarrations}
+            variant="outline"
+            className="w-full"
+          >
+            {generating || generatingNarrations ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Trying again…
+              </>
+            ) : (
+              "Try again"
             )}
-          </div>
+          </Button>
         )}
 
+        {/* Generate Audio — shown when narration exists but TTS not done */}
+        {Object.keys(narrations).length > 0 && !audioGenerated && !generationFailed && (
+          <Button
+            onClick={async () => {
+              // TODO: wire actual TTS via POST /api/generate/audio
+              setInternalAudioGenerated(true)
+              onAudioGeneratedChange?.(true)
+            }}
+            disabled={generatingNarrations}
+            className="w-full"
+          >
+            <Play className="h-4 w-4" />
+            Generate Audio
+          </Button>
+        )}
+
+        {/* Audio section — shown after TTS has been done */}
         {audioGenerated && (
           <>
             {changedSlides.length === 0 && (
