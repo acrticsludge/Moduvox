@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import { Play, Loader2, ExternalLink, FileText, ChevronRight, X, TriangleAlert } from "lucide-react"
+import { Play, Loader2, ExternalLink, FileText, ChevronRight, X, TriangleAlert, Share2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
@@ -11,8 +11,7 @@ import toast from "react-hot-toast"
 import { ReUploadModal } from "./ReUploadModal"
 import { RegenerateModal } from "./RegenerateModal"
 import { AudioPlayer } from "./AudioPlayer"
-import { ShareSettingsPanel } from "./ShareSettingsPanel"
-import { ViewerTable } from "./ViewerTable"
+import { SharePresentationModal } from "./SharePresentationModal"
 
 export function SlideEditor({
   voiceSelected,
@@ -85,6 +84,7 @@ export function SlideEditor({
   const [iframeError, setIframeError] = useState(false)
   const [internalChangedSlides, setInternalChangedSlides] = useState<number[]>([])
   const [showRegenModal, setShowRegenModal] = useState(false)
+  const [showShareModal, setShowShareModal] = useState(false)
   const [lastRegenCount, setLastRegenCount] = useState(0)
   const [generatingNarrations, setGeneratingNarrations] = useState(false)
   const [generationFailed, setGenerationFailed] = useState(false)
@@ -1144,21 +1144,19 @@ export function SlideEditor({
                 }}
               />
             )}
+
+            {/* Share & Track button */}
+            {audioGenerated && (
+              <Button
+                onClick={() => setShowShareModal(true)}
+                variant="outline"
+                className="w-full"
+              >
+                <Share2 className="h-4 w-4" />
+                Share & Track Viewers
+              </Button>
+            )}
           </>
-        )}
-
-        {/* Share Settings — shown after audio generation */}
-        {audioGenerated && (
-          <div className="mt-5 border-t border-zinc-100 pt-5">
-            <ShareSettingsPanel presentationId={presentationId} />
-          </div>
-        )}
-
-        {/* Viewer Table — shown after audio generation */}
-        {audioGenerated && (
-          <div className="mt-5 border-t border-zinc-100 pt-5">
-            <ViewerTable presentationId={presentationId} />
-          </div>
         )}
       </div>
     </div>
@@ -1174,6 +1172,14 @@ export function SlideEditor({
             setPendingSlides([])
           }}
           parsing={reUploadParsing}
+        />
+      )}
+
+      {/* Share modal */}
+      {showShareModal && (
+        <SharePresentationModal
+          presentationId={presentationId}
+          onClose={() => setShowShareModal(false)}
         />
       )}
 
