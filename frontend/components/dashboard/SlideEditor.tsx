@@ -239,9 +239,22 @@ export function SlideEditor({
   // Track whether voice settings changed since last audio gen — used by regenerate modal
   const [voiceChangedSinceAudio, setVoiceChangedSinceAudio] = useState(false)
   useEffect(() => {
-    if (!audioGenerated) return
+    if (!audioGenerated) {
+      setVoiceChangedSinceAudio(false)
+      return
+    }
+
+    // Initialize snapshot on first mount if audio exists but no snapshot
+    if (!generatedWithVoiceRef.current) {
+      generatedWithVoiceRef.current = {
+        voiceId: selectedVoiceId ?? null,
+        description: voiceDescription ?? "",
+      }
+      setVoiceChangedSinceAudio(false)
+      return
+    }
+
     const snap = generatedWithVoiceRef.current
-    if (!snap) return
     const voiceChanged = snap.voiceId !== (selectedVoiceId ?? null)
     const descChanged = snap.description !== (voiceDescription ?? "")
     setVoiceChangedSinceAudio(voiceChanged || descChanged)
