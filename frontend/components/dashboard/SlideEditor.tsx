@@ -418,6 +418,9 @@ export function SlideEditor({
       onNarrationsChange?.({})
       setInternalAudioGenerated(false)
       onAudioGeneratedChange?.(false)
+      setInternalAudioUrl(null)
+      onAudioUrlChange?.(null)
+      onAudioStoragePathChange?.(null)
     }
 
     // Always reset to first slide on re-upload
@@ -467,6 +470,15 @@ export function SlideEditor({
       onNarrationsChange?.(mergedNarrations)
       setInternalChangedSlides(changed)
       onChangedSlidesChange?.(changed)
+
+      // If audio existed and slides changed, clear stale audio so user regenerates
+      if (audioGenerated && changed.length > 0) {
+        setInternalAudioGenerated(false)
+        onAudioGeneratedChange?.(false)
+        setInternalAudioUrl(null)
+        onAudioUrlChange?.(null)
+        onAudioStoragePathChange?.(null)
+      }
 
       // Auto-generate AI narrations for changed/added slides (silent — no toast on rate limit)
       const slidesToRegen = pendingSlides.filter((s) => changed.includes(s.number))
