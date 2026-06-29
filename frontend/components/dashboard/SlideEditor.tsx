@@ -209,6 +209,8 @@ export function SlideEditor({
         if (json.data?.narrations) {
           setInternalNarrations(json.data.narrations)
           onNarrationsChange?.(json.data.narrations)
+          setInternalAudioGenerated(true)
+          onAudioGeneratedChange?.(true)
         }
       } catch { /* narration failed — user can generate manually */ }
       setGeneratingNarrations(false)
