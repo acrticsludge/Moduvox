@@ -73,8 +73,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Slides array is required" }, { status: 400 })
     }
 
-    if (slides.length > 200) {
-      return NextResponse.json({ error: "Maximum 200 slides per request" }, { status: 400 })
+    if (slides.length > 30) {
+      return NextResponse.json({ error: "Maximum 30 slides per presentation" }, { status: 400 })
     }
 
     // ── Check for user's own Gemini key ─────────────────────
@@ -197,6 +197,14 @@ ${slideBlocks.join("\n\n")}`
           ? `Rate limit reached. Try again in ${retryAfter}s, or add your own API key in Settings.`
           : "Google Gemini is temporarily rate limited. Add your own API key in Settings.",
       }, { status: 429 })
+    }
+
+    // Detect 503 Service Unavailable (temporary — retryable)
+    if (msg.includes("503") || msg.includes("Service Unavailable")) {
+      return NextResponse.json({
+        error: "service_unavailable",
+        message: "Gemini is temporarily overloaded. Wait a moment and try again, or add your own API key in Settings.",
+      }, { status: 503 })
     }
 
     return NextResponse.json({ error: "Failed to generate narrations. Please try again." }, { status: 500 })

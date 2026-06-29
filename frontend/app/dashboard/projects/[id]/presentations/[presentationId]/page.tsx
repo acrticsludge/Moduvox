@@ -20,6 +20,7 @@ type EditorState = {
   currentSlide?: number
   narrations?: Record<number, string>
   audioGenerated?: boolean
+  audioStoragePath?: string
   storagePath?: string
   slideData?: { title: string; bullets: string[] }[]
   changedSlides?: number[]
@@ -49,6 +50,8 @@ export default function PresentationCreatePage() {
   const [ultimateMode, setUltimateMode] = useState(false)
   const [narrations, setNarrations] = useState<Record<number, string>>({})
   const [audioGenerated, setAudioGenerated] = useState(false)
+  const [audioUrl, setAudioUrl] = useState<string | null>(null)
+  const [audioStoragePath, setAudioStoragePath] = useState<string | null>(null)
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
   const [storagePath, setStoragePath] = useState("")
   const [currentSlide, setCurrentSlide] = useState(0)
@@ -104,6 +107,10 @@ export default function PresentationCreatePage() {
             setStoragePath(saved.storagePath)
             setMode("editor")
           }
+          if (saved.audioGenerated) {
+            // The combine endpoint reads all per-slide WAVs on demand
+            setAudioUrl(`/api/presentations/${params.presentationId}/audio/combined`)
+          }
           if (saved.currentSlide !== undefined) setCurrentSlide(saved.currentSlide)
           if (saved.slideData) setSlideData(saved.slideData)
           if (saved.changedSlides) setChangedSlides(saved.changedSlides)
@@ -124,6 +131,7 @@ export default function PresentationCreatePage() {
         ultimateMode,
         narrations,
         audioGenerated,
+        audioStoragePath: audioStoragePath ?? undefined,
         storagePath,
         currentSlide,
         slideData,
@@ -282,7 +290,13 @@ export default function PresentationCreatePage() {
               onSlideDataChange={setSlideData}
               changedSlides={changedSlides}
               onChangedSlidesChange={handleChangedSlidesChange}
-              onRemovePpt={() => { setMode("upload"); setStoragePath("") }}
+              selectedVoiceId={selectedVoiceId || null}
+              voiceDescription={controlInstructions}
+              audioUrl={audioUrl}
+              onAudioUrlChange={setAudioUrl}
+              audioStoragePath={audioStoragePath}
+              onAudioStoragePathChange={setAudioStoragePath}
+              onRemovePpt={() => { setMode("upload"); setStoragePath(""); setAudioUrl(null); setAudioStoragePath(null) }}
             />
           </ErrorBoundary>
         )}

@@ -2,16 +2,54 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { generateAudio, generateWithPreset } from "@/lib/voxcpm"
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 const ALLOWED_TYPES = ["audio/wav", "audio/mpeg", "audio/mp4", "audio/x-m4a", "audio/webm", "audio/ogg"]
 
-const presetAudioSchema = z.object({
-  target_text: z.string().min(1, "target_text is required"),
+const slideSchema = z.object({
+  number: z.number().int().min(1),
+  text: z.string(),
+})
+
+const slidesAudioSchema = z.object({
+  slides: z.array(slideSchema).min(1),
   voice_description: z.string().min(1, "voice_description is required"),
   cfg_value: z.number().min(1).max(3).optional(),
+  presentation_id: z.string().uuid(),
 }).strict()
+
+/** Generate, download, and upload per-slide audio to storage. Returns the signed URL. */
+async function generateSlideAudio(
+  text: string,
+  voiceDescription: string,
+  cfgValue: number,
+  storagePath: string,
+  admin: ReturnType<typeof createAdminClient>,
+): Promise<string> {
+  const result = await generateWithPreset(text, voiceDescription, cfgValue)
+
+  // Download from Gradio
+  const response = await fetch(result.audioUrl)
+  if (!response.ok) throw new Error("Failed to download generated audio")
+  const audioBuffer = Buffer.from(await response.arrayBuffer())
+
+  // Upload to storage
+  await admin.storage.from("presentation-files").remove([storagePath]).catch(() => {})
+  const { error } = await admin.storage
+    .from("presentation-files")
+    .upload(storagePath, audioBuffer, { contentType: "audio/wav", upsert: true })
+
+  if (error) throw new Error(`Failed to save audio: ${error.message}`)
+
+  // Generate signed URL
+  const { data: signed } = await admin.storage
+    .from("presentation-files")
+    .createSignedUrl(storagePath, 604800)
+
+  return signed?.signedUrl ?? ""
+}
 
 export async function POST(request: Request) {
   const supabase = await createClient()
@@ -64,7 +102,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Audio generation failed" }, { status: 502 })
     }
   } else {
-    // ── Preset / voice-design mode (JSON body) ───────
+    // ── Preset mode (per-slide JSON) ────────────────
     let body: unknown
     try {
       body = await request.json()
@@ -72,18 +110,35 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
     }
 
-    const parsed = presetAudioSchema.safeParse(body)
+    const parsed = slidesAudioSchema.safeParse(body)
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error.flatten().fieldErrors }, { status: 422 })
     }
 
+    const { slides, voice_description, cfg_value, presentation_id } = parsed.data
+    const cfgValue = cfg_value ?? 2.0
+    const admin = createAdminClient()
+
     try {
-      const result = await generateWithPreset(
-        parsed.data.target_text.trim(),
-        parsed.data.voice_description.trim(),
-        parsed.data.cfg_value ?? 2.0,
+      // Generate per-slide audio in parallel
+      const slidePaths = slides.map((s) => ({
+        number: s.number,
+        storagePath: `${user.id}/audio/${presentation_id}/slides/slide-${s.number}.wav`,
+      }))
+
+      await Promise.all(
+        slides.map((s, i) =>
+          generateSlideAudio(s.text, voice_description, cfgValue, slidePaths[i].storagePath, admin),
+        ),
       )
-      return NextResponse.json({ data: result })
+
+      // Return map of slide number → storage path for the generated slides
+      return NextResponse.json({
+        data: {
+          slidePaths: Object.fromEntries(slidePaths.map((sp) => [sp.number, sp.storagePath])),
+          storagePath: `${user.id}/audio/${presentation_id}`, // base dir
+        },
+      })
     } catch (err) {
       console.error("POST /api/generate/audio (preset):", err)
       return NextResponse.json({ error: "Audio generation failed" }, { status: 502 })
