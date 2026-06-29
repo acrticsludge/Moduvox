@@ -32,8 +32,8 @@ export function RegenerateModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-[#18181B]/40 pt-12 pb-8">
-      <div className="mx-4 flex w-full max-w-lg flex-col rounded-xl border border-zinc-200 bg-white shadow-xl max-h-[calc(100vh-6rem)]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#18181B]/40 p-4">
+      <div className="flex w-full max-w-lg flex-col rounded-xl border border-zinc-200 bg-white shadow-xl max-h-[calc(100vh-2rem)]">
         {/* Header */}
         <div className="flex-shrink-0 flex items-center justify-between border-b border-zinc-100 px-6 py-4">
           <h2 className="text-base font-semibold text-[#18181B]">

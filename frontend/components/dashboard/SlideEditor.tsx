@@ -877,8 +877,8 @@ export function SlideEditor({
 
         {/* Slide info modal */}
         {showSlideInfo && (
-          <div className="fixed inset-0 z-50 flex items-start justify-center bg-[#18181B]/40 pt-[10vh]">
-            <div className="mx-4 w-full max-w-lg rounded-xl border border-zinc-200 bg-white shadow-xl">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#18181B]/40 p-4">
+            <div className="w-full max-w-lg rounded-xl border border-zinc-200 bg-white shadow-xl">
               {/* Header */}
               <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-4">
                 <div className="flex items-center gap-3">
