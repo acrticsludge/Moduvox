@@ -34,6 +34,7 @@ export function SlideEditor({
   onAudioUrlChange,
   audioStoragePath: externalAudioStoragePath,
   onAudioStoragePathChange,
+  onAudioSlidePathsChange,
 }: {
   voiceSelected: boolean
   file: File | null
@@ -56,6 +57,7 @@ export function SlideEditor({
   onAudioUrlChange?: (v: string | null) => void
   audioStoragePath?: string | null
   onAudioStoragePathChange?: (v: string | null) => void
+  onAudioSlidePathsChange?: (v: Record<number, string>) => void
 }) {
   const [slides, setSlides] = useState<ParsedSlide[]>([])
   const [internalIndex, setInternalIndex] = useState(0)
@@ -875,15 +877,20 @@ export function SlideEditor({
               if (generatingAudio) return
               setGeneratingAudio(true)
 
-              // Concatenate all narrations in slide order
-              const fullText = slides
+              // Determine which slides need audio generation.
+              // On re-upload with changed slides, only regenerate those.
+              // On initial generation, do all slides that have narration text.
+              const slidesToGenerate = changedSlides.length > 0
+                ? slides.filter((s) => changedSlides.includes(s.number))
+                : slides
+
+              const slideTexts = slidesToGenerate
                 .slice()
                 .sort((a, b) => a.number - b.number)
-                .map((s) => narrations[s.number] || "")
-                .filter(Boolean)
-                .join("\n\n")
+                .map((s) => ({ number: s.number, text: narrations[s.number] || "" }))
+                .filter((s) => s.text.trim())
 
-              if (!fullText.trim()) {
+              if (slideTexts.length === 0) {
                 toast.error("No narration text to generate audio from.")
                 setGeneratingAudio(false)
                 return
@@ -894,7 +901,7 @@ export function SlideEditor({
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
-                    target_text: fullText.trim(),
+                    slides: slideTexts,
                     voice_description: voiceDescription || "Natural, clear, professional speaking voice",
                     cfg_value: 2.0,
                     presentation_id: presentationId,
@@ -906,11 +913,10 @@ export function SlideEditor({
                   throw new Error(typeof json.error === "string" ? json.error : "Audio generation failed")
                 }
 
-                setInternalAudioUrl(json.data.audioUrl)
-                onAudioUrlChange?.(json.data.audioUrl)
-                if (json.data.storagePath) {
-                  onAudioStoragePathChange?.(json.data.storagePath)
-                }
+                // The combine endpoint reads all per-slide WAVs on demand
+                const combinedUrl = `/api/presentations/${presentationId}/audio/combined`
+                setInternalAudioUrl(combinedUrl)
+                onAudioUrlChange?.(combinedUrl)
                 setInternalAudioGenerated(true)
                 onAudioGeneratedChange?.(true)
               } catch (err) {

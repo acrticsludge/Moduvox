@@ -107,13 +107,9 @@ export default function PresentationCreatePage() {
             setStoragePath(saved.storagePath)
             setMode("editor")
           }
-          if (saved.audioStoragePath) {
-            setAudioStoragePath(saved.audioStoragePath)
-            // Fetch a fresh signed URL for the saved audio
-            fetch(`/api/presentations/${params.presentationId}/audio`).then(async (res) => {
-              const json = await res.json()
-              if (json.data?.audioUrl) setAudioUrl(json.data.audioUrl)
-            }).catch(() => {})
+          if (saved.audioGenerated) {
+            // The combine endpoint reads all per-slide WAVs on demand
+            setAudioUrl(`/api/presentations/${params.presentationId}/audio/combined`)
           }
           if (saved.currentSlide !== undefined) setCurrentSlide(saved.currentSlide)
           if (saved.slideData) setSlideData(saved.slideData)
