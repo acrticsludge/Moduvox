@@ -64,7 +64,7 @@ export async function POST(
   // Validate session_token matches a viewer
   const { data: viewer } = await supabase
     .from("viewers")
-    .select("id")
+    .select("id, viewed_at")
     .eq("session_token", parsed.data.session_token)
     .eq("presentation_id", presentation.id)
     .single()
@@ -117,11 +117,14 @@ export async function POST(
   }
 
   if (Object.keys(viewerUpdates).length > 0) {
-    await supabase
+    const { error: updateError } = await supabase
       .from("viewers")
       .update(viewerUpdates)
       .eq("id", viewer.id)
-      .catch((err) => console.error("Failed to update viewer aggregates:", err))
+
+    if (updateError) {
+      console.error("Failed to update viewer aggregates:", updateError.message)
+    }
   }
 
   return NextResponse.json({ data: { ok: true } })

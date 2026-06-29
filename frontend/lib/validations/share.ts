@@ -6,12 +6,14 @@ export const updateShareSettingsSchema = z.object({
   expires_at: z.string().datetime().nullable().optional(),
 })
 
+const consentCheck = z.boolean().refine((val) => val === true, {
+  message: "You must confirm you are watching for yourself",
+})
+
 export const emailGateSchema = z.object({
   viewer_name: z.string().min(1, "Name is required").max(200),
   viewer_email: z.string().email("Valid email is required"),
-  consent_granted: z.literal(true, {
-    errorMap: () => ({ message: "You must confirm you are watching for yourself" }),
-  }),
+  consent_granted: consentCheck,
 })
 
 export const passwordGateSchema = z.object({
@@ -21,9 +23,7 @@ export const passwordGateSchema = z.object({
 export const magicLinkGateSchema = z.object({
   viewer_name: z.string().min(1, "Name is required").max(200),
   viewer_email: z.string().email("Valid email is required"),
-  consent_granted: z.literal(true, {
-    errorMap: () => ({ message: "You must confirm you are watching for yourself" }),
-  }),
+  consent_granted: consentCheck,
   password: z.string().optional(),
 })
 

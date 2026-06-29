@@ -221,14 +221,16 @@ export function ViewPlayer({
     <div className="mx-auto flex min-h-screen max-w-4xl flex-col bg-white">
       {/* Audio element (hidden) */}
       <audio
-        ref={audioRef}
+        ref={(el) => {
+          audioRef.current = el
+          setAudioElement(el)
+        }}
         src={combinedAudioUrl}
         preload="auto"
         onTimeUpdate={handleTimeUpdate}
         onEnded={handleEnded}
         onCanPlay={handleLoaded}
         onError={handleError}
-        ref={(el) => setAudioElement(el)}
       />
 
       {/* Loading state */}
