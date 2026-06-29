@@ -887,7 +887,7 @@ export function SlideEditor({
       </div>
 
       {/* Right — Controls panel */}
-      <div className="flex w-full flex-col gap-5 border-t border-[var(--color-border-faint)] bg-white p-6 lg:w-[380px] lg:flex-shrink-0 lg:border-l lg:border-t-0 lg:overflow-y-auto lg:max-h-[calc(100vh-8rem)]">
+      <div className="flex w-full flex-col gap-5 border-t border-[var(--color-border-faint)] bg-white p-6 lg:w-[380px] lg:flex-shrink-0 lg:border-l lg:border-t-0 lg:overflow-y-auto lg:max-h-[calc(100vh-8rem)] thin-scrollbar">
         {/* Slide info + jump input */}
         <div className="flex items-center justify-between gap-2">
           <form onSubmit={handleSlideJump} className="flex items-center gap-1.5">
@@ -977,7 +977,7 @@ export function SlideEditor({
               </div>
 
               {/* Content */}
-              <div className="max-h-[50vh] overflow-y-auto px-5 pb-4">
+              <div className="max-h-[50vh] overflow-y-auto px-5 pb-4 thin-scrollbar">
                 {current.bullets.length > 0 ? (
                   <div className="space-y-1.5">
                     {current.bullets.map((b, i) => (

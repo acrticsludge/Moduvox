@@ -95,13 +95,24 @@ export function ShareSettingsPanel({
   }
 
   function handleSetExpiration() {
+    // Empty input = no expiration
     if (!expireInput) {
       updateSettings({ expires_at: null })
       return
     }
     // Convert datetime-local to ISO 8601
     const iso = new Date(expireInput).toISOString()
+    // new Date("") gives Invalid Date — treat as no expiration
+    if (iso === "Invalid Date" || isNaN(new Date(expireInput).getTime())) {
+      updateSettings({ expires_at: null })
+      return
+    }
     updateSettings({ expires_at: iso })
+  }
+
+  function handleClearExpiration() {
+    setExpireInput("")
+    updateSettings({ expires_at: null })
   }
 
   function handleToggleEmailGate() {
@@ -268,15 +279,14 @@ export function ShareSettingsPanel({
           >
             {settings.expires_at ? "Update" : "Set"}
           </button>
-          {settings.expires_at && (
-            <button
-              type="button"
-              onClick={() => { setExpireInput(""); updateSettings({ expires_at: null }) }}
-              className="text-xs text-red-500 hover:text-red-600"
-            >
-              Clear
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={handleClearExpiration}
+            disabled={saving}
+            className="text-xs text-red-500 hover:text-red-600 disabled:opacity-50"
+          >
+            Reset
+          </button>
         </div>
         {settings.expires_at && (
           <p className="text-xs text-zinc-400">

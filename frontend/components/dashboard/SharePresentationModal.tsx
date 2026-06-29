@@ -30,7 +30,7 @@ export function SharePresentationModal({
         </div>
 
         {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto space-y-6 p-6">
+        <div className="flex-1 overflow-y-auto space-y-6 p-6 thin-scrollbar">
           {/* Share Settings */}
           <ShareSettingsPanel presentationId={presentationId} />
 
