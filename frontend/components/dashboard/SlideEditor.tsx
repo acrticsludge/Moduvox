@@ -67,6 +67,7 @@ export function SlideEditor({
   const [internalChangedSlides, setInternalChangedSlides] = useState<number[]>([])
   const [showRegenModal, setShowRegenModal] = useState(false)
   const [lastRegenCount, setLastRegenCount] = useState(0)
+  const [generatingNarrations, setGeneratingNarrations] = useState(false)
 
   // Use controlled props when provided, otherwise internal state
   const narrations = externalNarrations ?? internalNarrations
@@ -187,6 +188,34 @@ export function SlideEditor({
     return () => { cancelled = true }
   }, [file, presentationId])
 
+  // Auto-generate narration when slides are first parsed
+  useEffect(() => {
+    if (slides.length === 0) return
+    if (Object.keys(narrations).length > 0) return
+    if (generatingNarrations) return
+    if (!file) return // Only auto-generate for freshly uploaded files, not restored state
+
+    async function generate() {
+      setGeneratingNarrations(true)
+      try {
+        const res = await fetch("/api/generate/narration", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            slides: slides.map((s) => ({ number: s.number, title: s.title, bullets: s.bullets })),
+          }),
+        })
+        const json = await res.json()
+        if (json.data?.narrations) {
+          setInternalNarrations(json.data.narrations)
+          onNarrationsChange?.(json.data.narrations)
+        }
+      } catch { /* narration failed — user can generate manually */ }
+      setGeneratingNarrations(false)
+    }
+    generate()
+  }, [slides, file, narrations, generatingNarrations])
+
   const current = slides[currentIndex]
 
   function updateNarration(text: string) {
@@ -196,24 +225,47 @@ export function SlideEditor({
     onNarrationsChange?.(next)
   }
 
-  function handleGenerate(selectedSlides?: Set<number>) {
+  async function handleGenerate(selectedSlides?: Set<number>) {
     setGenerating(true)
     setLastRegenCount(selectedSlides?.size ?? 0)
-    setTimeout(() => {
-      setInternalAudioGenerated(true)
-      onAudioGeneratedChange?.(true)
-      // Clear changed status for regenerated slides
-      if (selectedSlides) {
-        const remaining = changedSlides.filter((s) => !selectedSlides.has(s))
-        setInternalChangedSlides(remaining)
-        onChangedSlidesChange?.(remaining)
-      } else {
-        setInternalChangedSlides([])
-        onChangedSlidesChange?.([])
+
+    // Determine which slides to regenerate
+    const targetSlides = selectedSlides
+      ? slides.filter((s) => selectedSlides.has(s.number))
+      : slides
+
+    try {
+      const res = await fetch("/api/generate/narration", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slides: targetSlides.map((s) => ({ number: s.number, title: s.title, bullets: s.bullets })),
+        }),
+      })
+      const json = await res.json()
+      if (json.data?.narrations) {
+        const merged = { ...narrations, ...json.data.narrations }
+        setInternalNarrations(merged)
+        onNarrationsChange?.(merged)
       }
-      setShowRegenModal(false)
-      setGenerating(false)
-    }, 1200)
+    } catch { /* generation failed */ }
+
+    // Mark audio as generated (actual audio generation is separate)
+    setInternalAudioGenerated(true)
+    onAudioGeneratedChange?.(true)
+
+    // Clear changed status for regenerated slides
+    if (selectedSlides) {
+      const remaining = changedSlides.filter((s) => !selectedSlides.has(s))
+      setInternalChangedSlides(remaining)
+      onChangedSlidesChange?.(remaining)
+    } else {
+      setInternalChangedSlides([])
+      onChangedSlidesChange?.([])
+    }
+
+    setShowRegenModal(false)
+    setGenerating(false)
   }
 
   function jumpToSlide(slideNumber: number) {
@@ -626,7 +678,7 @@ export function SlideEditor({
           <Textarea
             value={narrations[current.number] ?? ""}
             onChange={(e) => updateNarration(e.target.value)}
-            placeholder="AI-generated narration will appear here..."
+            placeholder={generatingNarrations ? "Generating AI narration..." : "AI-generated narration will appear here..."}
             className="min-h-[120px] resize-none text-sm"
           />
           {narrations[current.number] && (
@@ -641,10 +693,10 @@ export function SlideEditor({
           <div className="space-y-1">
             <Button
               onClick={() => handleGenerate()}
-              disabled={generating || !voiceSelected}
+              disabled={generating || generatingNarrations || !voiceSelected}
               className="w-full"
             >
-              {generating ? "Generating audio for all slides..." : "Generate Narration"}
+              {generating ? "Regenerating..." : generatingNarrations ? "Generating narrations..." : "Generate Narration"}
             </Button>
             {!voiceSelected && (
               <p className="text-xs text-[#71717A]">
