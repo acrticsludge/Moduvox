@@ -210,6 +210,15 @@ export function SlideEditor({
         }),
       })
       const json = await res.json()
+
+      // Shared key quota exhausted — permanent block, always notify
+      if (json.error === "quota_exhausted") {
+        toast.error(json.message || "The shared Gemini key has hit its daily limit. Add your own API key in Settings.")
+        setGeneratingNarrations(false)
+        return
+      }
+
+      // Temporary rate limit — only show toast for explicit user actions
       if (json.error === "rate_limited") {
         if (showRateLimitPrompt) {
           toast.error(json.message || "Generation limit reached. Add your Gemini API key in Settings.")
@@ -217,11 +226,14 @@ export function SlideEditor({
         setGeneratingNarrations(false)
         return
       }
+
+      // Invalid user API key — always notify
       if (json.error === "invalid_api_key") {
         toast.error(json.message || "Your Gemini API key is invalid. Check Settings.")
         setGeneratingNarrations(false)
         return
       }
+
       if (json.data?.narrations) {
         // Merge new narrations with existing ones
         const updated = { ...narrations, ...json.data.narrations }

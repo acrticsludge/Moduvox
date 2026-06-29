@@ -164,11 +164,19 @@ ${slideBlocks.join("\n\n")}`
       }, { status: 401 })
     }
 
-    // Detect rate limit from Gemini itself
+    // Detect quota exhaustion (daily/monthly limit hit — permanent until reset)
+    if (msg.includes("exceeded your current quota") || msg.includes("Quota exceeded")) {
+      return NextResponse.json({
+        error: "quota_exhausted",
+        message: "The shared Gemini key has reached its daily usage limit. Add your own API key in Settings to continue generating.",
+      }, { status: 429 })
+    }
+
+    // Detect rate limit from Gemini itself (temporary — retryable)
     if (msg.includes("429") || msg.includes("RESOURCE_EXHAUSTED")) {
       return NextResponse.json({
         error: "rate_limited",
-        message: "Google Gemini rate limit reached. Add your own API key in Settings to resume instantly.",
+        message: "Google Gemini is temporarily rate limited. Wait a moment and try again, or add your own API key in Settings.",
       }, { status: 429 })
     }
 
