@@ -32,8 +32,8 @@ export function RegenerateModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-[#18181B]/40 pt-16">
-      <div className="mx-4 flex w-full max-w-lg flex-col rounded-xl border border-zinc-200 bg-white shadow-xl max-h-[calc(100vh-4rem)]">
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-[#18181B]/40 pt-12 pb-8">
+      <div className="mx-4 flex w-full max-w-lg flex-col rounded-xl border border-zinc-200 bg-white shadow-xl max-h-[calc(100vh-6rem)]">
         {/* Header */}
         <div className="flex-shrink-0 flex items-center justify-between border-b border-zinc-100 px-6 py-4">
           <h2 className="text-base font-semibold text-[#18181B]">
@@ -50,7 +50,7 @@ export function RegenerateModal({
 
         {/* Voice changed banner */}
         {voiceChangedSinceAudio && (
-          <div className="flex-shrink-0 mx-6 mt-4 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">
+          <div className="flex-shrink-0 mx-6 mt-4 mb-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">
             Voice settings changed. All slides will be regenerated with the new voice.
           </div>
         )}
