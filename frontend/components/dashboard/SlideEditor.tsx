@@ -194,29 +194,37 @@ export function SlideEditor({
     if (Object.keys(narrations).length > 0) return
     if (generatingNarrations) return
     if (!file) return // Only auto-generate for freshly uploaded files, not restored state
+    generateNarrations(slides)
+  }, [slides, file])
 
-    async function generate() {
-      setGeneratingNarrations(true)
-      try {
-        const res = await fetch("/api/generate/narration", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            slides: slides.map((s) => ({ number: s.number, title: s.title, bullets: s.bullets })),
-          }),
-        })
-        const json = await res.json()
-        if (json.data?.narrations) {
-          setInternalNarrations(json.data.narrations)
-          onNarrationsChange?.(json.data.narrations)
-          setInternalAudioGenerated(true)
-          onAudioGeneratedChange?.(true)
-        }
-      } catch { /* narration failed — user can generate manually */ }
-      setGeneratingNarrations(false)
-    }
-    generate()
-  }, [slides, file, narrations, generatingNarrations])
+  // Shared helper: generate narrations via API
+  async function generateNarrations(targetSlides: ParsedSlide[], showRateLimitPrompt = true) {
+    if (targetSlides.length === 0) return
+    setGeneratingNarrations(true)
+    try {
+      const res = await fetch("/api/generate/narration", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slides: targetSlides.map((s) => ({ number: s.number, title: s.title, bullets: s.bullets })),
+        }),
+      })
+      const json = await res.json()
+      if (json.error === "rate_limited" && showRateLimitPrompt) {
+        toast.error(json.message || "Rate limit reached. Add your Gemini key in Settings.")
+        return
+      }
+      if (json.data?.narrations) {
+        // Merge new narrations with existing ones
+        const updated = { ...narrations, ...json.data.narrations }
+        setInternalNarrations(updated)
+        onNarrationsChange?.(updated)
+        setInternalAudioGenerated(true)
+        onAudioGeneratedChange?.(true)
+      }
+    } catch { /* narration failed */ }
+    setGeneratingNarrations(false)
+  }
 
   const current = slides[currentIndex]
 
@@ -231,28 +239,13 @@ export function SlideEditor({
     setGenerating(true)
     setLastRegenCount(selectedSlides?.size ?? 0)
 
-    // Determine which slides to regenerate
     const targetSlides = selectedSlides
       ? slides.filter((s) => selectedSlides.has(s.number))
       : slides
 
-    try {
-      const res = await fetch("/api/generate/narration", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          slides: targetSlides.map((s) => ({ number: s.number, title: s.title, bullets: s.bullets })),
-        }),
-      })
-      const json = await res.json()
-      if (json.data?.narrations) {
-        const merged = { ...narrations, ...json.data.narrations }
-        setInternalNarrations(merged)
-        onNarrationsChange?.(merged)
-      }
-    } catch { /* generation failed */ }
+    // Use the shared narration generator
+    await generateNarrations(targetSlides, false)
 
-    // Mark audio as generated (actual audio generation is separate)
     setInternalAudioGenerated(true)
     onAudioGeneratedChange?.(true)
 
@@ -369,6 +362,12 @@ export function SlideEditor({
       onNarrationsChange?.(mergedNarrations)
       setInternalChangedSlides(changed)
       onChangedSlidesChange?.(changed)
+
+      // Auto-generate AI narrations for changed/added slides
+      const slidesToRegen = pendingSlides.filter((s) => changed.includes(s.number))
+      if (slidesToRegen.length > 0) {
+        generateNarrations(slidesToRegen)
+      }
     }
 
     // Show processing overlay
@@ -689,24 +688,6 @@ export function SlideEditor({
             </p>
           )}
         </div>
-
-        {/* Generate button */}
-        {!audioGenerated && (
-          <div className="space-y-1">
-            <Button
-              onClick={() => handleGenerate()}
-              disabled={generating || generatingNarrations || !voiceSelected}
-              className="w-full"
-            >
-              {generating ? "Regenerating..." : generatingNarrations ? "Generating narrations..." : "Generate Narration"}
-            </Button>
-            {!voiceSelected && (
-              <p className="text-xs text-[#71717A]">
-                Select a voice in the sidebar to enable generation.
-              </p>
-            )}
-          </div>
-        )}
 
         {audioGenerated && (
           <>
