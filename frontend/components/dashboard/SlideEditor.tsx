@@ -27,6 +27,7 @@ export function SlideEditor({
   onSlideDataChange,
   changedSlides: externalChangedSlides,
   onChangedSlidesChange,
+  onRemovePpt,
 }: {
   voiceSelected: boolean
   file: File | null
@@ -43,6 +44,7 @@ export function SlideEditor({
   onSlideDataChange?: (v: { title: string; bullets: string[] }[]) => void
   changedSlides?: number[]
   onChangedSlidesChange?: (v: number[]) => void
+  onRemovePpt?: () => void
 }) {
   const [slides, setSlides] = useState<ParsedSlide[]>([])
   const [internalIndex, setInternalIndex] = useState(0)
@@ -67,6 +69,10 @@ export function SlideEditor({
   const [internalChangedSlides, setInternalChangedSlides] = useState<number[]>([])
   const [showRegenModal, setShowRegenModal] = useState(false)
   const [lastRegenCount, setLastRegenCount] = useState(0)
+  const [generatingNarrations, setGeneratingNarrations] = useState(false)
+  const [generationFailed, setGenerationFailed] = useState(false)
+  const [removingPpt, setRemovingPpt] = useState(false)
+  const [removeConfirm, setRemoveConfirm] = useState(false)
 
   // Use controlled props when provided, otherwise internal state
   const narrations = externalNarrations ?? internalNarrations
@@ -187,6 +193,82 @@ export function SlideEditor({
     return () => { cancelled = true }
   }, [file, presentationId])
 
+  // Auto-generate narration when slides are first parsed
+  useEffect(() => {
+    if (slides.length === 0) return
+    if (Object.keys(narrations).length > 0) return
+    if (generatingNarrations) return
+    if (!file) return // Only auto-generate for freshly uploaded files, not restored state
+    setGenerationFailed(false)
+    generateNarrations(slides).then((ok) => {
+      if (!ok) setGenerationFailed(true)
+    })
+  }, [slides, file])
+
+  // Shared helper: generate narrations via API. Returns true if narrations were generated.
+  async function generateNarrations(targetSlides: ParsedSlide[], showRateLimitPrompt = true): Promise<boolean> {
+    if (targetSlides.length === 0) return false
+    setGeneratingNarrations(true)
+    try {
+      const res = await fetch("/api/generate/narration", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slides: targetSlides.map((s) => ({ number: s.number, title: s.title, bullets: s.bullets })),
+        }),
+      })
+      const json = await res.json()
+
+      // Shared key quota exhausted — permanent block, always notify
+      if (json.error === "quota_exhausted") {
+        toast.error(json.message || "The shared Gemini key has hit its daily limit. Add your own API key in Settings.")
+        return false
+      }
+
+      // Temporary rate limit — only show toast for explicit user actions
+      if (json.error === "rate_limited") {
+        if (showRateLimitPrompt) {
+          const retryAfter = json.retryAfter as number | undefined
+          if (retryAfter && retryAfter > 0) {
+            const toastId = `rate-limit-${Date.now()}`
+            let remaining = retryAfter
+            const updateMsg = () => {
+              if (remaining > 0) {
+                toast.error(`Rate limit reached. Try again in ${remaining}s, or add your own API key in Settings.`, { id: toastId })
+                remaining--
+              } else {
+                clearInterval(rateLimitIntervalRef.current)
+                rateLimitIntervalRef.current = undefined
+              }
+            }
+            updateMsg()
+            rateLimitIntervalRef.current = setInterval(updateMsg, 1000)
+          } else {
+            toast.error(json.message || "Generation limit reached. Add your Gemini API key in Settings.")
+          }
+        }
+        return false
+      }
+
+      // Invalid user API key — always notify
+      if (json.error === "invalid_api_key") {
+        toast.error(json.message || "Your Gemini API key is invalid. Check Settings.")
+        return false
+      }
+
+      if (json.data?.narrations && Object.keys(json.data.narrations).length > 0) {
+        // Merge new narrations with existing ones
+        const updated = { ...narrations, ...json.data.narrations }
+        setInternalNarrations(updated)
+        onNarrationsChange?.(updated)
+        return true
+      }
+
+      return false
+    } catch { /* narration failed */; return false }
+    finally { setGeneratingNarrations(false) }
+  }
+
   const current = slides[currentIndex]
 
   function updateNarration(text: string) {
@@ -196,12 +278,23 @@ export function SlideEditor({
     onNarrationsChange?.(next)
   }
 
-  function handleGenerate(selectedSlides?: Set<number>) {
+  async function handleGenerate(selectedSlides?: Set<number>) {
     setGenerating(true)
     setLastRegenCount(selectedSlides?.size ?? 0)
-    setTimeout(() => {
+
+    const targetSlides = selectedSlides
+      ? slides.filter((s) => selectedSlides.has(s.number))
+      : slides
+
+    // Use the shared narration generator
+    const ok = await generateNarrations(targetSlides, false)
+
+    // Only mark as generated and clean up if narrations were actually created
+    if (ok) {
+      setGenerationFailed(false)
       setInternalAudioGenerated(true)
       onAudioGeneratedChange?.(true)
+
       // Clear changed status for regenerated slides
       if (selectedSlides) {
         const remaining = changedSlides.filter((s) => !selectedSlides.has(s))
@@ -211,9 +304,10 @@ export function SlideEditor({
         setInternalChangedSlides([])
         onChangedSlidesChange?.([])
       }
-      setShowRegenModal(false)
-      setGenerating(false)
-    }, 1200)
+    }
+
+    setShowRegenModal(false)
+    setGenerating(false)
   }
 
   function jumpToSlide(slideNumber: number) {
@@ -252,6 +346,45 @@ export function SlideEditor({
       setShowReUpload(true)
       setReUploadParsing(false)
     })
+  }
+
+  async function handleRemovePpt() {
+    if (removingPpt) return
+    setRemovingPpt(true)
+    setRemoveConfirm(false)
+    try {
+      const res = await fetch(`/api/presentations/${presentationId}/file`, { method: "DELETE" })
+      if (!res.ok) {
+        toast.error("Failed to remove PPTX. Please try again.")
+        return
+      }
+
+      // Reset all editor state (voice settings preserved by parent)
+      setInternalNarrations({})
+      onNarrationsChange?.({})
+      setInternalAudioGenerated(false)
+      onAudioGeneratedChange?.(false)
+      setSlides([])
+      setInternalIndex(0)
+      onCurrentSlideChange?.(0)
+      setViewerUrl(null)
+      setBaseViewerUrl("")
+      onSlideDataChange?.([])
+      setInternalChangedSlides([])
+      onChangedSlidesChange?.([])
+      setGenerationFailed(false)
+      setGeneratingNarrations(false)
+      setViewerLoading(false)
+      setIframeError(false)
+      setSlideInput("1")
+
+      // Signal parent to switch mode to upload
+      onRemovePpt?.()
+    } catch {
+      toast.error("Failed to remove PPTX")
+    } finally {
+      setRemovingPpt(false)
+    }
   }
 
   function applyReUpload() {
@@ -315,6 +448,14 @@ export function SlideEditor({
       onNarrationsChange?.(mergedNarrations)
       setInternalChangedSlides(changed)
       onChangedSlidesChange?.(changed)
+
+      // Auto-generate AI narrations for changed/added slides (silent — no toast on rate limit)
+      const slidesToRegen = pendingSlides.filter((s) => changed.includes(s.number))
+      if (slidesToRegen.length > 0) {
+        generateNarrations(slidesToRegen, false).then((ok) => {
+          if (!ok) setGenerationFailed(true)
+        })
+      }
     }
 
     // Show processing overlay
@@ -362,6 +503,17 @@ export function SlideEditor({
       setPendingFile(null)
     }
   }
+
+  // Ref to clean up rate limit countdown interval on unmount
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rateLimitIntervalRef = useRef<any>(undefined)
+
+  // Clean up rate limit interval on unmount
+  useEffect(() => {
+    return () => {
+      if (rateLimitIntervalRef.current) clearInterval(rateLimitIntervalRef.current)
+    }
+  }, [])
 
   // Keyboard nav: ← → arrow keys to navigate slides using a ref for stable handler
   const jumpRef = useRef(jumpToSlide)
@@ -458,9 +610,35 @@ export function SlideEditor({
                     const f = e.target.files?.[0]
                     if (f) handleReUploadFile(f)
                     e.target.value = ""
+                    setRemoveConfirm(false)
                   }}
                 />
               </label>
+              <button
+                type="button"
+                onClick={() => {
+                  if (removeConfirm) {
+                    setRemoveConfirm(false)
+                    handleRemovePpt()
+                  } else {
+                    setRemoveConfirm(true)
+                  }
+                }}
+                disabled={removingPpt}
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium shadow-sm transition-colors ${
+                  removeConfirm
+                    ? "border-red-300 bg-red-50 text-red-600 hover:bg-red-100"
+                    : "border-zinc-200 bg-white text-[#71717A] hover:text-red-600"
+                }`}
+              >
+                {removingPpt ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : removeConfirm ? (
+                  "Confirm?"
+                ) : (
+                  "Remove PPT"
+                )}
+              </button>
               <a
                 href={viewerUrl.replace("embed.aspx", "view.aspx")}
                 target="_blank"
@@ -626,7 +804,7 @@ export function SlideEditor({
           <Textarea
             value={narrations[current.number] ?? ""}
             onChange={(e) => updateNarration(e.target.value)}
-            placeholder="AI-generated narration will appear here..."
+            placeholder={generatingNarrations ? "Generating AI narration..." : "AI-generated narration will appear here..."}
             className="min-h-[120px] resize-none text-sm"
           />
           {narrations[current.number] && (
@@ -636,24 +814,46 @@ export function SlideEditor({
           )}
         </div>
 
-        {/* Generate button */}
-        {!audioGenerated && (
-          <div className="space-y-1">
-            <Button
-              onClick={() => handleGenerate()}
-              disabled={generating || !voiceSelected}
-              className="w-full"
-            >
-              {generating ? "Generating audio for all slides..." : "Generate Narration"}
-            </Button>
-            {!voiceSelected && (
-              <p className="text-xs text-[#71717A]">
-                Select a voice in the sidebar to enable generation.
-              </p>
+        {/* Try Again — shown when auto-gen narration failed (no narrations) */}
+        {generationFailed && (
+          <Button
+            onClick={async () => {
+              setGenerationFailed(false)
+              const ok = await generateNarrations(slides, true)
+              if (!ok) setGenerationFailed(true)
+            }}
+            disabled={generating || generatingNarrations}
+            variant="outline"
+            className="w-full"
+          >
+            {generating || generatingNarrations ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Trying again…
+              </>
+            ) : (
+              "Try again"
             )}
-          </div>
+          </Button>
         )}
 
+        {/* Generate Audio — shown when narration exists but TTS not done */}
+        {Object.keys(narrations).length > 0 && !audioGenerated && !generationFailed && (
+          <Button
+            onClick={async () => {
+              // TODO: wire actual TTS via POST /api/generate/audio
+              setInternalAudioGenerated(true)
+              onAudioGeneratedChange?.(true)
+            }}
+            disabled={generatingNarrations}
+            className="w-full"
+          >
+            <Play className="h-4 w-4" />
+            Generate Audio
+          </Button>
+        )}
+
+        {/* Audio section — shown after TTS has been done */}
         {audioGenerated && (
           <>
             {changedSlides.length === 0 && (

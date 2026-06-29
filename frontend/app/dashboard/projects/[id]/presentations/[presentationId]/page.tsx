@@ -1,8 +1,8 @@
 "use client"
 
 import { useEffect, useState, useRef, useCallback } from "react"
-import { useParams } from "next/navigation"
-import { ChevronRight, Presentation } from "lucide-react"
+import { useParams, useRouter } from "next/navigation"
+import { ChevronRight, MoreHorizontal, Trash2, Pencil } from "lucide-react"
 import toast from "react-hot-toast"
 import { createClient } from "@/lib/supabase/client"
 import type { Presentation as PresentationType } from "@/lib/validations/presentation"
@@ -10,6 +10,8 @@ import { CreatePageSidebar } from "@/components/dashboard/CreatePageSidebar"
 import { PptxUploadZone } from "@/components/dashboard/PptxUploadZone"
 import { SlideEditor } from "@/components/dashboard/SlideEditor"
 import { ErrorBoundary } from "@/components/dashboard/ErrorBoundary"
+import { DeletePresentationDialog } from "@/components/dashboard/DeletePresentationDialog"
+import { RenamePresentationDialog } from "@/components/dashboard/RenamePresentationDialog"
 
 type EditorState = {
   selectedVoiceId?: string
@@ -34,7 +36,10 @@ function formatDate(iso: string) {
 
 export default function PresentationCreatePage() {
   const params = useParams<{ id: string; presentationId: string }>()
+  const router = useRouter()
   const [presentation, setPresentation] = useState<PresentationType | null>(null)
+  const [showDelete, setShowDelete] = useState(false)
+  const [showRename, setShowRename] = useState(false)
   const [projectName, setProjectName] = useState("")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -233,6 +238,26 @@ export default function PresentationCreatePage() {
                 Save failed
               </span>
             )}
+
+            {/* Action buttons */}
+            <div className="ml-4 flex items-center gap-1 border-l border-zinc-200 pl-4">
+              <button
+                type="button"
+                onClick={() => setShowRename(true)}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-[#71717A] transition-colors hover:bg-zinc-100 hover:text-[#18181B]"
+                aria-label="Rename"
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowDelete(true)}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-[#71717A] transition-colors hover:bg-red-50 hover:text-red-600"
+                aria-label="Delete"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -257,10 +282,33 @@ export default function PresentationCreatePage() {
               onSlideDataChange={setSlideData}
               changedSlides={changedSlides}
               onChangedSlidesChange={handleChangedSlidesChange}
+              onRemovePpt={() => { setMode("upload"); setStoragePath("") }}
             />
           </ErrorBoundary>
         )}
       </div>
+
+      {showRename && presentation && (
+        <RenamePresentationDialog
+          presentation={presentation}
+          onClose={() => setShowRename(false)}
+          onSaved={(updated) => {
+            setPresentation(updated)
+            setShowRename(false)
+          }}
+        />
+      )}
+
+      {showDelete && presentation && (
+        <DeletePresentationDialog
+          presentation={presentation}
+          onClose={() => setShowDelete(false)}
+          onDeleted={() => {
+            router.push(`/dashboard/projects/${params.id}`)
+            toast.success("Presentation deleted")
+          }}
+        />
+      )}
     </>
   )
 }

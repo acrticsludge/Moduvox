@@ -1,13 +1,17 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Plus, ChevronRight, FileText, Pencil, FolderKanban, BookOpen, GraduationCap, Shield, Presentation, Notebook, ClipboardList } from "lucide-react"
+import toast from "react-hot-toast"
 import { createClient } from "@/lib/supabase/client"
 import type { Project } from "@/lib/validations/project"
 import type { Presentation as PresentationType } from "@/lib/validations/presentation"
 import { RenameProjectModal } from "@/components/dashboard/RenameProjectModal"
 import { CreatePresentationDialog } from "@/components/dashboard/CreatePresentationDialog"
+import { PresentationCardActions } from "@/components/dashboard/PresentationCardActions"
+import { RenamePresentationDialog } from "@/components/dashboard/RenamePresentationDialog"
+import { DeletePresentationDialog } from "@/components/dashboard/DeletePresentationDialog"
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   FolderKanban,
@@ -36,23 +40,53 @@ export default function ProjectDetailPage() {
   const [loading, setLoading] = useState(true)
   const [showEdit, setShowEdit] = useState(false)
   const [showCreatePresentation, setShowCreatePresentation] = useState(false)
+  const [renameTarget, setRenameTarget] = useState<PresentationType | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<PresentationType | null>(null)
+  const [archiving, setArchiving] = useState<Set<string>>(new Set())
 
-  useEffect(() => {
+  const fetchData = useCallback(async () => {
     const supabase = createClient()
-
-    Promise.all([
+    const [projectRes, presentationsRes] = await Promise.all([
       supabase.from("projects").select("*").eq("id", params.id).single(),
       supabase
         .from("presentations")
         .select("*")
         .eq("project_id", params.id)
         .order("created_at", { ascending: false }),
-    ]).then(([projectRes, presentationsRes]) => {
-      setProject(projectRes.data)
-      setPresentations(presentationsRes.data as PresentationType[])
-      setLoading(false)
-    })
+    ])
+    setProject(projectRes.data)
+    setPresentations(presentationsRes.data as PresentationType[])
   }, [params.id])
+
+  useEffect(() => {
+    fetchData().finally(() => setLoading(false))
+  }, [fetchData])
+
+  async function handleArchive(p: PresentationType) {
+    setArchiving((prev) => new Set(prev).add(p.id))
+    try {
+      const res = await fetch(`/api/presentations/${p.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "archived" }),
+      })
+      if (res.ok) fetchData()
+    } catch { toast.error("Failed to archive presentation") }
+    setArchiving((prev) => { const next = new Set(prev); next.delete(p.id); return next })
+  }
+
+  async function handleRestore(p: PresentationType) {
+    setArchiving((prev) => new Set(prev).add(p.id))
+    try {
+      const res = await fetch(`/api/presentations/${p.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "draft" }),
+      })
+      if (res.ok) fetchData()
+    } catch { toast.error("Failed to restore presentation") }
+    setArchiving((prev) => { const next = new Set(prev); next.delete(p.id); return next })
+  }
 
   if (loading) {
     return (
@@ -160,7 +194,7 @@ export default function ProjectDetailPage() {
               <div
                 key={p.id}
                 onClick={() => router.push(`/dashboard/projects/${params.id}/presentations/${p.id}`)}
-                className="group cursor-pointer rounded-xl border border-zinc-200 bg-white p-4 hover:shadow-sm"
+                className="group relative cursor-pointer rounded-xl border border-zinc-200 bg-white p-4 hover:shadow-sm"
               >
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-100">
@@ -171,9 +205,17 @@ export default function ProjectDetailPage() {
                       {p.title}
                     </h3>
                     <p className="text-xs text-[#71717A]">
-                      {p.status === "draft" ? "Draft" : "Ready"} · {formatDate(p.created_at)}
+                      {p.status === "archived" ? "Archived" : p.status === "ready" ? "Ready" : "Draft"}
+                      {" · "}{formatDate(p.created_at)}
                     </p>
                   </div>
+                  <PresentationCardActions
+                    presentation={p}
+                    onRename={() => setRenameTarget(p)}
+                    onArchive={() => handleArchive(p)}
+                    onRestore={() => handleRestore(p)}
+                    onDelete={() => setDeleteTarget(p)}
+                  />
                 </div>
               </div>
             ))}
@@ -194,7 +236,6 @@ export default function ProjectDetailPage() {
           onClose={() => setShowEdit(false)}
           onSaved={() => {
             setShowEdit(false)
-            // Re-fetch project to show updated name/description/color/icon
             const supabase = createClient()
             supabase
               .from("projects")
@@ -204,6 +245,28 @@ export default function ProjectDetailPage() {
               .then(({ data }) => {
                 if (data) setProject(data)
               })
+          }}
+        />
+      )}
+
+      {renameTarget && (
+        <RenamePresentationDialog
+          presentation={renameTarget}
+          onClose={() => setRenameTarget(null)}
+          onSaved={() => {
+            setRenameTarget(null)
+            fetchData()
+          }}
+        />
+      )}
+
+      {deleteTarget && (
+        <DeletePresentationDialog
+          presentation={deleteTarget}
+          onClose={() => setDeleteTarget(null)}
+          onDeleted={() => {
+            setDeleteTarget(null)
+            fetchData()
           }}
         />
       )}
