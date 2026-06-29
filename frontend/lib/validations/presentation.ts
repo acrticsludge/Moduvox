@@ -28,3 +28,10 @@ export const createPresentationSchema = z.object({
 })
 
 export type CreatePresentationInput = z.infer<typeof createPresentationSchema>
+
+export const updatePresentationSchema = z.object({
+  title: z.string().min(1).max(200).optional(),
+  status: z.enum(["draft", "ready", "archived"]).optional(),
+})
+
+export type UpdatePresentationInput = z.infer<typeof updatePresentationSchema>
