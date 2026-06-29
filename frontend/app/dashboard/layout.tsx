@@ -5,17 +5,13 @@ import { usePathname } from "next/navigation"
 import { Toaster } from "react-hot-toast"
 import { Navbar } from "@/components/ui/Navbar"
 import { Footer } from "@/components/landing/footer"
-import { LayoutGrid, Mic, Settings, Archive, Trash2, Menu } from "lucide-react"
+import { LayoutGrid, Mic, Settings, Archive, Menu } from "lucide-react"
 
 const SIDEBAR_MAIN = [
   { label: "All Projects", icon: LayoutGrid, href: "/dashboard", match: /^\/dashboard(\/projects\/?.*|\/presentations\/?.*)?$/ },
   { label: "My Voices", icon: Mic, href: "/dashboard/voices", match: /^\/dashboard\/voices/ },
+  { label: "Archived", icon: Archive, href: "/dashboard/archived", match: /^\/dashboard\/archived/ },
   { label: "Settings", icon: Settings, href: "/dashboard/settings", match: /^\/dashboard\/settings/ },
-]
-
-const SIDEBAR_BOTTOM = [
-  { label: "Archived", icon: Archive },
-  { label: "Trash", icon: Trash2 },
 ]
 
 type SidebarCtx = {
@@ -88,18 +84,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 )
               })}
 
-              <hr className="my-3 border-zinc-200" />
 
-              {SIDEBAR_BOTTOM.map((item) => (
-                <button
-                  key={item.label}
-                  type="button"
-                  className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-[#71717A] transition-colors duration-150 hover:bg-zinc-50 hover:text-[#18181B]"
-                >
-                  <item.icon className="h-4 w-4" />
-                  {item.label}
-                </button>
-              ))}
             </nav>
           </aside>
 
