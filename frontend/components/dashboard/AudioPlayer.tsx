@@ -73,8 +73,9 @@ export function AudioPlayer({
       audioRef.current.pause()
       setPlaying(false)
     } else {
-      audioRef.current.play().catch(() => {})
-      setPlaying(true)
+      audioRef.current.play().then(() => setPlaying(true)).catch(() => {
+        // Browser blocked autoplay or network error — keep playing=false
+      })
     }
   }, [playing, resolvedUrl])
 

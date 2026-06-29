@@ -298,11 +298,24 @@ export function SlideEditor({
         setInternalNarrations(updated)
         onNarrationsChange?.(updated)
         originalNarrationsRef.current = { ...originalNarrationsRef.current, ...json.data.narrations }
+
+        // Warn if Gemini skipped some slides
+        if (json.data.partial && Array.isArray(json.data.missingSlides) && json.data.missingSlides.length > 0) {
+          toast.error(
+            `AI narration skipped ${json.data.missingSlides.length} slide(s): ${json.data.missingSlides.join(", ")}. ` +
+            `Add narration manually or try again.`,
+          )
+        }
         return true
       }
 
       return false
-    } catch { /* narration failed */; return false }
+    } catch {
+      if (showRateLimitPrompt) {
+        toast.error("Narration generation failed. Please check your connection and try again.")
+      }
+      return false
+    }
     finally { setGeneratingNarrations(false) }
   }
 
@@ -399,10 +412,12 @@ export function SlideEditor({
       } else {
         setInternalChangedSlides([])
         onChangedSlidesChange?.([])
+        onChangedSlidesChange?.([])
       }
+
+      setShowRegenModal(false)
     }
 
-    setShowRegenModal(false)
     setGenerating(false)
   }
 

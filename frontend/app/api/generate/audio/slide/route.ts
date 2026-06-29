@@ -60,9 +60,7 @@ export async function POST(request: Request) {
           const refFile = new File([await refBlob.arrayBuffer()], "sample.wav", { type: "audio/wav" })
           result = await generateWithClone(text, refFile, voice_description || "", cfgValue)
         } else {
-          // Fallback to preset if reference audio can't be downloaded
-          console.warn(`Voice ${voice_id}: reference audio not found, falling back to preset`)
-          result = await generateWithPreset(text, voice_description || "Natural, clear, professional speaking voice", cfgValue)
+          throw new Error(`Cloned voice reference audio not found. Please re-upload your voice sample.`)
         }
       } else {
         // Preset voice — use control_instruction as voice description

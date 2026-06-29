@@ -81,7 +81,7 @@ export function PptxUploadZone({ onFileAccepted }: { onFileAccepted?: (file: Fil
               Drop your PPTX here or click to browse
             </p>
             <p className="mt-1 text-xs text-[#71717A]">
-              .pptx files up to 50MB
+              .pptx files up to 50MB · maximum 30 slides
             </p>
           </div>
           <input

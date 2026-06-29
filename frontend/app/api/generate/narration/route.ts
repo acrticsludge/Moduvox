@@ -73,8 +73,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Slides array is required" }, { status: 400 })
     }
 
-    if (slides.length > 200) {
-      return NextResponse.json({ error: "Maximum 200 slides per request" }, { status: 400 })
+    if (slides.length > 30) {
+      return NextResponse.json({ error: "Maximum 30 slides per presentation" }, { status: 400 })
     }
 
     // ── Check for user's own Gemini key ─────────────────────

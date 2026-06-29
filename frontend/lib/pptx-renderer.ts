@@ -28,6 +28,12 @@ export async function parsePptxText(file: File): Promise<ParsedSlide[]> {
     throw new Error("No slides found in the presentation")
   }
 
+  if (slideFiles.length > 30) {
+    throw new Error(
+      `Presentation has ${slideFiles.length} slides. Maximum supported is 30 slides for audio generation.`,
+    )
+  }
+
   const slides: ParsedSlide[] = []
   let index = 0
 
