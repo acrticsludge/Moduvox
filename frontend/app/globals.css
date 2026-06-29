@@ -66,12 +66,12 @@ body {
 }
 
 /* Hide scrollbar in modals and panels — content stays scrollable via mouse/keyboard */
-.hide-scrollbar {
+@utility hide-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
-}
-.hide-scrollbar::-webkit-scrollbar {
-  display: none;
-  width: 0;
-  height: 0;
+  &::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
 }
