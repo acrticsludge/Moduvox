@@ -35,6 +35,7 @@ export function SlideEditor({
   audioStoragePath: externalAudioStoragePath,
   onAudioStoragePathChange,
   onAudioSlidePathsChange,
+  selectedVoiceId,
 }: {
   voiceSelected: boolean
   file: File | null
@@ -58,6 +59,7 @@ export function SlideEditor({
   audioStoragePath?: string | null
   onAudioStoragePathChange?: (v: string | null) => void
   onAudioSlidePathsChange?: (v: Record<number, string>) => void
+  selectedVoiceId?: string | null
 }) {
   const [slides, setSlides] = useState<ParsedSlide[]>([])
   const [internalIndex, setInternalIndex] = useState(0)
@@ -89,6 +91,7 @@ export function SlideEditor({
   const [audioGenProgress, setAudioGenProgress] = useState<{ current: number; total: number } | null>(null)
   const [audioGenError, setAudioGenError] = useState<string | null>(null)
   const [audioGenFailed, setAudioGenFailed] = useState(false)
+  const originalNarrationsRef = useRef<Record<number, string>>({})
 
   const audioUrl = externalAudioUrl ?? internalAudioUrl
   const [removingPpt, setRemovingPpt] = useState(false)
@@ -225,6 +228,13 @@ export function SlideEditor({
     })
   }, [slides, file])
 
+  // Snapshot narrations as the "original" baseline when first populated (from saved state or initial AI gen)
+  useEffect(() => {
+    if (Object.keys(narrations).length > 0 && Object.keys(originalNarrationsRef.current).length === 0) {
+      originalNarrationsRef.current = { ...narrations }
+    }
+  }, [narrations])
+
   // Shared helper: generate narrations via API. Returns true if narrations were generated.
   async function generateNarrations(targetSlides: ParsedSlide[], showRateLimitPrompt = true): Promise<boolean> {
     if (targetSlides.length === 0) return false
@@ -287,6 +297,7 @@ export function SlideEditor({
         const updated = { ...narrations, ...json.data.narrations }
         setInternalNarrations(updated)
         onNarrationsChange?.(updated)
+        originalNarrationsRef.current = { ...originalNarrationsRef.current, ...json.data.narrations }
         return true
       }
 
@@ -299,9 +310,23 @@ export function SlideEditor({
 
   function updateNarration(text: string) {
     if (!current) return
-    const next = { ...narrations, [current.number]: text }
+    const slideNumber = current.number
+    const next = { ...narrations, [slideNumber]: text }
     setInternalNarrations(next)
     onNarrationsChange?.(next)
+
+    const original = originalNarrationsRef.current[slideNumber]
+    if (text !== original) {
+      if (!changedSlides.includes(slideNumber)) {
+        const updatedChanged = [...changedSlides, slideNumber]
+        setInternalChangedSlides(updatedChanged)
+        onChangedSlidesChange?.(updatedChanged)
+      }
+    } else if (changedSlides.includes(slideNumber)) {
+      const updatedChanged = changedSlides.filter((s) => s !== slideNumber)
+      setInternalChangedSlides(updatedChanged)
+      onChangedSlidesChange?.(updatedChanged)
+    }
   }
 
   async function handleGenerate(selectedSlides?: Set<number>) {
@@ -963,6 +988,7 @@ export function SlideEditor({
                       voice_description: voiceDescription || "Natural, clear, professional speaking voice",
                       cfg_value: 2.0,
                       presentation_id: presentationId,
+                      voice_id: selectedVoiceId || undefined,
                     }),
                   })
 
@@ -1050,6 +1076,8 @@ export function SlideEditor({
             {audioUrl && (
               <AudioPlayer
                 audioUrl={audioUrl}
+                presentationId={presentationId}
+                slideNumber={currentIndex + 1}
                 onError={() => {
                   setInternalAudioGenerated(false)
                   onAudioGeneratedChange?.(false)

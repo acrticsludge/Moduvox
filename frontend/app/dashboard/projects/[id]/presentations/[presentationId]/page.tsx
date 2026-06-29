@@ -290,6 +290,7 @@ export default function PresentationCreatePage() {
               onSlideDataChange={setSlideData}
               changedSlides={changedSlides}
               onChangedSlidesChange={handleChangedSlidesChange}
+              selectedVoiceId={selectedVoiceId || null}
               voiceDescription={controlInstructions}
               audioUrl={audioUrl}
               onAudioUrlChange={setAudioUrl}

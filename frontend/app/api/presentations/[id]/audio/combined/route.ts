@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { concatWavBuffers, isValidWav } from "@/lib/wav-utils"
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const supabase = await createClient()
@@ -63,10 +63,31 @@ export async function GET(
 
   const combined = concatWavBuffers(wavBuffers)
 
-  return new NextResponse(combined.buffer as ArrayBuffer, {
+  // Support Range requests for proper browser audio playback
+  const rangeHeader = request.headers.get("range")
+  if (rangeHeader) {
+    const parts = rangeHeader.replace(/bytes=/, "").split("-")
+    const start = parseInt(parts[0], 10)
+    const end = parts[1] ? parseInt(parts[1], 10) : combined.length - 1
+    const chunk = new Uint8Array(combined.subarray(start, end + 1))
+
+    return new NextResponse(chunk, {
+      status: 206,
+      headers: {
+        "Content-Type": "audio/wav",
+        "Content-Range": `bytes ${start}-${end}/${combined.length}`,
+        "Content-Length": String(chunk.length),
+        "Accept-Ranges": "bytes",
+        "Cache-Control": "private, max-age=300",
+      },
+    })
+  }
+
+  return new NextResponse(new Uint8Array(combined), {
     headers: {
       "Content-Type": "audio/wav",
-      "Content-Disposition": "inline",
+      "Content-Length": String(combined.length),
+      "Accept-Ranges": "bytes",
       "Cache-Control": "private, max-age=300",
     },
   })

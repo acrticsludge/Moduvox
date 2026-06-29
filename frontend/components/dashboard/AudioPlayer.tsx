@@ -12,10 +12,14 @@ function formatTime(seconds: number): string {
 
 export function AudioPlayer({
   audioUrl,
+  presentationId,
+  slideNumber,
   onEnded,
   onError,
 }: {
   audioUrl: string | null
+  presentationId?: string
+  slideNumber?: number | null
   onEnded?: () => void
   onError?: () => void
 }) {
@@ -28,14 +32,20 @@ export function AudioPlayer({
   const [error, setError] = useState(false)
   const progressRef = useRef<HTMLDivElement>(null)
 
-  // Reset when audioUrl changes
+  // Build per-slide URL when slideNumber/presentationId are provided
+  const resolvedUrl =
+    audioUrl && presentationId && slideNumber != null
+      ? `/api/presentations/${presentationId}/audio/slide/${slideNumber}`
+      : audioUrl
+
+  // Reset when resolvedUrl changes
   useEffect(() => {
     setPlaying(false)
     setCurrentTime(0)
     setDuration(0)
     setLoading(true)
     setError(false)
-  }, [audioUrl])
+  }, [resolvedUrl])
 
   const handleTimeUpdate = useCallback(() => {
     if (audioRef.current && !seeking) {
@@ -58,7 +68,7 @@ export function AudioPlayer({
   }, [onEnded])
 
   const togglePlay = useCallback(() => {
-    if (!audioRef.current || !audioUrl) return
+    if (!audioRef.current || !resolvedUrl) return
     if (playing) {
       audioRef.current.pause()
       setPlaying(false)
@@ -66,7 +76,7 @@ export function AudioPlayer({
       audioRef.current.play().catch(() => {})
       setPlaying(true)
     }
-  }, [playing, audioUrl])
+  }, [playing, resolvedUrl])
 
   function handleSeek(e: React.MouseEvent<HTMLDivElement>) {
     if (!progressRef.current || !audioRef.current || !duration) return
@@ -76,7 +86,7 @@ export function AudioPlayer({
     setCurrentTime(ratio * duration)
   }
 
-  if (!audioUrl) return null
+  if (!resolvedUrl) return null
 
   if (error) {
     return (
@@ -138,7 +148,7 @@ export function AudioPlayer({
       {/* Hidden audio element */}
       <audio
         ref={audioRef}
-        src={audioUrl}
+        src={resolvedUrl}
         preload="auto"
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
