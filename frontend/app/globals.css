@@ -65,26 +65,40 @@ body {
   font-family: var(--font-sans);
 }
 
-/* Custom thin scrollbar for modals and panels */
-.thin-scrollbar {
+/* Custom thin scrollbar for modals and scrollable panels */
+.fixed {
   scrollbar-width: thin;
   scrollbar-color: #d4d4d8 transparent;
 }
 
-.thin-scrollbar::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+.fixed .overflow-y-auto,
+.fixed .overflow-auto {
+  scrollbar-width: thin;
+  scrollbar-color: #d4d4d8 transparent;
 }
 
-.thin-scrollbar::-webkit-scrollbar-track {
+.fixed::-webkit-scrollbar,
+.fixed .overflow-y-auto::-webkit-scrollbar,
+.fixed .overflow-auto::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.fixed::-webkit-scrollbar-track,
+.fixed .overflow-y-auto::-webkit-scrollbar-track,
+.fixed .overflow-auto::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.thin-scrollbar::-webkit-scrollbar-thumb {
+.fixed::-webkit-scrollbar-thumb,
+.fixed .overflow-y-auto::-webkit-scrollbar-thumb,
+.fixed .overflow-auto::-webkit-scrollbar-thumb {
   background-color: #d4d4d8;
   border-radius: 9999px;
 }
 
-.thin-scrollbar::-webkit-scrollbar-thumb:hover {
+.fixed::-webkit-scrollbar-thumb:hover,
+.fixed .overflow-y-auto::-webkit-scrollbar-thumb:hover,
+.fixed .overflow-auto::-webkit-scrollbar-thumb:hover {
   background-color: #a1a1aa;
 }
