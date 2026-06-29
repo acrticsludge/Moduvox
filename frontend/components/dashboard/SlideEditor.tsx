@@ -210,8 +210,16 @@ export function SlideEditor({
         }),
       })
       const json = await res.json()
-      if (json.error === "rate_limited" && showRateLimitPrompt) {
-        toast.error(json.message || "Rate limit reached. Add your Gemini key in Settings.")
+      if (json.error === "rate_limited") {
+        if (showRateLimitPrompt) {
+          toast.error(json.message || "Generation limit reached. Add your Gemini API key in Settings.")
+        }
+        setGeneratingNarrations(false)
+        return
+      }
+      if (json.error === "invalid_api_key") {
+        toast.error(json.message || "Your Gemini API key is invalid. Check Settings.")
+        setGeneratingNarrations(false)
         return
       }
       if (json.data?.narrations) {
@@ -363,10 +371,10 @@ export function SlideEditor({
       setInternalChangedSlides(changed)
       onChangedSlidesChange?.(changed)
 
-      // Auto-generate AI narrations for changed/added slides
+      // Auto-generate AI narrations for changed/added slides (silent — no toast on rate limit)
       const slidesToRegen = pendingSlides.filter((s) => changed.includes(s.number))
       if (slidesToRegen.length > 0) {
-        generateNarrations(slidesToRegen)
+        generateNarrations(slidesToRegen, false)
       }
     }
 
