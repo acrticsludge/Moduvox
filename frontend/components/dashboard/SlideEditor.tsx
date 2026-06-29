@@ -194,12 +194,17 @@ export function SlideEditor({
     if (Object.keys(narrations).length > 0) return
     if (generatingNarrations) return
     if (!file) return // Only auto-generate for freshly uploaded files, not restored state
-    generateNarrations(slides)
+    generateNarrations(slides).then((ok) => {
+      if (ok) {
+        setInternalAudioGenerated(true)
+        onAudioGeneratedChange?.(true)
+      }
+    })
   }, [slides, file])
 
-  // Shared helper: generate narrations via API
-  async function generateNarrations(targetSlides: ParsedSlide[], showRateLimitPrompt = true) {
-    if (targetSlides.length === 0) return
+  // Shared helper: generate narrations via API. Returns true if narrations were generated.
+  async function generateNarrations(targetSlides: ParsedSlide[], showRateLimitPrompt = true): Promise<boolean> {
+    if (targetSlides.length === 0) return false
     setGeneratingNarrations(true)
     try {
       const res = await fetch("/api/generate/narration", {
@@ -214,8 +219,7 @@ export function SlideEditor({
       // Shared key quota exhausted — permanent block, always notify
       if (json.error === "quota_exhausted") {
         toast.error(json.message || "The shared Gemini key has hit its daily limit. Add your own API key in Settings.")
-        setGeneratingNarrations(false)
-        return
+        return false
       }
 
       // Temporary rate limit — only show toast for explicit user actions
@@ -223,15 +227,13 @@ export function SlideEditor({
         if (showRateLimitPrompt) {
           toast.error(json.message || "Generation limit reached. Add your Gemini API key in Settings.")
         }
-        setGeneratingNarrations(false)
-        return
+        return false
       }
 
       // Invalid user API key — always notify
       if (json.error === "invalid_api_key") {
         toast.error(json.message || "Your Gemini API key is invalid. Check Settings.")
-        setGeneratingNarrations(false)
-        return
+        return false
       }
 
       if (json.data?.narrations) {
@@ -239,11 +241,12 @@ export function SlideEditor({
         const updated = { ...narrations, ...json.data.narrations }
         setInternalNarrations(updated)
         onNarrationsChange?.(updated)
-        setInternalAudioGenerated(true)
-        onAudioGeneratedChange?.(true)
+        return true
       }
-    } catch { /* narration failed */ }
-    setGeneratingNarrations(false)
+
+      return false
+    } catch { /* narration failed */; return false }
+    finally { setGeneratingNarrations(false) }
   }
 
   const current = slides[currentIndex]
@@ -264,19 +267,22 @@ export function SlideEditor({
       : slides
 
     // Use the shared narration generator
-    await generateNarrations(targetSlides, false)
+    const ok = await generateNarrations(targetSlides, false)
 
-    setInternalAudioGenerated(true)
-    onAudioGeneratedChange?.(true)
+    // Only mark as generated and clean up if narrations were actually created
+    if (ok) {
+      setInternalAudioGenerated(true)
+      onAudioGeneratedChange?.(true)
 
-    // Clear changed status for regenerated slides
-    if (selectedSlides) {
-      const remaining = changedSlides.filter((s) => !selectedSlides.has(s))
-      setInternalChangedSlides(remaining)
-      onChangedSlidesChange?.(remaining)
-    } else {
-      setInternalChangedSlides([])
-      onChangedSlidesChange?.([])
+      // Clear changed status for regenerated slides
+      if (selectedSlides) {
+        const remaining = changedSlides.filter((s) => !selectedSlides.has(s))
+        setInternalChangedSlides(remaining)
+        onChangedSlidesChange?.(remaining)
+      } else {
+        setInternalChangedSlides([])
+        onChangedSlidesChange?.([])
+      }
     }
 
     setShowRegenModal(false)
@@ -708,6 +714,34 @@ export function SlideEditor({
             </p>
           )}
         </div>
+
+        {/* Generate Audio button — shown until first generation */}
+        {!audioGenerated && (
+          <div className="space-y-1">
+            <Button
+              onClick={() => handleGenerate()}
+              disabled={generating || generatingNarrations || !voiceSelected}
+              className="w-full"
+            >
+              {generating || generatingNarrations ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Generating Audio…
+                </>
+              ) : (
+                <>
+                  <Play className="h-4 w-4" />
+                  Generate Audio
+                </>
+              )}
+            </Button>
+            {!voiceSelected && (
+              <p className="text-xs text-[#71717A] text-center">
+                Select a voice first to generate audio.
+              </p>
+            )}
+          </div>
+        )}
 
         {audioGenerated && (
           <>
