@@ -1,5 +1,23 @@
 const HEADER_SIZE = 44
 
+/** Detect what format a buffer actually is, based on magic bytes. */
+export function detectFormat(buf: Buffer): string {
+  if (buf.length < 4) return `unknown (${buf.length} bytes)`
+  const magic = buf.toString("ascii", 0, 4)
+  if (magic === "RIFF") {
+    const wave = buf.length > 12 && buf.toString("ascii", 8, 12) === "WAVE" ? " (WAVE)" : ""
+    return `RIFF${wave}`
+  }
+  if (magic === "fLaC") return "FLAC"
+  if (buf[0] === 0xFF && (buf[1] & 0xE0) === 0xE0) return "MP3"
+  if (magic === "OggS") return "OGG"
+  if (magic === "ftyp") return "MP4/AAC"
+  if (buf.toString("ascii", 0, 3) === "ID3") return "MP3 (ID3)"
+  if (buf.length >= 2 && buf[0] === 0xFE && buf[1] === 0xFF) return "UTF-16 text"
+  if (buf[0] === 0xEF && buf[1] === 0xBB && buf[2] === 0xBF) return "UTF-8 text"
+  return `unknown (hex: ${buf.subarray(0, 16).toString("hex")})`
+}
+
 export function isValidWav(buf: Buffer): boolean {
   if (buf.length < HEADER_SIZE) return false
   if (buf.toString("ascii", 0, 4) !== "RIFF") return false

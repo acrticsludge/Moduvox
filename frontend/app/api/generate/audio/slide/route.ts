@@ -3,7 +3,7 @@ import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { generateWithPreset } from "@/lib/voxcpm"
-import { isValidWav } from "@/lib/wav-utils"
+import { isValidWav, detectFormat } from "@/lib/wav-utils"
 
 const slideSchema = z.object({
   slide_number: z.number().int().min(1),
@@ -46,8 +46,12 @@ export async function POST(request: Request) {
     const audioBuffer = Buffer.from(await gradioRes.arrayBuffer())
 
     if (!isValidWav(audioBuffer)) {
-      const preview = audioBuffer.subarray(0, 200).toString("utf8").slice(0, 100)
-      throw new Error(`Gradio response is not a valid WAV (starts with: ${preview})`)
+      const format = detectFormat(audioBuffer)
+      const contentType = gradioRes.headers.get("content-type") || "unknown"
+      throw new Error(
+        `Gradio returned ${format} (Content-Type: ${contentType}). ` +
+        `Expected audio/wav. The VoxCPM2 space may be down or misconfigured.`,
+      )
     }
 
     // Save to storage

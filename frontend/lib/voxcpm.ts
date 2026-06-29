@@ -65,11 +65,18 @@ export async function generateAudio(input: VoxCPMInput): Promise<VoxCPMResult> {
     refDenoise,
   ])
 
+  // Gradio Audio components return FileData with: { url, path, orig_name, mime_type }
+  // The URL points to a temporary file on the HF Space.
   const data = result.data as FileData[]
-  const fileData = data[0]
+  const fileData = data[0] as FileData & { mime_type?: string; orig_name?: string }
+
+  // Use url if available, otherwise construct from path
+  const audioUrl = fileData.url
+    || (fileData.path ? `https://${DEFAULT_SPACE_ID.replace("/", "-")}.hf.space/file=${fileData.path}` : "")
+    || ""
 
   return {
-    audioUrl: fileData.url ?? "",
+    audioUrl,
     fileData,
   }
 }
