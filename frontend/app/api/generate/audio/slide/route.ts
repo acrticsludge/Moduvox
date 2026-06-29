@@ -44,13 +44,14 @@ export async function POST(request: Request) {
     // Download from Gradio
     const gradioRes = await fetch(result.audioUrl)
     if (!gradioRes.ok) throw new Error("Failed to download generated audio")
-    let audioBuffer = Buffer.from(await gradioRes.arrayBuffer())
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let audioBuffer: any = Buffer.from(await gradioRes.arrayBuffer())
 
     // VoxCPM2 returns MP3; convert to WAV for consistent processing
     if (!isValidWav(audioBuffer)) {
       const format = detectFormat(audioBuffer)
       console.log(`Gradio returned ${format}, converting to WAV...`)
-      const wavBuffer = await toWav(audioBuffer, "mp3")
+      const wavBuffer = await toWav(audioBuffer)
       if (isValidWav(wavBuffer)) {
         audioBuffer = wavBuffer
       } else {

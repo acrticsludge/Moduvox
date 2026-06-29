@@ -1,45 +1,61 @@
-import { execFile } from "child_process"
-import { promisify } from "util"
-import path from "path"
-import fs from "fs"
-import os from "os"
-
-const execFileAsync = promisify(execFile)
-
-// ffmpeg-static exports a string path to the binary
-let ffmpegPath: string | null = null
-try {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  ffmpegPath = require("ffmpeg-static") as string
-} catch {
-  // ffmpeg not available — conversion will be skipped
-}
+import { MPEGDecoder } from "mpg123-decoder"
 
 /**
- * Convert an audio buffer to PCM WAV format using FFmpeg.
- * If FFmpeg is not available, returns the original buffer unchanged.
+ * Convert an MP3 buffer to PCM WAV format using mpg123-decoder (pure WASM, no native deps).
+ * Returns the original buffer unchanged if decoding fails or if it's already valid WAV.
  */
-export async function toWav(input: Buffer, _inputFormat?: string): Promise<Buffer> {
-  if (!ffmpegPath) return input
-
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "voxcpm-"))
-  const inPath = path.join(tmpDir, "input")
-  const outPath = path.join(tmpDir, "output.wav")
-
+export async function toWav(input: Buffer): Promise<Buffer> {
   try {
-    fs.writeFileSync(inPath, input)
-    await execFileAsync(ffmpegPath, [
-      "-y",
-      "-i", inPath,
-      "-acodec", "pcm_s16le",
-      "-ar", "24000",
-      "-ac", "1",
-      outPath,
-    ], { timeout: 30000 })
+    const decoder = new MPEGDecoder()
+    await decoder.ready
+
+    // Decode MP3 to raw PCM samples
+    const decoded = decoder.decode(input)
+    decoder.free()
+
+    if (!decoded || !decoded.channelData?.length || !decoded.samplesDecoded) {
+      return input // fallback: return as-is
+    }
+
+    const sampleRate = decoded.sampleRate || 24000
+    const channels = decoded.channelData.length
+    const samplesDecoded = decoded.samplesDecoded
+
+    // Interleave channels into 16-bit PCM
+    const pcmData = new Int16Array(samplesDecoded * channels)
+    for (let s = 0; s < samplesDecoded; s++) {
+      for (let c = 0; c < channels; c++) {
+        // Clamp float [-1, 1] to int16 [-32768, 32767]
+        const val = Math.max(-1, Math.min(1, decoded.channelData[c][s] ?? 0))
+        pcmData[s * channels + c] = val < 0 ? val * 32768 : val * 32767
+      }
+    }
+
+    const dataSize = pcmData.byteLength
+    const HEADER_SIZE = 44
+    const wav = Buffer.alloc(HEADER_SIZE + dataSize)
+
+    // WAV header
+    wav.write("RIFF", 0, "ascii")
+    wav.writeUInt32LE(36 + dataSize, 4)
+    wav.write("WAVE", 8, "ascii")
+    wav.write("fmt ", 12, "ascii")
+    wav.writeUInt32LE(16, 16)      // chunk size (PCM)
+    wav.writeUInt16LE(1, 20)       // PCM format
+    wav.writeUInt16LE(channels, 22)
+    wav.writeUInt32LE(sampleRate, 24)
+    wav.writeUInt32LE(sampleRate * channels * 2, 28)  // byte rate
+    wav.writeUInt16LE(channels * 2, 32)                // block align
+    wav.writeUInt16LE(16, 34)      // bits per sample
+    wav.write("data", 36, "ascii")
+    wav.writeUInt32LE(dataSize, 40)
+
+    // PCM data (uses any cast to handle Buffer<ArrayBufferLike> compatibility)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return Buffer.from(fs.readFileSync(outPath) as any)
-  } finally {
-    // Cleanup temp files
-    try { fs.rmSync(tmpDir, { recursive: true }) } catch { /* ignore */ }
+    ;(Buffer.from(pcmData.buffer as any) as any).copy(wav, HEADER_SIZE)
+
+    return wav
+  } catch {
+    return input // fallback: return as-is
   }
 }
