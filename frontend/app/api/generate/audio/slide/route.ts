@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { generateWithPreset } from "@/lib/voxcpm"
 import { isValidWav, detectFormat } from "@/lib/wav-utils"
+import { toWav } from "@/lib/audio-convert"
 
 const slideSchema = z.object({
   slide_number: z.number().int().min(1),
@@ -43,15 +44,22 @@ export async function POST(request: Request) {
     // Download from Gradio
     const gradioRes = await fetch(result.audioUrl)
     if (!gradioRes.ok) throw new Error("Failed to download generated audio")
-    const audioBuffer = Buffer.from(await gradioRes.arrayBuffer())
+    let audioBuffer = Buffer.from(await gradioRes.arrayBuffer())
 
+    // VoxCPM2 returns MP3; convert to WAV for consistent processing
     if (!isValidWav(audioBuffer)) {
       const format = detectFormat(audioBuffer)
-      const contentType = gradioRes.headers.get("content-type") || "unknown"
-      throw new Error(
-        `Gradio returned ${format} (Content-Type: ${contentType}). ` +
-        `Expected audio/wav. The VoxCPM2 space may be down or misconfigured.`,
-      )
+      console.log(`Gradio returned ${format}, converting to WAV...`)
+      const wavBuffer = await toWav(audioBuffer, "mp3")
+      if (isValidWav(wavBuffer)) {
+        audioBuffer = wavBuffer
+      } else {
+        const contentType = gradioRes.headers.get("content-type") || "unknown"
+        throw new Error(
+          `Gradio returned ${format} (Content-Type: ${contentType}) and ` +
+          `conversion to WAV failed.`,
+        )
+      }
     }
 
     // Save to storage
