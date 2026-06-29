@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import { Play, Loader2, ExternalLink, FileText, ChevronRight, X } from "lucide-react"
+import { Play, Loader2, ExternalLink, FileText, ChevronRight, X, TriangleAlert } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
@@ -86,6 +86,9 @@ export function SlideEditor({
   const [generationFailed, setGenerationFailed] = useState(false)
   const [internalAudioUrl, setInternalAudioUrl] = useState<string | null>(null)
   const [generatingAudio, setGeneratingAudio] = useState(false)
+  const [audioGenProgress, setAudioGenProgress] = useState<{ current: number; total: number } | null>(null)
+  const [audioGenError, setAudioGenError] = useState<string | null>(null)
+  const [audioGenFailed, setAudioGenFailed] = useState(false)
 
   const audioUrl = externalAudioUrl ?? internalAudioUrl
   const [removingPpt, setRemovingPpt] = useState(false)
@@ -303,12 +306,57 @@ export function SlideEditor({
       ? slides.filter((s) => selectedSlides.has(s.number))
       : slides
 
-    // Use the shared narration generator
+    // Regenerate narrations
     const ok = await generateNarrations(targetSlides, false)
 
-    // Only mark as generated and clean up if narrations were actually created
     if (ok) {
       setGenerationFailed(false)
+
+      // Regenerate audio for the affected slides (sequential, with progress)
+      const sorted = targetSlides.slice().sort((a, b) => a.number - b.number)
+      const slideTexts = sorted
+        .map((s) => ({ number: s.number, text: narrations[s.number] || "" }))
+        .filter((s) => s.text.trim())
+
+      if (slideTexts.length > 0) {
+        setAudioGenProgress({ current: 0, total: slideTexts.length })
+
+        for (let i = 0; i < slideTexts.length; i++) {
+          setAudioGenProgress({ current: i + 1, total: slideTexts.length })
+
+          try {
+            const res = await fetch("/api/generate/audio/slide", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                slide_number: slideTexts[i].number,
+                text: slideTexts[i].text,
+                voice_description: voiceDescription || "Natural, clear, professional speaking voice",
+                cfg_value: 2.0,
+                presentation_id: presentationId,
+              }),
+            })
+
+            if (!res.ok) {
+              const json = await res.json().catch(() => ({}))
+              throw new Error(typeof json.error === "string" ? json.error : `Slide ${slideTexts[i].number} failed`)
+            }
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : "Audio regeneration failed"
+            setAudioGenError(msg)
+            setAudioGenFailed(true)
+            setAudioGenProgress(null)
+            setGenerating(false)
+            return
+          }
+        }
+
+        setAudioGenProgress(null)
+      }
+
+      const combinedUrl = `/api/presentations/${presentationId}/audio/combined`
+      setInternalAudioUrl(combinedUrl)
+      onAudioUrlChange?.(combinedUrl)
       setInternalAudioGenerated(true)
       onAudioGeneratedChange?.(true)
 
@@ -871,58 +919,69 @@ export function SlideEditor({
         )}
 
         {/* Generate Audio — shown when narration exists but TTS not done */}
-        {Object.keys(narrations).length > 0 && !audioGenerated && !generationFailed && (
+        {Object.keys(narrations).length > 0 && !audioGenerated && !generationFailed && !audioGenFailed && (
           <Button
             onClick={async () => {
               if (generatingAudio) return
-              setGeneratingAudio(true)
 
               // Determine which slides need audio generation.
-              // On re-upload with changed slides, only regenerate those.
-              // On initial generation, do all slides that have narration text.
               const slidesToGenerate = changedSlides.length > 0
                 ? slides.filter((s) => changedSlides.includes(s.number))
                 : slides
 
-              const slideTexts = slidesToGenerate
-                .slice()
-                .sort((a, b) => a.number - b.number)
+              const sorted = slidesToGenerate.slice().sort((a, b) => a.number - b.number)
+              const slideTexts = sorted
                 .map((s) => ({ number: s.number, text: narrations[s.number] || "" }))
                 .filter((s) => s.text.trim())
 
               if (slideTexts.length === 0) {
                 toast.error("No narration text to generate audio from.")
-                setGeneratingAudio(false)
                 return
               }
 
-              try {
-                const res = await fetch("/api/generate/audio", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    slides: slideTexts,
-                    voice_description: voiceDescription || "Natural, clear, professional speaking voice",
-                    cfg_value: 2.0,
-                    presentation_id: presentationId,
-                  }),
-                })
+              setAudioGenFailed(false)
+              setAudioGenError(null)
+              setGeneratingAudio(true)
+              setAudioGenProgress({ current: 0, total: slideTexts.length })
 
-                const json = await res.json()
-                if (!res.ok || !json.data?.audioUrl) {
-                  throw new Error(typeof json.error === "string" ? json.error : "Audio generation failed")
+              for (let i = 0; i < slideTexts.length; i++) {
+                setAudioGenProgress({ current: i + 1, total: slideTexts.length })
+
+                try {
+                  const res = await fetch("/api/generate/audio/slide", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      slide_number: slideTexts[i].number,
+                      text: slideTexts[i].text,
+                      voice_description: voiceDescription || "Natural, clear, professional speaking voice",
+                      cfg_value: 2.0,
+                      presentation_id: presentationId,
+                    }),
+                  })
+
+                  if (!res.ok) {
+                    const json = await res.json().catch(() => ({}))
+                    throw new Error(typeof json.error === "string" ? json.error : `Slide ${slideTexts[i].number} failed`)
+                  }
+                } catch (err) {
+                  const msg = err instanceof Error ? err.message : "Audio generation failed"
+                  setAudioGenError(msg)
+                  setAudioGenFailed(true)
+                  setGeneratingAudio(false)
+                  setAudioGenProgress(null)
+                  return
                 }
-
-                // The combine endpoint reads all per-slide WAVs on demand
-                const combinedUrl = `/api/presentations/${presentationId}/audio/combined`
-                setInternalAudioUrl(combinedUrl)
-                onAudioUrlChange?.(combinedUrl)
-                setInternalAudioGenerated(true)
-                onAudioGeneratedChange?.(true)
-              } catch (err) {
-                toast.error(err instanceof Error ? err.message : "Audio generation failed. Please try again.")
               }
+
+              // All slides generated successfully
+              const combinedUrl = `/api/presentations/${presentationId}/audio/combined`
+              setInternalAudioUrl(combinedUrl)
+              onAudioUrlChange?.(combinedUrl)
+              setInternalAudioGenerated(true)
+              onAudioGeneratedChange?.(true)
               setGeneratingAudio(false)
+              setAudioGenProgress(null)
             }}
             disabled={generatingNarrations || generatingAudio}
             className="w-full"
@@ -938,6 +997,20 @@ export function SlideEditor({
                 Generate Audio
               </>
             )}
+          </Button>
+        )}
+
+        {/* Try again after audio generation failure */}
+        {audioGenFailed && (
+          <Button
+            onClick={() => {
+              setAudioGenFailed(false)
+              setAudioGenError(null)
+            }}
+            variant="outline"
+            className="w-full"
+          >
+            Try Again
           </Button>
         )}
 
@@ -1000,6 +1073,50 @@ export function SlideEditor({
           onConfirm={() => handleGenerate(new Set(changedSlides))}
           onCancel={() => setShowRegenModal(false)}
         />
+      )}
+
+      {/* Audio generation progress overlay — blocks the entire page */}
+      {audioGenProgress && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#18181B]/60">
+          <div className="flex flex-col items-center gap-4 rounded-xl bg-white px-8 py-10 shadow-xl">
+            <Loader2 className="h-8 w-8 animate-spin text-[#18181B]" />
+            <p className="text-sm font-medium text-[#18181B]">
+              Generating audio…
+            </p>
+            <p className="text-xs text-[#71717A]">
+              Slide {audioGenProgress.current} of {audioGenProgress.total}
+            </p>
+            {/* Progress bar */}
+            <div className="h-1.5 w-48 rounded-full bg-zinc-200">
+              <div
+                className="h-1.5 rounded-full bg-[#18181B] transition-all duration-300"
+                style={{ width: `${(audioGenProgress.current / audioGenProgress.total) * 100}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Audio generation error modal */}
+      {audioGenError && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#18181B]/40">
+          <div className="w-full max-w-sm rounded-xl border bg-white p-6 shadow-xl">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
+              <TriangleAlert className="h-6 w-6 text-red-600" />
+            </div>
+            <h2 className="mb-2 text-center text-lg font-semibold">Generation failed</h2>
+            <p className="mb-6 text-center text-sm text-zinc-500">
+              {audioGenError}
+            </p>
+            <button
+              type="button"
+              onClick={() => setAudioGenError(null)}
+              className="w-full rounded-lg bg-[#18181B] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#27272A]"
+            >
+              OK
+            </button>
+          </div>
+        </div>
       )}
     </>
   )
