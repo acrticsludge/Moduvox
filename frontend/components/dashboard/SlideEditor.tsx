@@ -228,7 +228,23 @@ export function SlideEditor({
       // Temporary rate limit — only show toast for explicit user actions
       if (json.error === "rate_limited") {
         if (showRateLimitPrompt) {
-          toast.error(json.message || "Generation limit reached. Add your Gemini API key in Settings.")
+          const retryAfter = json.retryAfter as number | undefined
+          if (retryAfter && retryAfter > 0) {
+            const toastId = `rate-limit-${Date.now()}`
+            let remaining = retryAfter
+            const updateMsg = () => {
+              if (remaining > 0) {
+                toast.error(`Rate limit reached. Try again in ${remaining}s, or add your own API key in Settings.`, { id: toastId })
+                remaining--
+              } else {
+                clearInterval(interval)
+              }
+            }
+            updateMsg()
+            const interval = setInterval(updateMsg, 1000)
+          } else {
+            toast.error(json.message || "Generation limit reached. Add your Gemini API key in Settings.")
+          }
         }
         return false
       }

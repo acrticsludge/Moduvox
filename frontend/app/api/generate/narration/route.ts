@@ -51,6 +51,13 @@ function sanitizeError(msg: string): string {
   return msg.replace(/AIza[0-9A-Za-z_-]{35}/g, "[REDACTED_API_KEY]")
 }
 
+// ── Parse retry delay from Gemini error response (e.g. "Please retry in 42.6s") ────
+function parseRetryAfter(msg: string): number | null {
+  const match = msg.match(/retry\s+in\s+([\d.]+)\s*s/i)
+  if (match) return Math.ceil(Number.parseFloat(match[1]))
+  return null
+}
+
 export async function POST(request: Request) {
   try {
     // ── Auth ────────────────────────────────────────────────
@@ -182,9 +189,13 @@ ${slideBlocks.join("\n\n")}`
 
     // Detect rate limit from Gemini itself (temporary — retryable)
     if (msg.includes("429") || msg.includes("RESOURCE_EXHAUSTED")) {
+      const retryAfter = parseRetryAfter(msg)
       return NextResponse.json({
         error: "rate_limited",
-        message: "Google Gemini is temporarily rate limited. Wait a moment and try again, or add your own API key in Settings.",
+        retryAfter,
+        message: retryAfter
+          ? `Rate limit reached. Try again in ${retryAfter}s, or add your own API key in Settings.`
+          : "Google Gemini is temporarily rate limited. Add your own API key in Settings.",
       }, { status: 429 })
     }
 
