@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Mail, Lock, Loader2, AlertCircle, Info } from "lucide-react"
 
 declare global {
@@ -35,12 +35,10 @@ export function CombinedGateDialog({
   const [loading, setLoading] = useState(false)
   const recaptchaRef = useRef<HTMLDivElement>(null)
   const recaptchaWidgetId = useRef<number | undefined>(undefined)
-  const recaptchaLoaded = useRef(false)
 
-  function loadRecaptcha() {
+  // Load reCAPTCHA widget on mount
+  useEffect(() => {
     if (!recaptchaRef.current || !process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY) return
-    if (recaptchaLoaded.current) return
-    recaptchaLoaded.current = true
 
     const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY
 
@@ -52,8 +50,8 @@ export function CombinedGateDialog({
       })
     } else {
       window.onRecaptchaLoad = () => {
-        if (recaptchaRef.current) {
-          recaptchaWidgetId.current = window.grecaptcha?.render(recaptchaRef.current, {
+        if (recaptchaRef.current && window.grecaptcha) {
+          recaptchaWidgetId.current = window.grecaptcha.render(recaptchaRef.current, {
             sitekey: siteKey,
             theme: "light",
             size: "normal",
@@ -66,7 +64,7 @@ export function CombinedGateDialog({
       script.defer = true
       document.head.appendChild(script)
     }
-  }
+  }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -204,7 +202,7 @@ export function CombinedGateDialog({
           {/* reCAPTCHA v2 widget */}
           {process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY && (
             <div className="flex justify-center">
-              <div ref={recaptchaRef} onClick={loadRecaptcha} />
+              <div ref={recaptchaRef} />
             </div>
           )}
 
