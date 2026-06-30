@@ -6,6 +6,7 @@ CREATE TABLE feedback (
   category TEXT NOT NULL CHECK (category IN ('bug_report', 'feature_request', 'general')),
   rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
   message TEXT NOT NULL,
+  can_contact BOOLEAN DEFAULT false,
   ip_address TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );

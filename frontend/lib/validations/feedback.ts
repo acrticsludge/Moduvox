@@ -11,10 +11,11 @@ export const CATEGORY_LABELS: Record<FeedbackCategory, string> = {
 
 export const submitFeedbackSchema = z.object({
   name: z.string().min(1, "Name is required").max(200, "Name must be 200 characters or less"),
-  email: z.string().email("Valid email is required"),
+  email: z.string().email("Valid email is required").optional().or(z.literal("")),
   category: z.enum(CATEGORIES, { message: "Please select a category" }),
   rating: z.number().int().min(1, "Rating is required").max(5),
   message: z.string().min(1, "Message is required").max(5000, "Message must be 5000 characters or less"),
+  can_contact: z.boolean().optional().default(false),
 })
 
 export type SubmitFeedbackInput = z.infer<typeof submitFeedbackSchema>

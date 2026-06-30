@@ -44,14 +44,16 @@ export async function POST(request: Request) {
   }
 
   // Insert into DB
+  const email = parsed.data.email || null
   const { data: feedback, error: insertError } = await supabase
     .from("feedback")
     .insert({
       name: parsed.data.name,
-      email: parsed.data.email,
+      email: email,
       category: parsed.data.category,
       rating: parsed.data.rating,
       message: parsed.data.message,
+      can_contact: parsed.data.can_contact || false,
       ip_address: ipAddress,
     })
     .select("id, created_at")
@@ -65,6 +67,9 @@ export async function POST(request: Request) {
   // Send email notification via Resend
   const categoryLabel = CATEGORY_LABELS[parsed.data.category as FeedbackCategory]
   const stars = "★".repeat(parsed.data.rating) + "☆".repeat(5 - parsed.data.rating)
+  const contactInfo = email
+    ? `Email: ${email}\nCan contact: ${parsed.data.can_contact ? "Yes" : "No"}`
+    : "Email: Not provided (anonymous)"
 
   try {
     await fetch("https://api.resend.com/emails", {
@@ -77,7 +82,7 @@ export async function POST(request: Request) {
         from: process.env.RESEND_FROM_EMAIL || "Moduvox <alerts@pulsemonitor.dev>",
         to: ["anubhavrai100@gmail.com"],
         subject: `New feedback: ${categoryLabel} ${stars}`,
-        text: `New feedback submitted\n\nCategory: ${categoryLabel}\nRating: ${parsed.data.rating}/5\nName: ${parsed.data.name}\nEmail: ${parsed.data.email}\n\nMessage:\n${parsed.data.message}\n\nSubmitted at: ${feedback.created_at}\nIP: ${ipAddress}`,
+        text: `New feedback submitted\n\nCategory: ${categoryLabel}\nRating: ${parsed.data.rating}/5\nName: ${parsed.data.name}\n${contactInfo}\n\nMessage:\n${parsed.data.message}\n\nSubmitted at: ${feedback.created_at}\nIP: ${ipAddress}`,
       }),
     })
   } catch (err) {

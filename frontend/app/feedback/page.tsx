@@ -5,6 +5,13 @@ import { Loader2, CheckCircle, AlertCircle, Star } from "lucide-react"
 import { Navbar } from "@/components/ui/Navbar"
 import { Footer } from "@/components/landing/footer"
 import { CATEGORIES, CATEGORY_LABELS } from "@/lib/validations/feedback"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 type PageState =
   | { type: "form" }
@@ -20,6 +27,8 @@ export default function FeedbackPage() {
   const [rating, setRating] = useState(0)
   const [hoverRating, setHoverRating] = useState(0)
   const [message, setMessage] = useState("")
+  const [anonymous, setAnonymous] = useState(false)
+  const [canContact, setCanContact] = useState(false)
   const [error, setError] = useState("")
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
@@ -33,7 +42,7 @@ export default function FeedbackPage() {
     // Client-side validation
     const errors: Record<string, string> = {}
     if (!name.trim()) errors.name = "Name is required"
-    if (!email.trim()) errors.email = "Email is required"
+    if (!anonymous && !email.trim()) errors.email = "Email is required"
     if (!category) errors.category = "Please select a category"
     if (rating === 0) errors.rating = "Please select a rating"
     if (!message.trim()) errors.message = "Message is required"
@@ -50,11 +59,12 @@ export default function FeedbackPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: name.trim(),
-          email: email.trim(),
+          name: anonymous ? "Anonymous" : name.trim(),
+          email: anonymous ? "" : email.trim(),
           category,
           rating,
           message: message.trim(),
+          can_contact: canContact,
         }),
       })
 
@@ -91,6 +101,8 @@ export default function FeedbackPage() {
     setCategory("")
     setRating(0)
     setMessage("")
+    setAnonymous(false)
+    setCanContact(false)
     setError("")
     setFieldErrors({})
     setState({ type: "form" })
@@ -158,41 +170,77 @@ export default function FeedbackPage() {
             </div>
 
             {/* Email */}
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-[#18181B]">
-                Email <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="your@email.com"
-                disabled={state.type === "submitting"}
-                className="w-full rounded-lg border border-zinc-300 px-3 py-2.5 text-sm text-[#18181B] placeholder:text-zinc-400 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 disabled:opacity-50"
-              />
-              {fieldErrors.email && <p className="mt-1 text-xs text-red-500">{fieldErrors.email}</p>}
-            </div>
+            {!anonymous && (
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-[#18181B]">
+                  Email <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="your@email.com"
+                  disabled={state.type === "submitting"}
+                  className="w-full rounded-lg border border-zinc-300 px-3 py-2.5 text-sm text-[#18181B] placeholder:text-zinc-400 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 disabled:opacity-50"
+                />
+                {fieldErrors.email && <p className="mt-1 text-xs text-red-500">{fieldErrors.email}</p>}
+              </div>
+            )}
 
             {/* Category */}
             <div>
               <label className="mb-1.5 block text-sm font-medium text-[#18181B]">
                 Category <span className="text-red-500">*</span>
               </label>
-              <select
+              <Select
                 value={category}
-                onChange={(e) => setCategory(e.target.value)}
+                onValueChange={setCategory}
                 disabled={state.type === "submitting"}
-                className="w-full rounded-lg border border-zinc-300 px-3 py-2.5 text-sm text-[#18181B] focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 disabled:opacity-50"
               >
-                <option value="">Select a category</option>
-                {CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {CATEGORY_LABELS[cat]}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select a category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {CATEGORIES.map((cat) => (
+                    <SelectItem key={cat} value={cat}>
+                      {CATEGORY_LABELS[cat]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               {fieldErrors.category && <p className="mt-1 text-xs text-red-500">{fieldErrors.category}</p>}
             </div>
+
+            {/* Anonymous toggle */}
+            <label className="flex items-start gap-3 rounded-lg bg-zinc-50 px-3 py-2.5">
+              <input
+                type="checkbox"
+                checked={anonymous}
+                onChange={(e) => {
+                  setAnonymous(e.target.checked)
+                  if (e.target.checked) setCanContact(false)
+                }}
+                className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-[#18181B] focus:ring-zinc-500"
+              />
+              <span className="text-sm leading-relaxed text-zinc-600">
+                Submit anonymously
+              </span>
+            </label>
+
+            {/* Contact consent */}
+            {!anonymous && (
+              <label className="flex items-start gap-3 rounded-lg bg-zinc-50 px-3 py-2.5">
+                <input
+                  type="checkbox"
+                  checked={canContact}
+                  onChange={(e) => setCanContact(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-[#18181B] focus:ring-zinc-500"
+                />
+                <span className="text-sm leading-relaxed text-zinc-600">
+                  I'm okay with being contacted about my feedback
+                </span>
+              </label>
+            )}
 
             {/* Rating */}
             <div>
