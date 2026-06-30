@@ -8,6 +8,7 @@ import type { User } from "@supabase/supabase-js";
 const NAV_LINKS = [
   { label: "Features", href: "/features" },
   { label: "Pricing", href: "/pricing" },
+  { label: "Feedback", href: "/feedback" },
 ];
 
 // Spring physics curve from DESIGN.md — weighty, not floaty
