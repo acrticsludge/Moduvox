@@ -44,24 +44,26 @@ export async function POST(
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
   }
 
-  // Verify Cloudflare Turnstile token
-  const turnstileToken = body.cf_turnstile_response as string | undefined
-  if (!turnstileToken) {
-    return NextResponse.json({ error: "Security check required." }, { status: 403 })
-  }
+  // Verify Cloudflare Turnstile token (skip if not configured — dev mode)
+  if (process.env.TURNSTILE_SECRET_KEY) {
+    const turnstileToken = body.cf_turnstile_response as string | undefined
+    if (!turnstileToken) {
+      return NextResponse.json({ error: "Security check required. Please refresh and try again." }, { status: 403 })
+    }
 
-  const turnstileRes = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      secret: process.env.TURNSTILE_SECRET_KEY || "",
-      response: turnstileToken,
-    }),
-  })
-  const turnstileJson = await turnstileRes.json()
-  if (!turnstileJson.success) {
-    console.error("Turnstile verification failed:", turnstileJson)
-    return NextResponse.json({ error: "Security check failed. Please try again." }, { status: 403 })
+    const turnstileRes = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        secret: process.env.TURNSTILE_SECRET_KEY,
+        response: turnstileToken,
+      }),
+    })
+    const turnstileJson = await turnstileRes.json()
+    if (!turnstileJson.success) {
+      console.error("Turnstile verification failed:", turnstileJson)
+      return NextResponse.json({ error: "Security check failed. Please try again." }, { status: 403 })
+    }
   }
 
   // Validate email + name + consent (and password if set)

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Mail, Lock, Loader2, AlertCircle, Info } from "lucide-react"
 
 export function CombinedGateDialog({
@@ -22,6 +22,47 @@ export function CombinedGateDialog({
   const [consent, setConsent] = useState(false)
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  const turnstileRef = useRef<HTMLDivElement>(null)
+  const turnstileWidgetId = useRef<string | undefined>(undefined)
+
+  // Load Turnstile widget
+  useEffect(() => {
+    if (!turnstileRef.current || !process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY) return
+    const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
+
+    // Load Turnstile script if not already loaded
+    const w = window as { turnstile?: { render: (el: HTMLElement, opts: Record<string, unknown>) => string; remove: (id: string) => void } }
+    if (!w.turnstile) {
+      const script = document.createElement("script")
+      script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js"
+      script.async = true
+      script.defer = true
+      script.onload = () => {
+        if (turnstileRef.current) {
+          turnstileWidgetId.current = w.turnstile?.render(turnstileRef.current, {
+            sitekey: siteKey,
+            callback: (token: string) => {
+              turnstileRef.current?.setAttribute("data-token", token)
+            },
+          })
+        }
+      }
+      document.head.appendChild(script)
+    } else if (turnstileRef.current) {
+      turnstileWidgetId.current = w.turnstile?.render(turnstileRef.current, {
+        sitekey: siteKey,
+        callback: (token: string) => {
+          turnstileRef.current?.setAttribute("data-token", token)
+        },
+      })
+    }
+
+    return () => {
+      if (turnstileWidgetId.current && w.turnstile) {
+        w.turnstile.remove(turnstileWidgetId.current)
+      }
+    }
+  }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -45,8 +86,8 @@ export function CombinedGateDialog({
         body.password = password
       }
 
-      // Get Turnstile token
-      const turnstileToken = (document.getElementById("cf-turnstile-response") as HTMLInputElement)?.value || ""
+      // Get Turnstile token from widget
+      const turnstileToken = turnstileRef.current?.getAttribute("data-token") || ""
       body.cf_turnstile_response = turnstileToken
 
       const res = await fetch(`/api/view/${shareToken}/gate`, {
@@ -150,25 +191,10 @@ export function CombinedGateDialog({
             </p>
           </div>
 
-          {/* Cloudflare Turnstile - bot protection */}
-          <div
-            data-sitekey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "1x00000000000000000000AA"}
-            data-callback="onTurnstileSuccess"
-            data-size="invisible"
-            className="cf-turnstile"
-            ref={(el) => {
-              if (el && !el.innerHTML) {
-                const script = document.createElement("script")
-                script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js"
-                script.async = true
-                script.defer = true
-                el.appendChild(script)
-              }
-            }}
-          />
-
-          {/* Hidden input to store Turnstile token */}
-          <input type="hidden" id="cf-turnstile-response" />
+          {/* Cloudflare Turnstile - bot protection (only in browser with configured key) */}
+          {typeof window !== "undefined" && process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && (
+            <div ref={turnstileRef} />
+          )}
 
           {error && (
             <div className="flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
