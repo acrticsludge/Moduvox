@@ -46,7 +46,54 @@ USING (true);
 
 ---
 
-### 2. No rate limiting on /gate — password brute force + email quota drain
+### 2. No CAPTCHA on gate endpoint — automated bot submissions
+
+**Files:** `gate/route.ts`, `CombinedGateDialog.tsx`
+
+**Problem:** The gate endpoint has no CAPTCHA/Challenge. Bots can:
+- Mass-submit the gate form to create thousands of viewer records
+- Automate password brute force attacks without any friction
+- Trigger unlimited Resend API calls (cost exposure + spam)
+- Enumerate valid email addresses by observing error responses
+
+The PRD specifies reCAPTCHA v2 for signup (`FR-10.4`), but there's no equivalent protection for the gate endpoint which is equally exposed to bots.
+
+**Fix:** Add Cloudflare Turnstile (free, privacy-friendly, no CAPTCHA challenges) to the CombinedGateDialog:
+
+1. Install Turnstile widget in the gate form:
+```tsx
+// In CombinedGateDialog.tsx
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer />
+<div className="cf-turnstile" data-sitekey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY} data-callback="onTurnstileCallback" />
+```
+
+2. Verify the token server-side in `gate/route.ts`:
+```typescript
+// Verify Turnstile token
+const turnstileRes = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+  method: "POST",
+  body: new URLSearchParams({
+    secret: process.env.TURNSTILE_SECRET_KEY || "",
+    response: body.cf_turnstile_response,
+  }),
+})
+const turnstileJson = await turnstileRes.json()
+if (!turnstileJson.success) {
+  return NextResponse.json({ error: "Security check failed. Please try again." }, { status: 403 })
+}
+```
+
+3. Add Turnstile site key to the gate form validation schema:
+```typescript
+// In share.ts Zod schema
+cf_turnstile_response: z.string().min(1, "Security check required"),
+```
+
+**Why Turnstile over reCAPTCHA:** Turnstile is invisible (no "select all traffic lights" challenges), free with no usage limits, privacy-first (no Google tracking), and works without showing any widget by default.
+
+---
+
+### 3. No rate limiting on /gate — password brute force + email quota drain
 
 **Files:** `gate/route.ts`, `track/route.ts`
 
@@ -212,7 +259,7 @@ useEffect(() => {
 - Cap daily email sends per presentation (e.g., 20 sends/24h)
 - Cap daily email sends per recipient email (e.g., 3 sends/15min)
 - Use a static email subject line
-- Add Cloudflare Turnstile to the gate form
+- Add Cloudflare Turnstile to the gate form (see Critical #2)
 
 ### 9. Presentation title in email subject — phishing vector
 
@@ -318,6 +365,23 @@ if (presentation.expires_at && new Date(presentation.expires_at) < new Date()) {
 
 ---
 
+## Missing Across the App
+
+### No CAPTCHA anywhere (signup + gate)
+
+The PRD specifies reCAPTCHA v2 on signup (`FR-10.4`) but this was never implemented. There is also no CAPTCHA on the gate endpoint. This means:
+
+- **Signup:** Bots can create unlimited accounts via `POST /api/auth/signup` (if implemented) — the only protection is email verification
+- **Gate:** Bots can spam the gate endpoint to send unlimited emails and create unlimited viewer records
+
+**Fix:** Add Cloudflare Turnstile to both signup and gate forms. Turnstile is preferred over reCAPTCHA because:
+- Free with no usage caps (vs reCAPTCHA's 1M/month)
+- No Google tracking (privacy win for compliance-conscious viewers)
+- Invisible by default (no "I'm not a robot" checkbox)
+- Same API for both client-side widget and server-side verification
+
+---
+
 ## Things Done Correctly
 
 - ✅ `session_token` validation includes `presentation_id` everywhere — no cross-presentation token reuse
@@ -346,3 +410,4 @@ if (presentation.expires_at && new Date(presentation.expires_at) < new Date()) {
 | 6 | Use static email subject | `gate/route.ts` | 1 line |
 | 7 | Replace fetch with sendBeacon for close tracking | `ViewPlayer.tsx` | 10 min |
 | 8 | Add rate limiting to gate endpoint (at minimum) | `gate/route.ts` | 20 min |
+| 9 | Add Cloudflare Turnstile to gate form + server-side verification | `CombinedGateDialog.tsx`, `gate/route.ts`, `.env.example` | 30 min |
