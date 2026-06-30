@@ -57,6 +57,13 @@ export function CombinedGateDialog({
         return
       }
 
+      // Check if email was actually sent (gate returns 200 even on email failure)
+      if (json.data?.email_sent === false) {
+        setError(json.data?.message || "We couldn't send the verification email. Please try again.")
+        setLoading(false)
+        return
+      }
+
       onSuccess({ viewer_id: json.data.viewer_id, viewer_name: json.data.viewer_name || name, email })
     } catch {
       setError("Network error. Please try again.")
