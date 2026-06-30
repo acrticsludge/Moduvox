@@ -1,10 +1,16 @@
-const linkGroups = [
+type FooterLink = {
+  label: string
+  href?: string
+  disabled?: boolean
+}
+
+const linkGroups: { heading: string; links: FooterLink[] }[] = [
   {
     heading: "Product",
     links: [
       { label: "Features", href: "/features" },
-      { label: "Smart Update", href: "#smart-update" },
-      { label: "Viewer Tracking", href: "#viewer-tracking" },
+      { label: "Smart Update", disabled: true },
+      { label: "Viewer Tracking", disabled: true },
     ],
   },
   {
@@ -19,8 +25,8 @@ const linkGroups = [
     heading: "Connect",
     links: [
       { label: "Email", href: "mailto:anubhavrai100@gmail.com" },
-      { label: "Twitter / X", href: "https://x.com" },
-      { label: "LinkedIn", href: "https://linkedin.com" },
+      { label: "Twitter / X", disabled: true },
+      { label: "LinkedIn", disabled: true },
     ],
   },
 ];
@@ -47,12 +53,18 @@ export function Footer() {
               <ul className="mt-3 flex flex-col gap-2">
                 {group.links.map((link) => (
                   <li key={link.label}>
-                    <a
-                      href={link.href}
-                      className="text-sm text-[#71717A] transition-colors hover:text-white"
-                    >
-                      {link.label}
-                    </a>
+                    {link.disabled ? (
+                      <span className="cursor-not-allowed text-sm text-zinc-600 select-none">
+                        {link.label}
+                      </span>
+                    ) : (
+                      <a
+                        href={link.href}
+                        className="text-sm text-[#71717A] transition-colors hover:text-white"
+                      >
+                        {link.label}
+                      </a>
+                    )}
                   </li>
                 ))}
               </ul>
