@@ -15,7 +15,6 @@ const plans = [
       "15 presentations lifetime",
       "Up to 3 presentations per day",
       "1 voice clone",
-      "12 emotion presets",
       "Email-gated viewer tracking",
       "CSV export reports",
       "Preset AI voices",
