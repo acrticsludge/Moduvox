@@ -44,24 +44,24 @@ export async function POST(
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
   }
 
-  // Verify Cloudflare Turnstile token (skip if not fully configured — dev mode)
-  if (process.env.TURNSTILE_SECRET_KEY && process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY) {
-    const turnstileToken = body.cf_turnstile_response as string | undefined
-    if (!turnstileToken) {
-      return NextResponse.json({ error: "Security check required. Please refresh and try again." }, { status: 403 })
+  // Verify reCAPTCHA v2 token (skip if not configured — dev mode)
+  if (process.env.RECAPTCHA_SECRET_KEY && process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY) {
+    const recaptchaToken = body.recaptcha_token as string | undefined
+    if (!recaptchaToken) {
+      return NextResponse.json({ error: "Please complete the security check." }, { status: 403 })
     }
 
-    const turnstileRes = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+    const verifyRes = await fetch("https://www.google.com/recaptcha/api/siteverify", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
-        secret: process.env.TURNSTILE_SECRET_KEY,
-        response: turnstileToken,
+        secret: process.env.RECAPTCHA_SECRET_KEY,
+        response: recaptchaToken,
       }),
     })
-    const turnstileJson = await turnstileRes.json()
-    if (!turnstileJson.success) {
-      console.error("Turnstile verification failed:", turnstileJson)
+    const verifyJson = await verifyRes.json()
+    if (!verifyJson.success) {
+      console.error("reCAPTCHA verification failed:", verifyJson)
       return NextResponse.json({ error: "Security check failed. Please try again." }, { status: 403 })
     }
   }

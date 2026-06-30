@@ -1,7 +1,18 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useRef } from "react"
 import { Mail, Lock, Loader2, AlertCircle, Info } from "lucide-react"
+
+declare global {
+  interface Window {
+    grecaptcha?: {
+      render: (el: HTMLElement, opts: Record<string, unknown>) => number
+      getResponse: (widgetId: number) => string
+      reset: (widgetId: number) => void
+    }
+    onRecaptchaLoad?: () => void
+  }
+}
 
 export function CombinedGateDialog({
   shareToken,
@@ -22,45 +33,40 @@ export function CombinedGateDialog({
   const [consent, setConsent] = useState(false)
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
-  // Turnstile state — token stored on callback, widget ID for execute()
-  const turnstileRef = useRef<HTMLDivElement>(null)
-  const turnstileTokenRef = useRef("")
-  const turnstileWidgetId = useRef<string | undefined>(undefined)
-  const turnstileRendered = useRef(false)
+  const recaptchaRef = useRef<HTMLDivElement>(null)
+  const recaptchaWidgetId = useRef<number | undefined>(undefined)
+  const recaptchaLoaded = useRef(false)
 
-  // Load Turnstile widget once
-  useEffect(() => {
-    if (!turnstileRef.current || !process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY) return
-    if (turnstileRendered.current) return
-    turnstileRendered.current = true
+  function loadRecaptcha() {
+    if (!recaptchaRef.current || !process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY) return
+    if (recaptchaLoaded.current) return
+    recaptchaLoaded.current = true
 
-    const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
-    const w = window as { turnstile?: { render: (el: HTMLElement, opts: Record<string, unknown>) => string } }
+    const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY
 
-    function renderWidget() {
-      if (!turnstileRef.current || turnstileRef.current.hasChildNodes()) return
-      turnstileWidgetId.current = w.turnstile?.render(turnstileRef.current, {
+    if (window.grecaptcha) {
+      recaptchaWidgetId.current = window.grecaptcha.render(recaptchaRef.current, {
         sitekey: siteKey,
-        callback: (token: string) => {
-          turnstileTokenRef.current = token
-          turnstileRef.current?.setAttribute("data-token", token)
-        },
+        theme: "light",
+        size: "normal",
       })
-    }
-
-    if (w.turnstile) {
-      renderWidget()
     } else {
-      if (!document.querySelector('script[src*="turnstile/v0/api.js"]')) {
-        const script = document.createElement("script")
-        script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js"
-        script.async = true
-        script.defer = true
-        script.onload = renderWidget
-        document.head.appendChild(script)
+      window.onRecaptchaLoad = () => {
+        if (recaptchaRef.current) {
+          recaptchaWidgetId.current = window.grecaptcha?.render(recaptchaRef.current, {
+            sitekey: siteKey,
+            theme: "light",
+            size: "normal",
+          })
+        }
       }
+      const script = document.createElement("script")
+      script.src = "https://www.google.com/recaptcha/api.js?onload=onRecaptchaLoad&render=explicit"
+      script.async = true
+      script.defer = true
+      document.head.appendChild(script)
     }
-  }, [])
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -71,24 +77,12 @@ export function CombinedGateDialog({
       return
     }
 
-    // Get or execute Turnstile (invisible mode requires manual execute)
-    const w = window as { turnstile?: { execute: (id: string) => void; reset: (id: string) => void } }
-    if (process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && turnstileWidgetId.current && w.turnstile) {
-      if (!turnstileTokenRef.current) {
-        setError("")
-        // Reset and execute the invisible challenge
-        w.turnstile.reset(turnstileWidgetId.current)
-        w.turnstile.execute(turnstileWidgetId.current)
-        // Wait up to 15s for the callback to fire
-        for (let i = 0; i < 75; i++) {
-          if (turnstileTokenRef.current) break
-          await new Promise((r) => setTimeout(r, 200))
-        }
-      }
-      // If still no token, let it fail server-side with a clear message
-      if (!turnstileTokenRef.current) {
-        setError("Security verification timed out. Please try again.")
-        setLoading(false)
+    // Get reCAPTCHA token
+    let recaptchaToken = ""
+    if (process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY && recaptchaWidgetId.current !== undefined && window.grecaptcha) {
+      recaptchaToken = window.grecaptcha.getResponse(recaptchaWidgetId.current)
+      if (!recaptchaToken) {
+        setError("Please complete the security check.")
         return
       }
     }
@@ -100,13 +94,12 @@ export function CombinedGateDialog({
         viewer_name: name,
         viewer_email: email,
         consent_granted: true,
+        recaptcha_token: recaptchaToken,
       }
 
       if (hasPassword) {
         body.password = password
       }
-
-      body.cf_turnstile_response = turnstileTokenRef.current
 
       const res = await fetch(`/api/view/${shareToken}/gate`, {
         method: "POST",
@@ -120,7 +113,6 @@ export function CombinedGateDialog({
         return
       }
 
-      // Check if email was actually sent (gate returns 200 even on email failure)
       if (json.data?.email_sent === false) {
         setError(json.data?.message || "We couldn't send the verification email. Please try again.")
         setLoading(false)
@@ -209,9 +201,11 @@ export function CombinedGateDialog({
             </p>
           </div>
 
-          {/* Cloudflare Turnstile - bot protection (only in browser with configured key) */}
-          {typeof window !== "undefined" && process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && (
-            <div ref={turnstileRef} />
+          {/* reCAPTCHA v2 widget */}
+          {process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY && (
+            <div className="flex justify-center">
+              <div ref={recaptchaRef} onClick={loadRecaptcha} />
+            </div>
           )}
 
           {error && (

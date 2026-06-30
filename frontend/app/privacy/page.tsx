@@ -126,12 +126,11 @@ export default function PrivacyPage() {
           <section>
             <h2 className="mb-3 text-base font-semibold text-[#18181B]">8. Bot Protection</h2>
             <p>
-              We use Cloudflare Turnstile to protect against automated abuse of the service.
-              Turnstile verifies that interactions originate from real users without tracking
-              individual browsing behavior or requiring CAPTCHA challenges. This processing
-              is governed by Cloudflare's{" "}
+              We use reCAPTCHA v2 by Google to protect against automated abuse of the service.
+              reCAPTCHA analyzes interactions to distinguish human users from bots. This
+              processing is governed by Google's{" "}
               <a
-                href="https://www.cloudflare.com/privacypolicy/"
+                href="https://policies.google.com/privacy"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-[#18181B] underline underline-offset-2"
@@ -140,12 +139,12 @@ export default function PrivacyPage() {
               </a>{" "}
               and{" "}
               <a
-                href="https://www.cloudflare.com/turnstile/privacy-addendum/"
+                href="https://policies.google.com/terms"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-[#18181B] underline underline-offset-2"
               >
-                Turnstile Privacy Addendum
+                Terms of Service
               </a>.
             </p>
           </section>
