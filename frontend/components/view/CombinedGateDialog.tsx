@@ -72,14 +72,24 @@ export function CombinedGateDialog({
     }
 
     // Get or execute Turnstile (invisible mode requires manual execute)
-    const w = window as { turnstile?: { execute: (id: string) => void } }
-    if (process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && turnstileWidgetId.current && w.turnstile && !turnstileTokenRef.current) {
-      // Execute the invisible challenge and wait for the callback
-      w.turnstile.execute(turnstileWidgetId.current)
-      // Wait up to 10s for the callback to fire
-      for (let i = 0; i < 50; i++) {
-        if (turnstileTokenRef.current) break
-        await new Promise((r) => setTimeout(r, 200))
+    const w = window as { turnstile?: { execute: (id: string) => void; reset: (id: string) => void } }
+    if (process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && turnstileWidgetId.current && w.turnstile) {
+      if (!turnstileTokenRef.current) {
+        setError("")
+        // Reset and execute the invisible challenge
+        w.turnstile.reset(turnstileWidgetId.current)
+        w.turnstile.execute(turnstileWidgetId.current)
+        // Wait up to 15s for the callback to fire
+        for (let i = 0; i < 75; i++) {
+          if (turnstileTokenRef.current) break
+          await new Promise((r) => setTimeout(r, 200))
+        }
+      }
+      // If still no token, let it fail server-side with a clear message
+      if (!turnstileTokenRef.current) {
+        setError("Security verification timed out. Please try again.")
+        setLoading(false)
+        return
       }
     }
 
