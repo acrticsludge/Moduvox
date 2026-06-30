@@ -5,9 +5,11 @@ import { MailCheck, Loader2, AlertCircle } from "lucide-react"
 
 export function EmailSentScreen({
   email,
+  viewerName,
   shareToken,
 }: {
   email: string
+  viewerName: string
   shareToken: string
 }) {
   const [resending, setResending] = useState(false)
@@ -19,23 +21,22 @@ export function EmailSentScreen({
     setError("")
 
     try {
-      // Re-fetch gate with same info to resend
       const res = await fetch(`/api/view/${shareToken}/gate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          viewer_name: "",
+          viewer_name: viewerName,
           viewer_email: email,
           consent_granted: true,
-          resend: true,
         }),
       })
+      const json = await res.json()
 
-      if (res.ok) {
+      if (res.ok && json.data?.email_sent !== false) {
         setResent(true)
         setTimeout(() => setResent(false), 5000)
       } else {
-        setError("Failed to resend. Try again.")
+        setError(json.data?.message || "Failed to resend. Try again.")
       }
     } catch {
       setError("Network error.")

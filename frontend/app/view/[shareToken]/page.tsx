@@ -39,7 +39,7 @@ type PageState =
   | { type: "expired" }
   | { type: "not_found" }
   | { type: "gate"; meta: PresentationMeta }
-  | { type: "email_sent"; viewerId: string; email: string }
+  | { type: "email_sent"; viewerId: string; viewerName: string; email: string }
   | { type: "verify_error" }
   | {
       type: "player"
@@ -147,8 +147,8 @@ export default function ViewPresentationPage() {
     })
   }
 
-  function handleGateSuccess(data: { viewer_id: string; email: string }) {
-    setState({ type: "email_sent", viewerId: data.viewer_id, email: data.email })
+  function handleGateSuccess(data: { viewer_id: string; viewer_name: string; email: string }) {
+    setState({ type: "email_sent", viewerId: data.viewer_id, viewerName: data.viewer_name, email: data.email })
   }
 
   function handleVerifyRetry() {
@@ -199,7 +199,7 @@ export default function ViewPresentationPage() {
       )
 
     case "email_sent":
-      return <EmailSentScreen email={state.email} shareToken={shareToken} />
+      return <EmailSentScreen email={state.email} viewerName={state.viewerName} shareToken={shareToken} />
 
     case "verify_error":
       return <VerifyErrorScreen shareToken={shareToken} onRetry={handleVerifyRetry} />

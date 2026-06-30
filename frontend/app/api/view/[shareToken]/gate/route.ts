@@ -79,6 +79,7 @@ export async function POST(
   const verificationUrl = `${origin}/view/${shareToken}/verify?vt=${viewer.session_token}`
 
   // Send magic link email via Resend
+  let emailSent = false
   try {
     const resendPayload = {
       to: [viewer.viewer_email],
@@ -86,7 +87,7 @@ export async function POST(
       text: `Hi ${viewer.viewer_name},\n\nClick this link to verify your email and start watching:\n${verificationUrl}\n\nThis link expires in 15 minutes.\n\n— Moduvox`,
     }
 
-    await fetch("https://api.resend.com/emails", {
+    const emailRes = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${process.env.RESEND_API_KEY || ""}`,
@@ -97,14 +98,27 @@ export async function POST(
         ...resendPayload,
       }),
     })
+
+    if (emailRes.ok) {
+      emailSent = true
+    } else {
+      const errBody = await emailRes.text().catch(() => "unknown")
+      console.error("Resend API error:", emailRes.status, errBody)
+    }
   } catch (err) {
     console.error("Failed to send magic link email:", err)
-    // Don't fail the request — viewer can see the email wasn't sent
+  }
+
+  if (!emailSent) {
     return NextResponse.json({
       data: {
         viewer_id: viewer.id,
+        viewer_name: viewer.viewer_name,
+        viewer_email: viewer.viewer_email,
         email_sent: false,
-        message: "We couldn't send the verification email. Please try again.",
+        message: !process.env.RESEND_API_KEY
+          ? "Email service not configured. Contact the presentation owner."
+          : "We couldn't send the verification email. Please try again.",
       },
     })
   }
@@ -112,6 +126,8 @@ export async function POST(
   return NextResponse.json({
     data: {
       viewer_id: viewer.id,
+      viewer_name: viewer.viewer_name,
+      viewer_email: viewer.viewer_email,
       email_sent: true,
       message: "Check your inbox for the verification link.",
     },

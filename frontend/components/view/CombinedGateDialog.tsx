@@ -14,7 +14,7 @@ export function CombinedGateDialog({
   title?: string
   hasPassword: boolean
   emailGateEnabled: boolean
-  onSuccess: (data: { viewer_id: string; email: string }) => void
+  onSuccess: (data: { viewer_id: string; viewer_name: string; email: string }) => void
 }) {
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
@@ -57,7 +57,7 @@ export function CombinedGateDialog({
         return
       }
 
-      onSuccess({ viewer_id: json.data.viewer_id, email })
+      onSuccess({ viewer_id: json.data.viewer_id, viewer_name: json.data.viewer_name || name, email })
     } catch {
       setError("Network error. Please try again.")
     } finally {
