@@ -25,13 +25,31 @@ export async function GET(
     return NextResponse.json({ error: "expired", message: "This link has expired" }, { status: 410 })
   }
 
+  // Check if a verified session is provided — skip gate if so
+  const { searchParams } = new URL(request.url)
+  const sessionToken = searchParams.get("session")
+  let sessionVerified = false
+
+  if (sessionToken) {
+    const { data: viewer } = await supabase
+      .from("viewers")
+      .select("id, email_verified")
+      .eq("session_token", sessionToken)
+      .eq("presentation_id", presentation.id)
+      .single()
+
+    if (viewer?.email_verified) {
+      sessionVerified = true
+    }
+  }
+
   // Parse editor_state for slide data and narrations
   const editorState = presentation.editor_state as Record<string, unknown> | null
   const slideData = (editorState?.slideData as { title: string; bullets: string[] }[]) || []
   const narrations = (editorState?.narrations as Record<number, string>) || {}
 
-  // If email gate is enabled or password is set, return only metadata
-  if (presentation.email_gate_enabled || presentation.password_hash) {
+  // If email gate is enabled or password is set (and no verified session), return only metadata
+  if ((presentation.email_gate_enabled || presentation.password_hash) && !sessionVerified) {
     return NextResponse.json({
       data: {
         id: presentation.id,

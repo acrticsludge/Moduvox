@@ -136,32 +136,32 @@ export default function ViewPresentationPage() {
     setState({ type: "loading" })
 
     try {
+      // First verify the session
+      const verifyRes = await fetch(`/api/view/${shareToken}/verify?vt=${sessionToken}`)
+      if (!verifyRes.ok) {
+        const json = await verifyRes.json().catch(() => ({}))
+        setState({ type: "verify_error" })
+        return
+      }
+      const verifyJson = await verifyRes.json()
+
+      // Then fetch full presentation data with session token (bypasses gate)
       const res = await fetch(`/api/view/${shareToken}?session=${sessionToken}`)
       const json = await res.json()
 
-      if (!res.ok) {
+      if (!res.ok || !json.data?.slides) {
         setState({ type: "verify_error" })
         return
       }
 
-      const verifyRes = await fetch(`/api/view/${shareToken}/verify?vt=${sessionToken}`)
-      const verifyJson = await verifyRes.json()
-
-      if (!verifyRes.ok || verifyJson.error) {
-        setState({ type: "verify_error" })
-        return
-      }
-
-      if (json.data) {
-        // Clear gate state — verification succeeded
-        clearGateState(shareToken)
-        setState({
-          type: "player",
-          data: json.data as PlayerData,
-          viewerId: verifyJson.data.viewer_id,
-          sessionToken: sessionToken,
-        })
-      }
+      // Clear gate state — verification succeeded
+      clearGateState(shareToken)
+      setState({
+        type: "player",
+        data: json.data as PlayerData,
+        viewerId: verifyJson.data?.viewer_id || sessionToken,
+        sessionToken: sessionToken,
+      })
     } catch {
       setState({ type: "verify_error" })
     }

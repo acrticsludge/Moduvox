@@ -54,24 +54,59 @@ export async function POST(
   const ipAddress = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown"
   const userAgent = request.headers.get("user-agent") || "unknown"
 
-  // Create viewer record (unverified — magic link will verify)
-  const { data: viewer, error: insertError } = await supabase
+  // Check if viewer already exists for this email + presentation (dedup)
+  const { data: existingViewer } = await supabase
     .from("viewers")
-    .insert({
-      presentation_id: presentation.id,
-      viewer_email: parsed.data.viewer_email,
-      viewer_name: parsed.data.viewer_name,
-      consent_granted: true,
-      email_verified: false,
-      ip_address: ipAddress,
-      user_agent: userAgent,
-    })
-    .select("id, session_token, viewer_email, viewer_name")
-    .single()
+    .select("id, session_token, viewer_email, viewer_name, email_verified")
+    .eq("presentation_id", presentation.id)
+    .eq("viewer_email", parsed.data.viewer_email)
+    .maybeSingle()
 
-  if (insertError) {
-    console.error("Failed to create viewer:", insertError.message)
-    return NextResponse.json({ error: "Failed to process gate" }, { status: 500 })
+  let viewer: { id: string; session_token: string; viewer_email: string; viewer_name: string }
+
+  if (existingViewer) {
+    // Reuse existing viewer — reset verification and issue new session token
+    const newSessionToken = crypto.randomUUID()
+    const { data: updated, error: updateError } = await supabase
+      .from("viewers")
+      .update({
+        email_verified: false,
+        session_token: newSessionToken,
+        viewer_name: parsed.data.viewer_name,
+        consent_granted: true,
+        ip_address: ipAddress,
+        user_agent: userAgent,
+      })
+      .eq("id", existingViewer.id)
+      .select("id, session_token, viewer_email, viewer_name")
+      .single()
+
+    if (updateError || !updated) {
+      console.error("Failed to update viewer:", updateError?.message)
+      return NextResponse.json({ error: "Failed to process gate" }, { status: 500 })
+    }
+    viewer = updated
+  } else {
+    // Create new viewer record
+    const { data: created, error: insertError } = await supabase
+      .from("viewers")
+      .insert({
+        presentation_id: presentation.id,
+        viewer_email: parsed.data.viewer_email,
+        viewer_name: parsed.data.viewer_name,
+        consent_granted: true,
+        email_verified: false,
+        ip_address: ipAddress,
+        user_agent: userAgent,
+      })
+      .select("id, session_token, viewer_email, viewer_name")
+      .single()
+
+    if (insertError || !created) {
+      console.error("Failed to create viewer:", insertError?.message)
+      return NextResponse.json({ error: "Failed to process gate" }, { status: 500 })
+    }
+    viewer = created
   }
 
   // Build magic link URL
