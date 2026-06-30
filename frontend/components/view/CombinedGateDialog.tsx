@@ -45,6 +45,10 @@ export function CombinedGateDialog({
         body.password = password
       }
 
+      // Get Turnstile token
+      const turnstileToken = (document.getElementById("cf-turnstile-response") as HTMLInputElement)?.value || ""
+      body.cf_turnstile_response = turnstileToken
+
       const res = await fetch(`/api/view/${shareToken}/gate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -145,6 +149,26 @@ export function CombinedGateDialog({
               We'll send a verification link to your email to confirm your identity.
             </p>
           </div>
+
+          {/* Cloudflare Turnstile - bot protection */}
+          <div
+            data-sitekey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "1x00000000000000000000AA"}
+            data-callback="onTurnstileSuccess"
+            data-size="invisible"
+            className="cf-turnstile"
+            ref={(el) => {
+              if (el && !el.innerHTML) {
+                const script = document.createElement("script")
+                script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js"
+                script.async = true
+                script.defer = true
+                el.appendChild(script)
+              }
+            }}
+          />
+
+          {/* Hidden input to store Turnstile token */}
+          <input type="hidden" id="cf-turnstile-response" />
 
           {error && (
             <div className="flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">

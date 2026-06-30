@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { trackEventSchema } from "@/lib/validations/share"
 
 // Simple in-memory rate limiter: 100 req/min per presentation
@@ -28,7 +28,7 @@ export async function POST(
   { params }: { params: Promise<{ shareToken: string }> },
 ) {
   const { shareToken } = await params
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   let body: Record<string, unknown>
   try {
@@ -67,6 +67,7 @@ export async function POST(
     .select("id, viewed_at")
     .eq("session_token", parsed.data.session_token)
     .eq("presentation_id", presentation.id)
+    .eq("email_verified", true)
     .single()
 
   if (!viewer) {

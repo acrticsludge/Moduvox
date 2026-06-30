@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 
 export async function GET(
   request: Request,
@@ -13,12 +13,12 @@ export async function GET(
     return NextResponse.json({ error: "Missing verification token" }, { status: 400 })
   }
 
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   // Find the presentation by share_token
   const { data: presentation } = await supabase
     .from("presentations")
-    .select("id")
+    .select("id, expires_at")
     .eq("share_token", shareToken)
     .single()
 
@@ -26,16 +26,26 @@ export async function GET(
     return NextResponse.json({ error: "invalid_link", message: "This link is invalid." }, { status: 404 })
   }
 
+  if (presentation.expires_at && new Date(presentation.expires_at) < new Date()) {
+    return NextResponse.json({ error: "This presentation has expired." }, { status: 410 })
+  }
+
   // Find the viewer by session_token
   const { data: viewer } = await supabase
     .from("viewers")
-    .select("id, email_verified, presentation_id")
+    .select("id, email_verified, presentation_id, created_at")
     .eq("session_token", vt)
     .eq("presentation_id", presentation.id)
     .single()
 
   if (!viewer) {
     return NextResponse.json({ error: "invalid_link", message: "This verification link has expired or is invalid." }, { status: 404 })
+  }
+
+  // Enforce 15-minute magic link expiry
+  const fifteenMinAgo = new Date(Date.now() - 15 * 60 * 1000)
+  if (viewer.created_at && new Date(viewer.created_at) < fifteenMinAgo) {
+    return NextResponse.json({ error: "invalid_link", message: "This verification link has expired." }, { status: 410 })
   }
 
   if (viewer.email_verified) {

@@ -84,19 +84,28 @@ export default function ViewPresentationPage() {
   useEffect(() => {
     const sessionFromUrl = searchParams.get("session")
     if (sessionFromUrl) {
+      // Store in sessionStorage and strip from URL to prevent leakage
+      sessionStorage.setItem(`moduvox_session_${shareToken}`, sessionFromUrl)
+      window.history.replaceState(null, "", `/view/${shareToken}`)
       validateAndLoad(sessionFromUrl)
     } else {
-      // Check if gate was already passed (survives page refresh)
-      const gateState = loadGateState(shareToken)
-      if (gateState) {
-        setState({
-          type: "email_sent",
-          viewerId: gateState.viewerId,
-          viewerName: gateState.viewerName,
-          email: gateState.email,
-        })
+      // Check sessionStorage for existing session (from a prior redirect that was stripped)
+      const storedSession = sessionStorage.getItem(`moduvox_session_${shareToken}`)
+      if (storedSession) {
+        validateAndLoad(storedSession)
       } else {
-        loadPresentation()
+        // Check if gate was already passed (survives page refresh)
+        const gateState = loadGateState(shareToken)
+        if (gateState) {
+          setState({
+            type: "email_sent",
+            viewerId: gateState.viewerId,
+            viewerName: gateState.viewerName,
+            email: gateState.email,
+          })
+        } else {
+          loadPresentation()
+        }
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps

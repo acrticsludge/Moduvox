@@ -41,6 +41,7 @@ export function ViewPlayer({
   const [error, setError] = useState("")
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const hasTrackedOpen = useRef(false)
+  const currentTimeRef = useRef(0)
 
   const total = slides.length
   const current = slides[currentIndex]
@@ -105,6 +106,7 @@ export function ViewPlayer({
   const handleTimeUpdate = useCallback(() => {
     if (!audioElement) return
     const timeMs = audioElement.currentTime * 1000
+    currentTimeRef.current = audioElement.currentTime
     setCurrentTime(timeMs)
     updateSlideFromTime(timeMs)
   }, [audioElement, updateSlideFromTime])
@@ -123,21 +125,29 @@ export function ViewPlayer({
     setError("Failed to load audio. Please try refreshing.")
   }, [])
 
-  // Track close on page leave
+  // Track close on page leave using sendBeacon (reliable even on tab close)
   useEffect(() => {
-    function handleBeforeUnload() {
-      if (hasTrackedOpen.current && audioRef.current) {
-        trackEvent("closed", {
-          time_spent_seconds: Math.round(audioRef.current.currentTime),
-          progress_pct: totalDurationMs > 0
-            ? Math.round((audioRef.current.currentTime * 1000 / totalDurationMs) * 100)
-            : 0,
+    function handleVisibilityChange() {
+      if (document.visibilityState === "hidden" && hasTrackedOpen.current) {
+        const timeSpent = Math.round(currentTimeRef.current)
+        const progress = totalDurationMs > 0
+          ? Math.min(100, Math.round((currentTimeRef.current * 1000 / totalDurationMs) * 100))
+          : 0
+
+        const payload = JSON.stringify({
+          session_token: sessionToken,
+          event_type: "closed",
+          time_spent_seconds: timeSpent,
+          progress_pct: progress,
         })
+
+        navigator.sendBeacon(`/api/view/${shareToken}/track`, payload)
       }
     }
-    window.addEventListener("beforeunload", handleBeforeUnload)
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload)
-  }, [trackEvent, totalDurationMs])
+
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange)
+  }, [shareToken, sessionToken, totalDurationMs])
 
   // Clean up audio on unmount
   useEffect(() => {

@@ -27,7 +27,7 @@ export default async function VerifyPage({
   // Find the presentation by share_token
   const { data: presentation } = await supabase
     .from("presentations")
-    .select("id")
+    .select("id, expires_at")
     .eq("share_token", shareToken)
     .single()
 
@@ -35,15 +35,26 @@ export default async function VerifyPage({
     return <VerifyError shareToken={shareToken} />
   }
 
+  // Check presentation expiration
+  if (presentation.expires_at && new Date(presentation.expires_at) < new Date()) {
+    return <VerifyError shareToken={shareToken} />
+  }
+
   // Find the viewer by session_token
   const { data: viewer } = await supabase
     .from("viewers")
-    .select("id, email_verified")
+    .select("id, email_verified, created_at")
     .eq("session_token", vt)
     .eq("presentation_id", presentation.id)
     .single()
 
   if (!viewer) {
+    return <VerifyError shareToken={shareToken} />
+  }
+
+  // Enforce 15-minute magic link expiry
+  const fifteenMinAgo = new Date(Date.now() - 15 * 60 * 1000)
+  if (viewer.created_at && new Date(viewer.created_at) < fifteenMinAgo) {
     return <VerifyError shareToken={shareToken} />
   }
 
