@@ -94,7 +94,7 @@ export async function POST(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: "Moduvox <noreply@moduvox.com>",
+        from: process.env.RESEND_FROM_EMAIL || "Moduvox <alerts@pulsemonitor.dev>",
         ...resendPayload,
       }),
     })
