@@ -23,21 +23,20 @@ export function CombinedGateDialog({
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const turnstileRef = useRef<HTMLDivElement>(null)
-  const turnstileWidgetId = useRef<string | undefined>(undefined)
+  const turnstileRendered = useRef(false)
 
   // Load Turnstile widget (runs once — ref guards against StrictMode double-mount)
-  const turnstileRendered = useRef(false)
   useEffect(() => {
     if (!turnstileRef.current || !process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY) return
-    if (turnstileRendered.current) return // Already rendered (StrictMode guard)
+    if (turnstileRendered.current) return
     turnstileRendered.current = true
 
     const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
-    const w = window as { turnstile?: { render: (el: HTMLElement, opts: Record<string, unknown>) => string; remove: (id: string) => void; getResponse?: (id: string) => string } }
+    const w = window as { turnstile?: { render: (el: HTMLElement, opts: Record<string, unknown>) => void } }
 
     function renderWidget() {
       if (!turnstileRef.current || turnstileRef.current.hasChildNodes()) return
-      turnstileWidgetId.current = w.turnstile?.render(turnstileRef.current, {
+      w.turnstile?.render(turnstileRef.current, {
         sitekey: siteKey,
         callback: (token: string) => {
           turnstileRef.current?.setAttribute("data-token", token)
@@ -48,7 +47,6 @@ export function CombinedGateDialog({
     if (w.turnstile) {
       renderWidget()
     } else {
-      // Load script once
       if (!document.querySelector('script[src*="turnstile/v0/api.js"]')) {
         const script = document.createElement("script")
         script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js"
@@ -56,12 +54,6 @@ export function CombinedGateDialog({
         script.defer = true
         script.onload = renderWidget
         document.head.appendChild(script)
-      }
-    }
-
-    return () => {
-      if (turnstileWidgetId.current && w.turnstile) {
-        try { w.turnstile.remove(turnstileWidgetId.current) } catch { /* ignore */ }
       }
     }
   }, [])
