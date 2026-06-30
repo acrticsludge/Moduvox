@@ -50,35 +50,97 @@ function VoiceCard({
   onDelete: (voice: Voice) => void
 }) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-  const [loadingUrl, setLoadingUrl] = useState(false)
+  const [playing, setPlaying] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
   const presetInfo = voice.preset_id
     ? PRESET_VOICES.find((p) => p.id === voice.preset_id)
     : null
 
+  function handlePlay() {
+    // For cloned voices with a sample — play inline
+    if (voice.type === "cloned" && voice.sample_path) {
+      if (playing && audioRef.current) {
+        audioRef.current.pause()
+        audioRef.current.currentTime = 0
+        setPlaying(false)
+        setProgress(0)
+        return
+      }
+
+      if (previewUrl && audioRef.current) {
+        audioRef.current.play()
+        setPlaying(true)
+        return
+      }
+
+      // Load signed URL then play
+      const supabase = createClient()
+      supabase.storage
+        .from("voice-samples")
+        .createSignedUrl(voice.sample_path, 300)
+        .then(({ data }) => {
+          if (!data) return
+          setPreviewUrl(data.signedUrl)
+          const audio = new Audio(data.signedUrl)
+          audioRef.current = audio
+          audio.addEventListener("timeupdate", () => {
+            setProgress(audio.currentTime / audio.duration)
+          })
+          audio.addEventListener("ended", () => {
+            setPlaying(false)
+            setProgress(0)
+          })
+          audio.play()
+          setPlaying(true)
+        })
+      return
+    }
+
+    // For presets or cloned without sample — open test modal
+    onTest(voice)
+  }
+
   return (
-    <div className="h-full rounded-xl border border-zinc-200 bg-white p-5 transition-all duration-150 hover:border-zinc-300 hover:shadow-sm">
+    <div className="flex h-full flex-col rounded-xl border border-zinc-200 bg-white p-4 transition-all duration-150 hover:border-zinc-300 hover:shadow-sm">
+      {/* Row 1: Icon + Name + Actions */}
       <div className="flex items-start justify-between">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-100">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-100">
             {voice.type === "preset" ? (
               <Music className="h-5 w-5 text-[#71717A]" />
             ) : (
               <Mic className="h-5 w-5 text-[#71717A]" />
             )}
           </div>
-          <div>
-            <h3 className="font-medium text-[#18181B]">{voice.name}</h3>
-            <p className="text-sm text-[#71717A]">
-              {voice.type === "preset" ? "Preset" : "Cloned voice"}
-            </p>
+          <div className="min-w-0 flex-1">
+            <h3 className="truncate text-sm font-semibold text-[#18181B]">
+              {voice.name}
+            </h3>
           </div>
         </div>
 
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            onClick={handlePlay}
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-[#18181B] text-white transition-all hover:bg-[#27272A] active:scale-95"
+            aria-label={playing ? "Stop" : "Play voice"}
+          >
+            {playing ? (
+              <span className="flex items-center gap-0.5">
+                <span className="h-3 w-0.5 animate-pulse bg-white" />
+                <span className="h-2 w-0.5 animate-pulse bg-white" />
+                <span className="h-3 w-0.5 animate-pulse bg-white" />
+              </span>
+            ) : (
+              <Play className="h-3.5 w-3.5" />
+            )}
+          </button>
           <button
             type="button"
             onClick={() => onDelete(voice)}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#71717A] transition-colors hover:bg-red-50 hover:text-red-600"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-[#71717A] transition-colors hover:bg-red-50 hover:text-red-600"
             aria-label="Delete voice"
           >
             <Trash2 className="h-4 w-4" />
@@ -86,62 +148,52 @@ function VoiceCard({
         </div>
       </div>
 
-      {voice.type === "preset" && presetInfo && (
-        <p className="mt-4 line-clamp-2 text-xs leading-relaxed text-zinc-500">
-          {presetInfo.description}
-        </p>
-      )}
+      {/* Row 2: Type + Description (inline, truncated) */}
+      <div className="mt-2 flex min-w-0 items-center gap-1.5">
+        <span className="inline-flex items-center gap-1 rounded-md bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium text-[#71717A]">
+          {voice.type === "preset" ? "Preset" : "Cloned"}
+        </span>
+        {voice.type === "preset" && presetInfo && (
+          <>
+            <span className="shrink-0 text-xs text-zinc-300">·</span>
+            <p className="truncate text-xs text-zinc-500">
+              {presetInfo.description}
+            </p>
+          </>
+        )}
+        {voice.type === "cloned" && voice.sample_path && (
+          <span className="truncate text-xs text-zinc-400">Has sample</span>
+        )}
+      </div>
 
-      <button
-        type="button"
-        onClick={() => onTest(voice)}
-        className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-[#71717A] transition-colors hover:text-[#18181B]"
-      >
-        <Volume2 className="h-3.5 w-3.5" strokeWidth={1.5} />
-        Test voice
-      </button>
-
-      {voice.type === "cloned" && voice.sample_path && (
-        <div className="mt-3">
-          {previewUrl ? (
-            <audio
-              controls
-              src={previewUrl}
-              className="w-full rounded-lg"
-              style={{ height: 40 }}
-            >
-              Your browser does not support the audio element.
-            </audio>
-          ) : (
-            <div className="rounded-lg bg-zinc-50 p-3">
-              <button
-                type="button"
-                onClick={async () => {
-                  if (loadingUrl) return
-                  setLoadingUrl(true)
-                  const supabase = createClient()
-                  const { data } = await supabase.storage
-                    .from("voice-samples")
-                    .createSignedUrl(voice.sample_path!, 300)
-                  if (data) setPreviewUrl(data.signedUrl)
-                  setLoadingUrl(false)
-                }}
-                disabled={loadingUrl}
-                className="flex w-full items-center justify-center gap-2 text-sm font-medium text-[#71717A] transition-colors hover:text-[#18181B] disabled:opacity-50"
-              >
-                {loadingUrl ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Play className="h-3.5 w-3.5" />
-                )}
-                {loadingUrl ? "Loading..." : "Preview voice sample"}
-              </button>
-            </div>
-          )}
+      {/* Row 3: Progress bar (only during playback) */}
+      {playing && (
+        <div className="mt-2">
+          <div className="h-1 w-full rounded-full bg-zinc-200">
+            <div
+              className="h-1 rounded-full bg-[#18181B] transition-all duration-150"
+              style={{ width: `${progress * 100}%` }}
+            />
+          </div>
         </div>
       )}
 
-      <p className="mt-1 text-xs text-zinc-400">Created {formatDate(voice.created_at)}</p>
+      {/* Row 4: Test voice + Date (pushed to bottom) */}
+      <div className="mt-auto flex items-center justify-between pt-3">
+        <button
+          type="button"
+          onClick={() => onTest(voice)}
+          className="inline-flex items-center gap-1 text-xs font-medium text-[#71717A] transition-colors hover:text-[#18181B]"
+        >
+          <Volume2 className="h-3 w-3" strokeWidth={1.5} />
+          Test voice
+        </button>
+        <p className="text-xs text-zinc-400">
+          {formatDate(voice.created_at)}
+        </p>
+      </div>
+
+      <audio ref={audioRef} className="hidden" />
     </div>
   )
 }
