@@ -44,8 +44,8 @@ export async function POST(
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
   }
 
-  // Verify Cloudflare Turnstile token (skip if not configured — dev mode)
-  if (process.env.TURNSTILE_SECRET_KEY) {
+  // Verify Cloudflare Turnstile token (skip if not fully configured — dev mode)
+  if (process.env.TURNSTILE_SECRET_KEY && process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY) {
     const turnstileToken = body.cf_turnstile_response as string | undefined
     if (!turnstileToken) {
       return NextResponse.json({ error: "Security check required. Please refresh and try again." }, { status: 403 })
