@@ -28,38 +28,26 @@ export async function POST(
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
   }
 
-  // If password is set, verify it first
+  // Validate email + name + consent (and password if set)
+  let password_ok = true
   if (presentation.password_hash) {
-    // If only a password field is provided, this is a password-only gate attempt
-    if (body.password && !body.viewer_email) {
-      const pwParsed = passwordGateSchema.safeParse(body)
-      if (!pwParsed.success) {
-        return NextResponse.json(
-          { error: "Validation failed", details: pwParsed.error.flatten().fieldErrors },
-          { status: 422 },
-        )
-      }
-      const valid = await bcrypt.compare(pwParsed.data.password, presentation.password_hash)
-      if (!valid) {
-        return NextResponse.json({ error: "Incorrect password" }, { status: 403 })
-      }
-      // Password correct, return success to advance to email gate
-      return NextResponse.json({ data: { password_verified: true } })
+    const pwParsed = passwordGateSchema.safeParse(body)
+    if (!pwParsed.success) {
+      return NextResponse.json({ error: "Password is required to access this presentation." }, { status: 403 })
+    }
+    password_ok = await bcrypt.compare(pwParsed.data.password, presentation.password_hash)
+    if (!password_ok) {
+      return NextResponse.json({ error: "Incorrect password" }, { status: 403 })
     }
   }
 
-  // Full magic link gate: validate email + name + consent
+  // Validate email + name + consent
   const parsed = magicLinkGateSchema.safeParse(body)
   if (!parsed.success) {
     return NextResponse.json(
       { error: "Validation failed", details: parsed.error.flatten().fieldErrors },
       { status: 422 },
     )
-  }
-
-  // If password is set but wasn't verified yet (they sent email+name without password)
-  if (presentation.password_hash && !body.password_verified) {
-    return NextResponse.json({ error: "Password required" }, { status: 403 })
   }
 
   // Get IP and user agent

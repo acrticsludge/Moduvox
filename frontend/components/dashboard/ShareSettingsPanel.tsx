@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Copy, Check, Link, Lock, Clock, Globe, Info, Loader2 } from "lucide-react"
+import { Copy, Check, Link, Lock, Clock, Globe, Info, Loader2, Eye, EyeOff } from "lucide-react"
 import toast from "react-hot-toast"
 
 export function ShareSettingsPanel({
@@ -18,8 +18,9 @@ export function ShareSettingsPanel({
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
   const [passwordInput, setPasswordInput] = useState("")
-  const [showPasswordInput, setShowPasswordInput] = useState(false)
-  const [expireInput, setExpireInput] = useState("")
+const [showPasswordInput, setShowPasswordInput] = useState(false)
+const [showPassword, setShowPassword] = useState(false)
+const [expireInput, setExpireInput] = useState("")
   const [saving, setSaving] = useState(false)
 
   const fetchSettings = useCallback(async () => {
@@ -204,58 +205,141 @@ export function ShareSettingsPanel({
 
       {/* Password */}
       <div className="space-y-2">
-        <div className="flex items-center gap-2">
-          <Lock className="h-4 w-4 text-zinc-500" />
-          <label className="text-sm font-medium text-[#18181B]">Password Protection</label>
-        </div>
-        {settings.has_password ? (
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-sm text-green-600">Password set</span>
+            <Lock className={`h-4 w-4 ${settings.has_password ? "text-green-600" : "text-zinc-500"}`} />
+            <label className="text-sm font-medium text-[#18181B]">Password Protection</label>
+          </div>
+          {settings.has_password && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700">
+              <Check className="h-3 w-3" />
+              Active
+            </span>
+          )}
+        </div>
+        <p className="text-xs text-zinc-400">
+          {settings.has_password
+            ? "Viewers must enter a password to watch."
+            : "Protect this presentation with a password."}
+        </p>
+
+        {settings.has_password ? (
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setShowPasswordInput(true)}
+              className="text-xs font-medium text-zinc-500 underline underline-offset-2 hover:text-[#18181B]"
+            >
+              Change password
+            </button>
+            <span className="text-xs text-zinc-300">|</span>
             <button
               type="button"
               onClick={handleClearPassword}
               disabled={saving}
-              className="text-xs font-medium text-red-500 hover:text-red-600"
+              className="text-xs text-zinc-400 hover:text-red-500 transition-colors disabled:opacity-50"
             >
               Remove
-            </button>
-          </div>
-        ) : showPasswordInput ? (
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
-              value={passwordInput}
-              onChange={(e) => setPasswordInput(e.target.value)}
-              placeholder="Enter password"
-              className="flex-1 rounded-lg border border-zinc-300 px-3 py-1.5 text-sm focus:border-zinc-500 focus:outline-none"
-              autoFocus
-              onKeyDown={(e) => { if (e.key === "Enter") handleSetPassword(); if (e.key === "Escape") setShowPasswordInput(false) }}
-            />
-            <button
-              type="button"
-              onClick={handleSetPassword}
-              disabled={saving || !passwordInput.trim()}
-              className="rounded-lg bg-[#18181B] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#27272A] disabled:opacity-50"
-            >
-              Set
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowPasswordInput(false)}
-              className="text-xs text-zinc-500 hover:text-zinc-700"
-            >
-              Cancel
             </button>
           </div>
         ) : (
           <button
             type="button"
             onClick={() => setShowPasswordInput(true)}
-            className="text-xs font-medium text-zinc-500 underline underline-offset-2 hover:text-[#18181B]"
+            className="text-xs font-medium text-blue-600 hover:text-blue-700"
           >
             Set password
           </button>
         )}
+
+        {/* Expandable inline password form */}
+        <div
+          className={`grid transition-all duration-300 ease-in-out ${
+            showPasswordInput ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+          }`}
+        >
+          <div className="overflow-hidden">
+            <div className="mt-2 space-y-3 rounded-lg border border-zinc-100 bg-zinc-50 p-4">
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-zinc-500">
+                  {settings.has_password ? "New password" : "Password"}
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={passwordInput}
+                    onChange={(e) => setPasswordInput(e.target.value)}
+                    placeholder="Enter a password"
+                    maxLength={128}
+                    autoFocus
+                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 pr-10 text-sm text-[#18181B] placeholder:text-zinc-400 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500"
+                    onKeyDown={(e) => { if (e.key === "Enter") { handleSetPassword(); setShowPasswordInput(false); setShowPassword(false) }; if (e.key === "Escape") { setShowPasswordInput(false); setShowPassword(false) } }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                <p className="mt-1 text-xs text-zinc-400">{passwordInput.length} / 128 characters</p>
+              </div>
+
+              {/* Strength indicator */}
+              {passwordInput.length > 0 && (
+                <div>
+                  <div className="h-1 w-full rounded-full bg-zinc-200">
+                    <div
+                      className={`h-1 rounded-full transition-all duration-200 ${
+                        passwordInput.length < 6
+                          ? "w-1/3 bg-red-400"
+                          : passwordInput.length < 10
+                            ? "w-2/3 bg-amber-400"
+                            : "w-full bg-green-400"
+                      }`}
+                    />
+                  </div>
+                  <p className="mt-1 text-xs text-zinc-400">
+                    {passwordInput.length < 6
+                      ? "Too short"
+                      : passwordInput.length < 10
+                        ? "Fair"
+                        : "Strong"}
+                  </p>
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => { handleSetPassword(); setShowPasswordInput(false); setShowPassword(false) }}
+                  disabled={saving || !passwordInput.trim()}
+                  className="flex-1 rounded-lg bg-[#18181B] px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-[#27272A] disabled:opacity-50"
+                >
+                  {saving ? (
+                    <span className="inline-flex items-center gap-1.5">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Saving…
+                    </span>
+                  ) : settings.has_password ? (
+                    "Update Password"
+                  ) : (
+                    "Set Password"
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowPasswordInput(false); setShowPassword(false); setPasswordInput("") }}
+                  className="rounded-lg border border-zinc-300 px-3 py-2 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-100"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Expiration */}

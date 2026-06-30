@@ -247,37 +247,52 @@ export function ViewPlayer({
       {!loading && current && (
         <>
           {/* Slide display */}
-          <div className="flex flex-1 flex-col items-center justify-center px-6 py-12">
-            <div className="w-full max-w-2xl">
-              {/* Slide number badge */}
-              <div className="mb-4 flex items-center gap-3">
-                <span className="inline-flex items-center rounded-md bg-zinc-100 px-2.5 py-1 text-xs font-semibold tracking-wider text-zinc-500 uppercase">
-                  Slide {current.number} of {total}
-                </span>
-                <div className="flex-1" />
+          <div className="flex flex-1 items-center justify-center bg-zinc-100 px-4 py-12">
+            <div className="w-full max-w-4xl">
+              {/* Slide card — like a real presentation slide */}
+              <div className="relative overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-lg">
+                {/* Slide number */}
+                <div className="absolute right-4 top-4 z-10 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-zinc-500 shadow-sm">
+                  {current.number} / {total}
+                </div>
+
+                {/* Slide content area with aspect ratio */}
+                <div className="aspect-[4/3] flex flex-col p-8 md:p-12 lg:p-16">
+                  {/* Title */}
+                  {current.title && (
+                    <h1 className="mb-6 text-xl font-bold leading-tight text-[#18181B] md:text-2xl lg:text-3xl">
+                      {current.title}
+                    </h1>
+                  )}
+
+                  {/* Bullets */}
+                  {current.bullets.length > 0 && (
+                    <ul className="space-y-4 flex-1">
+                      {current.bullets.map((b, i) => (
+                        <li key={i} className="flex items-start gap-3">
+                          <span className="mt-1.5 flex h-2 w-2 flex-shrink-0 rounded-full bg-zinc-400" />
+                          <span className="text-sm leading-relaxed text-zinc-700 md:text-base lg:text-lg">
+                            {b}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  {/* Empty state */}
+                  {!current.title && current.bullets.length === 0 && (
+                    <div className="flex flex-1 items-center justify-center">
+                      <p className="text-sm text-zinc-400">No slide content</p>
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {/* Title */}
-              <h1 className="mb-6 text-2xl font-bold leading-tight text-[#18181B]">
-                {current.title}
-              </h1>
-
-              {/* Bullets */}
-              {current.bullets.length > 0 && (
-                <ul className="space-y-3">
-                  {current.bullets.map((b, i) => (
-                    <li key={i} className="flex gap-3 text-base leading-relaxed text-zinc-700">
-                      <span className="mt-2 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-zinc-300" />
-                      <span>{b}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-
-              {/* Narration text */}
+              {/* Narration caption below slide */}
               {current.narration && (
-                <div className="mt-8 rounded-lg border border-zinc-100 bg-zinc-50 px-4 py-3">
-                  <p className="text-sm italic leading-relaxed text-zinc-500">
+                <div className="mx-auto mt-6 max-w-2xl rounded-xl border border-zinc-200 bg-white px-5 py-4 shadow-sm">
+                  <p className="text-xs font-medium text-zinc-400 uppercase tracking-wider mb-1">Narration</p>
+                  <p className="text-sm italic leading-relaxed text-zinc-600">
                     &ldquo;{current.narration}&rdquo;
                   </p>
                 </div>

@@ -3,32 +3,47 @@
 import { useState, useEffect } from "react"
 import { useParams, useSearchParams } from "next/navigation"
 import { Loader2 } from "lucide-react"
-import { PasswordGateDialog } from "@/components/view/PasswordGateDialog"
-import { EmailGateDialog } from "@/components/view/EmailGateDialog"
+import { CombinedGateDialog } from "@/components/view/CombinedGateDialog"
 import { EmailSentScreen } from "@/components/view/EmailSentScreen"
 import { VerifyErrorScreen } from "@/components/view/VerifyErrorScreen"
 import { ViewPlayer } from "@/components/view/ViewPlayer"
+
+type SlideData = { number: number; title: string; bullets: string[]; narration: string }
+type TimingData = { slideNumber: number; durationMs: number }
+
+type PresentationMeta = {
+  id: string
+  title: string
+  slide_count: number
+  has_password: boolean
+  email_gate_enabled: boolean
+  slides?: SlideData[]
+  timings?: TimingData[]
+  total_duration_ms?: number
+  combined_audio_url?: string
+  created_at?: string
+}
+
+type PlayerData = {
+  id: string
+  title: string
+  slide_count: number
+  slides: SlideData[]
+  timings: TimingData[]
+  total_duration_ms: number
+  combined_audio_url: string
+}
 
 type PageState =
   | { type: "loading" }
   | { type: "expired" }
   | { type: "not_found" }
-  | { type: "password_gate" }
-  | { type: "email_gate" }
+  | { type: "gate"; meta: PresentationMeta }
   | { type: "email_sent"; viewerId: string; email: string }
   | { type: "verify_error" }
-  | { type: "verify_redirect"; redirectUrl: string }
   | {
       type: "player"
-      data: {
-        id: string
-        title: string
-        slide_count: number
-        slides: { number: number; title: string; bullets: string[]; narration: string }[]
-        timings: { slideNumber: number; durationMs: number }[]
-        total_duration_ms: number
-        combined_audio_url: string
-      }
+      data: PlayerData
       viewerId: string
       sessionToken: string
     }
@@ -72,20 +87,13 @@ export default function ViewPresentationPage() {
 
       const data = json.data
 
-      // Password gate needed?
-      if (data.has_password) {
-        setState({ type: "password_gate" })
-        return
-      }
-
-      // Email gate needed? (no password, but email gate enabled)
-      if (data.email_gate_enabled) {
-        setState({ type: "email_gate" })
+      // If presentation is gated (password or email), show the combined gate
+      if (data.has_password || data.email_gate_enabled) {
+        setState({ type: "gate", meta: data })
         return
       }
 
       // No gate — load directly into player
-      // But we need a viewer session. If no email gate, auto-create a viewer session
       loadPlayerFromFullData(data)
     } catch {
       setState({ type: "not_found" })
@@ -117,7 +125,7 @@ export default function ViewPresentationPage() {
       if (json.data) {
         setState({
           type: "player",
-          data: json.data,
+          data: json.data as PlayerData,
           viewerId: verifyJson.data.viewer_id,
           sessionToken: sessionToken,
         })
@@ -127,33 +135,24 @@ export default function ViewPresentationPage() {
     }
   }
 
-  function loadPlayerFromFullData(data: Record<string, unknown>) {
+  function loadPlayerFromFullData(data: PresentationMeta) {
     // For no-gate mode, generate a viewer session client-side
+    // Data has all required fields since gates are skipped
     const tempSession = crypto.randomUUID()
     setState({
       type: "player",
-      data: data as PageState & { type: "player" } extends never ? never : PageState extends { type: "player" } ? PageState["data"] : never,
+      data: data as PlayerData,
       viewerId: tempSession,
       sessionToken: tempSession,
     })
   }
 
-  function handlePasswordVerified() {
-    // After password is verified, check if email gate is needed
-    // Re-fetch to determine next step
-    loadPresentation()
-  }
-
-  function handleEmailSent(data: { viewer_id: string; email: string }) {
+  function handleGateSuccess(data: { viewer_id: string; email: string }) {
     setState({ type: "email_sent", viewerId: data.viewer_id, email: data.email })
   }
 
   function handleVerifyRetry() {
-    setState({ type: "email_gate" })
-  }
-
-  // No-gate: auto-create viewer
-  function handleDirectPlay() {
+    // Go back to gate
     loadPresentation()
   }
 
@@ -188,11 +187,16 @@ export default function ViewPresentationPage() {
         </div>
       )
 
-    case "password_gate":
-      return <PasswordGateDialog shareToken={shareToken} onVerified={handlePasswordVerified} />
-
-    case "email_gate":
-      return <EmailGateDialog shareToken={shareToken} onEmailSent={handleEmailSent} />
+    case "gate":
+      return (
+        <CombinedGateDialog
+          shareToken={shareToken}
+          title={state.meta.title}
+          hasPassword={state.meta.has_password}
+          emailGateEnabled={state.meta.email_gate_enabled}
+          onSuccess={handleGateSuccess}
+        />
+      )
 
     case "email_sent":
       return <EmailSentScreen email={state.email} shareToken={shareToken} />
