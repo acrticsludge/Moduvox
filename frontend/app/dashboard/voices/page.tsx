@@ -4,6 +4,8 @@ import { useEffect, useState, useRef } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Plus, Mic, Play, Trash2, Music, Loader2, Volume2 } from "lucide-react"
 import { DeleteVoiceDialog } from "@/components/dashboard/DeleteVoiceDialog"
+import { WaitlistDialog } from "@/components/dashboard/WaitlistDialog"
+import type { QuotaResult } from "@/lib/quota"
 
 // ── Types ────────────────────────────────────────────
 type Voice = {
@@ -159,6 +161,7 @@ function AddVoiceModal({
   const [file, setFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [quotaResult, setQuotaResult] = useState<QuotaResult | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   async function handleSavePreset() {
@@ -205,6 +208,17 @@ function AddVoiceModal({
         body: formData,
       })
       const json = await res.json()
+      if (res.status === 429 && json.limitKey) {
+        setQuotaResult({
+          allowed: false,
+          limit: json.limit,
+          current: json.current,
+          limitKey: json.limitKey,
+          message: json.error,
+        })
+        setUploading(false)
+        return
+      }
       if (!res.ok) throw new Error(typeof json.error === "string" ? json.error : "Failed to upload voice")
       onCreated(json.data)
       onClose()
@@ -435,6 +449,13 @@ function AddVoiceModal({
           </div>
         )}
       </div>
+
+      {quotaResult && (
+        <WaitlistDialog
+          quota={quotaResult}
+          onClose={() => setQuotaResult(null)}
+        />
+      )}
     </div>
   )
 }
