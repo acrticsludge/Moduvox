@@ -167,7 +167,9 @@ function AddVoiceModal({
   const fileRef = useRef<HTMLInputElement>(null)
 
   async function handleSavePreset() {
-    if (!voiceName.trim() || !selectedPreset) return
+    const isCustom = !selectedPreset
+    if (!voiceName.trim()) return
+    if (isCustom && !controlInstruction.trim()) return
 
     setUploading(true)
     setError(null)
@@ -312,32 +314,44 @@ function AddVoiceModal({
         {/* Step: Pick preset */}
         {step === "preset" && (
           <div className="space-y-3">
-            <div className="grid grid-cols-1 gap-2">
-                  {PRESET_VOICES.map((pv) => (
-                    <button
-                      key={pv.id}
-                      type="button"
-                      onClick={() => setSelectedPreset(pv.id)}
-                      className={`flex items-start gap-3 rounded-xl border p-3 text-left transition-all ${
-                        selectedPreset === pv.id
-                          ? "border-[#18181B] bg-zinc-50"
-                          : "border-zinc-200 hover:border-zinc-300"
-                      }`}
-                    >
-                      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-zinc-100">
-                        <Music className="h-4 w-4 text-[#71717A]" />
-                      </div>
-                      <div>
-                        <span className="text-sm font-medium text-[#18181B]">
-                          {pv.label}
-                        </span>
-                        <p className="text-xs text-[#71717A]">{pv.description}</p>
-                      </div>
-                    </button>
-                  ))}
+            {/* Built-in preset selection */}
+            <div>
+              <p className="mb-2 text-sm font-medium text-[#71717A]">Built-in voices</p>
+              <div className="grid grid-cols-1 gap-2">
+                {PRESET_VOICES.map((pv) => (
+                  <button
+                    key={pv.id}
+                    type="button"
+                    onClick={() => setSelectedPreset(selectedPreset === pv.id ? null : pv.id)}
+                    className={`flex items-start gap-3 rounded-xl border p-3 text-left transition-all ${
+                      selectedPreset === pv.id
+                        ? "border-[#18181B] bg-zinc-50"
+                        : "border-zinc-200 hover:border-zinc-300"
+                    }`}
+                  >
+                    <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-zinc-100">
+                      <Music className="h-4 w-4 text-[#71717A]" />
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-[#18181B]">
+                        {pv.label}
+                      </span>
+                      <p className="text-xs text-[#71717A]">{pv.description}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <div className="mt-4">
+            {/* Divider */}
+            <div className="flex items-center gap-3">
+              <div className="h-px flex-1 bg-zinc-200" />
+              <span className="text-xs text-zinc-400">or create your own</span>
+              <div className="h-px flex-1 bg-zinc-200" />
+            </div>
+
+            {/* Voice name */}
+            <div>
               <label className="mb-1.5 block text-sm font-medium text-[#18181B]">
                 Voice name
               </label>
@@ -350,21 +364,30 @@ function AddVoiceModal({
               />
             </div>
 
-            <div className="mt-4">
-              <label className="mb-1.5 block text-sm font-medium text-[#18181B]">
-                Control instruction <span className="text-xs text-[#71717A]">(optional)</span>
-              </label>
-              <textarea
-                value={controlInstruction}
-                onChange={(e) => setControlInstruction(e.target.value)}
-                placeholder="Describe how this voice should sound — e.g. 'A calm, professional male voice with clear enunciation...'"
-                rows={3}
-                className="w-full resize-none rounded-lg border border-zinc-200 px-3 py-2 text-sm text-[#18181B] outline-none transition-colors placeholder:text-zinc-400 focus:border-zinc-400"
-              />
-              <p className="mt-1 text-xs text-[#71717A]">
-                This instruction will be pre-filled and locked when you use this voice in the editor.
-              </p>
-            </div>
+            {/* Control instruction — only for custom presets */}
+            {!selectedPreset ? (
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-[#18181B]">
+                  Control instruction <span className="text-xs text-[#71717A]">(required for custom voices)</span>
+                </label>
+                <textarea
+                  value={controlInstruction}
+                  onChange={(e) => setControlInstruction(e.target.value)}
+                  placeholder="Describe how this voice should sound — e.g. 'A calm, professional male voice with clear enunciation...'"
+                  rows={3}
+                  className="w-full resize-none rounded-lg border border-zinc-200 px-3 py-2 text-sm text-[#18181B] outline-none transition-colors placeholder:text-zinc-400 focus:border-zinc-400"
+                />
+                <p className="mt-1 text-xs text-[#71717A]">
+                  This instruction will be pre-filled and locked when you use this voice in the editor.
+                </p>
+              </div>
+            ) : (
+              <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2.5">
+                <p className="text-xs text-[#71717A]">
+                  This built-in voice uses pre-configured settings. No control instruction needed.
+                </p>
+              </div>
+            )}
 
             <div className="mt-6 flex items-center justify-between">
               <button
@@ -377,11 +400,16 @@ function AddVoiceModal({
               <button
                 type="button"
                 onClick={handleSavePreset}
-                disabled={!selectedPreset || !voiceName.trim() || uploading}
+                disabled={
+                  uploading ||
+                  !voiceName.trim() ||
+                  (!selectedPreset && !controlInstruction.trim()) ||
+                  (!!selectedPreset && !voiceName.trim())
+                }
                 className="inline-flex items-center gap-2 rounded-lg border border-[#18181B]/70 bg-[#18181B] px-4 py-2 text-sm font-medium text-white transition-all hover:border-[#18181B] hover:bg-[#27272A] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {uploading && <Loader2 className="h-4 w-4 animate-spin" />}
-                Save Voice
+                {selectedPreset ? "Save Voice" : "Create Custom Voice"}
               </button>
             </div>
           </div>
