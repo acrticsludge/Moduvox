@@ -150,9 +150,11 @@ function VoiceCard({
 function AddVoiceModal({
   onClose,
   onCreated,
+  clonedVoicesCount,
 }: {
   onClose: () => void
   onCreated: (voice: Voice) => void
+  clonedVoicesCount: number
 }) {
   const [step, setStep] = useState<"choose" | "preset" | "clone">("choose")
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null)
@@ -182,6 +184,17 @@ function AddVoiceModal({
         }),
       })
       const json = await res.json()
+      if (res.status === 429 && json.limitKey) {
+        setQuotaResult({
+          allowed: false,
+          limit: json.limit,
+          current: json.current,
+          limitKey: json.limitKey,
+          message: json.error,
+        })
+        setUploading(false)
+        return
+      }
       if (!res.ok) throw new Error(typeof json.error === "string" ? json.error : "Failed to create voice")
       onCreated(json.data)
       onClose()
@@ -279,7 +292,8 @@ function AddVoiceModal({
             <button
               type="button"
               onClick={() => setStep("clone")}
-              className="flex w-full items-center gap-4 rounded-xl border border-zinc-200 p-4 text-left transition-all hover:border-zinc-300 hover:bg-zinc-50"
+              disabled={clonedVoicesCount >= 1}
+              className="flex w-full items-center gap-4 rounded-xl border border-zinc-200 p-4 text-left transition-all hover:border-zinc-300 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-100">
                 <Mic className="h-5 w-5 text-[#71717A]" />
@@ -289,6 +303,7 @@ function AddVoiceModal({
                 <p className="text-sm text-[#71717A]">
                   Upload a 30-second voice sample to create a clone
                 </p>
+                {clonedVoicesCount >= 1 && <p className="text-xs text-amber-600 mt-1">Limit reached (1 of 1 used)</p>}
               </div>
             </button>
           </div>
@@ -688,6 +703,7 @@ export default function VoicesPage() {
         <AddVoiceModal
           onClose={() => setShowModal(false)}
           onCreated={handleCreated}
+          clonedVoicesCount={voices.filter(v => v.type === 'cloned').length}
         />
       )}
       {testVoice && (

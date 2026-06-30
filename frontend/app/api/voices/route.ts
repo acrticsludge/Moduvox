@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createPresetVoiceSchema } from "@/lib/validations/voice"
+import { checkPresetVoiceQuota, quotaBlockResponse } from "@/lib/quota"
 
 export async function GET() {
   const supabase = await createClient()
@@ -37,6 +38,12 @@ export async function POST(request: Request) {
   const parsed = createPresetVoiceSchema.safeParse(body)
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten().fieldErrors }, { status: 422 })
+  }
+
+  // Check free tier preset voice quota
+  const presetCheck = await checkPresetVoiceQuota(supabase, user.id)
+  if (!presetCheck.allowed) {
+    return quotaBlockResponse(presetCheck)
   }
 
   const { data, error } = await supabase

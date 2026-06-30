@@ -5,7 +5,8 @@ import { Loader2, CheckCircle2 } from "lucide-react"
 import type { QuotaResult } from "@/lib/quota"
 import type { WaitlistInterest } from "@/lib/validations/waitlist"
 
-const LIMIT_MESSAGES: Record<string, { title: string; description: string }> = {
+type LimitKey = NonNullable<import("@/lib/quota").QuotaResult["limitKey"]>
+const LIMIT_MESSAGES: Record<LimitKey, { title: string; description: string }> = {
   presentations_lifetime: {
     title: "Presentation limit reached",
     description:
@@ -20,6 +21,11 @@ const LIMIT_MESSAGES: Record<string, { title: string; description: string }> = {
     title: "Voice clone limit reached",
     description:
       "You've reached the limit of 1 voice clone. Upgrade to Pro to clone more voices.",
+  },
+  preset_voices: {
+    title: "Preset voice limit reached",
+    description:
+      "You've used all your free preset voices. Upgrade to Pro to access more.",
   },
 }
 

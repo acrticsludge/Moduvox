@@ -10,7 +10,7 @@ export interface QuotaResult {
   /** Human-readable message for the user */
   message?: string
   /** Key identifying which limit was hit (for the UI dialog) */
-  limitKey?: "presentations_lifetime" | "presentations_daily" | "voice_clones"
+  limitKey?: "presentations_lifetime" | "presentations_daily" | "voice_clones" | "preset_voices"
 }
 
 // ── Free Tier Limits ─────────────────────────────
@@ -19,6 +19,7 @@ const FREE_LIMITS = {
   presentations_lifetime: 15,
   presentations_daily: 3,
   voice_clones: 1,
+  preset_voices: 5,
 } as const
 
 // ── Quota Checks ─────────────────────────────────
@@ -27,10 +28,16 @@ export async function checkPresentationQuota(
   supabase: SupabaseClient,
   userId: string,
 ): Promise<QuotaResult> {
-  const { count } = await supabase
+  const { count, error } = await supabase
     .from("presentations")
     .select("*", { count: "exact", head: true })
     .eq("user_id", userId)
+    .neq("status", "archived")
+
+  if (error) {
+    console.error("checkPresentationQuota error:", error)
+    return { allowed: false, limit: FREE_LIMITS.presentations_lifetime, current: FREE_LIMITS.presentations_lifetime, message: "Could not verify usage. Please try again." }
+  }
 
   const current = count ?? 0
   const limit = FREE_LIMITS.presentations_lifetime
@@ -56,11 +63,17 @@ export async function checkDailyPresentationQuota(
   const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
   const limit = FREE_LIMITS.presentations_daily
 
-  const { count } = await supabase
+  const { count, error } = await supabase
     .from("presentations")
     .select("*", { count: "exact", head: true })
     .eq("user_id", userId)
+    .neq("status", "archived")
     .gte("created_at", todayStart.toISOString())
+
+  if (error) {
+    console.error("checkDailyPresentationQuota error:", error)
+    return { allowed: false, limit, current: limit, message: "Could not verify usage. Please try again." }
+  }
 
   const current = count ?? 0
 
@@ -81,11 +94,16 @@ export async function checkVoiceCloneQuota(
   supabase: SupabaseClient,
   userId: string,
 ): Promise<QuotaResult> {
-  const { count } = await supabase
+  const { count, error } = await supabase
     .from("voices")
     .select("*", { count: "exact", head: true })
     .eq("user_id", userId)
     .eq("type", "cloned")
+
+  if (error) {
+    console.error("checkVoiceCloneQuota error:", error)
+    return { allowed: false, limit: FREE_LIMITS.voice_clones, current: FREE_LIMITS.voice_clones, message: "Could not verify usage. Please try again." }
+  }
 
   const current = count ?? 0
   const limit = FREE_LIMITS.voice_clones
@@ -97,6 +115,37 @@ export async function checkVoiceCloneQuota(
       current,
       limitKey: "voice_clones",
       message: `You've reached the limit of ${limit} voice clone${limit !== 1 ? "s" : ""}. Upgrade to Pro to clone more voices.`,
+    }
+  }
+
+  return { allowed: true, limit, current }
+}
+
+export async function checkPresetVoiceQuota(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<QuotaResult> {
+  const { count, error } = await supabase
+    .from("voices")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("type", "preset")
+
+  if (error) {
+    console.error("checkPresetVoiceQuota error:", error)
+    return { allowed: false, limit: FREE_LIMITS.preset_voices, current: FREE_LIMITS.preset_voices, message: "Could not verify usage. Please try again." }
+  }
+
+  const current = count ?? 0
+  const limit = FREE_LIMITS.preset_voices
+
+  if (current >= limit) {
+    return {
+      allowed: false,
+      limit,
+      current,
+      limitKey: "preset_voices",
+      message: `You've reached the limit of ${limit} preset voices. Upgrade to Pro to use more voices.`,
     }
   }
 

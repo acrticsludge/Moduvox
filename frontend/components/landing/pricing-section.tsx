@@ -17,7 +17,7 @@ const plans = [
       "1 voice clone",
       "Email-gated viewer tracking",
       "CSV export reports",
-      "Preset AI voices",
+      "5 preset voices",
     ],
     cta: "Get started",
     ctaHref: "/signup",
