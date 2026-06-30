@@ -22,23 +22,27 @@ export function CombinedGateDialog({
   const [consent, setConsent] = useState(false)
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  // Turnstile state — token stored on callback, widget ID for execute()
   const turnstileRef = useRef<HTMLDivElement>(null)
+  const turnstileTokenRef = useRef("")
+  const turnstileWidgetId = useRef<string | undefined>(undefined)
   const turnstileRendered = useRef(false)
 
-  // Load Turnstile widget (runs once — ref guards against StrictMode double-mount)
+  // Load Turnstile widget once
   useEffect(() => {
     if (!turnstileRef.current || !process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY) return
     if (turnstileRendered.current) return
     turnstileRendered.current = true
 
     const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
-    const w = window as { turnstile?: { render: (el: HTMLElement, opts: Record<string, unknown>) => void } }
+    const w = window as { turnstile?: { render: (el: HTMLElement, opts: Record<string, unknown>) => string } }
 
     function renderWidget() {
       if (!turnstileRef.current || turnstileRef.current.hasChildNodes()) return
-      w.turnstile?.render(turnstileRef.current, {
+      turnstileWidgetId.current = w.turnstile?.render(turnstileRef.current, {
         sitekey: siteKey,
         callback: (token: string) => {
+          turnstileTokenRef.current = token
           turnstileRef.current?.setAttribute("data-token", token)
         },
       })
@@ -67,6 +71,18 @@ export function CombinedGateDialog({
       return
     }
 
+    // Get or execute Turnstile (invisible mode requires manual execute)
+    const w = window as { turnstile?: { execute: (id: string) => void } }
+    if (process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && turnstileWidgetId.current && w.turnstile && !turnstileTokenRef.current) {
+      // Execute the invisible challenge and wait for the callback
+      w.turnstile.execute(turnstileWidgetId.current)
+      // Wait up to 10s for the callback to fire
+      for (let i = 0; i < 50; i++) {
+        if (turnstileTokenRef.current) break
+        await new Promise((r) => setTimeout(r, 200))
+      }
+    }
+
     setLoading(true)
 
     try {
@@ -80,9 +96,7 @@ export function CombinedGateDialog({
         body.password = password
       }
 
-      // Get Turnstile token from widget
-      const turnstileToken = turnstileRef.current?.getAttribute("data-token") || ""
-      body.cf_turnstile_response = turnstileToken
+      body.cf_turnstile_response = turnstileTokenRef.current
 
       const res = await fetch(`/api/view/${shareToken}/gate`, {
         method: "POST",
