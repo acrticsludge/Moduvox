@@ -36,9 +36,13 @@ export function CombinedGateDialog({
   const recaptchaRef = useRef<HTMLDivElement>(null)
   const recaptchaWidgetId = useRef<number | undefined>(undefined)
 
-  // Load reCAPTCHA widget on mount
+  // Load reCAPTCHA widget on mount (once — StrictMode guard)
+  const recaptchaRendered = useRef(false)
   useEffect(() => {
     if (!recaptchaRef.current || !process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY) return
+    if (recaptchaRendered.current) return
+    if (recaptchaRef.current.hasChildNodes()) return
+    recaptchaRendered.current = true
 
     const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY
 
@@ -50,7 +54,7 @@ export function CombinedGateDialog({
       })
     } else {
       window.onRecaptchaLoad = () => {
-        if (recaptchaRef.current && window.grecaptcha) {
+        if (recaptchaRef.current && window.grecaptcha && !recaptchaRef.current.hasChildNodes()) {
           recaptchaWidgetId.current = window.grecaptcha.render(recaptchaRef.current, {
             sitekey: siteKey,
             theme: "light",
