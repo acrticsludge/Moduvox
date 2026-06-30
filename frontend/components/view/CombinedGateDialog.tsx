@@ -6,11 +6,9 @@ import { Mail, Lock, Loader2, AlertCircle, Info } from "lucide-react"
 declare global {
   interface Window {
     grecaptcha?: {
-      render: (el: HTMLElement, opts: Record<string, unknown>) => number
-      getResponse: (widgetId: number) => string
-      reset: (widgetId: number) => void
+      ready: (cb: () => void) => void
+      execute: (siteKey: string, opts: { action: string }) => Promise<string>
     }
-    onRecaptchaLoad?: () => void
   }
 }
 
@@ -33,41 +31,20 @@ export function CombinedGateDialog({
   const [consent, setConsent] = useState(false)
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
-  const recaptchaRef = useRef<HTMLDivElement>(null)
-  const recaptchaWidgetId = useRef<number | undefined>(undefined)
-
-  // Load reCAPTCHA widget on mount (once — StrictMode guard)
-  const recaptchaRendered = useRef(false)
+  // Load reCAPTCHA v3 script on mount (once)
+  const recaptchaLoaded = useRef(false)
   useEffect(() => {
-    if (!recaptchaRef.current || !process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY) return
-    if (recaptchaRendered.current) return
-    if (recaptchaRef.current.hasChildNodes()) return
-    recaptchaRendered.current = true
+    if (!process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY) return
+    if (recaptchaLoaded.current) return
+    if (document.querySelector('script[src*="recaptcha/api.js"]')) return
+    recaptchaLoaded.current = true
 
     const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY
-
-    if (window.grecaptcha) {
-      recaptchaWidgetId.current = window.grecaptcha.render(recaptchaRef.current, {
-        sitekey: siteKey,
-        theme: "light",
-        size: "normal",
-      })
-    } else {
-      window.onRecaptchaLoad = () => {
-        if (recaptchaRef.current && window.grecaptcha && !recaptchaRef.current.hasChildNodes()) {
-          recaptchaWidgetId.current = window.grecaptcha.render(recaptchaRef.current, {
-            sitekey: siteKey,
-            theme: "light",
-            size: "normal",
-          })
-        }
-      }
-      const script = document.createElement("script")
-      script.src = "https://www.google.com/recaptcha/api.js?onload=onRecaptchaLoad&render=explicit"
-      script.async = true
-      script.defer = true
-      document.head.appendChild(script)
-    }
+    const script = document.createElement("script")
+    script.src = `https://www.google.com/recaptcha/api.js?render=${siteKey}`
+    script.async = true
+    script.defer = true
+    document.head.appendChild(script)
   }, [])
 
   async function handleSubmit(e: React.FormEvent) {
@@ -79,17 +56,31 @@ export function CombinedGateDialog({
       return
     }
 
-    // Get reCAPTCHA token
+    setLoading(true)
+
+    // Get reCAPTCHA v3 token (silent, no user interaction)
     let recaptchaToken = ""
-    if (process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY && recaptchaWidgetId.current !== undefined && window.grecaptcha) {
-      recaptchaToken = window.grecaptcha.getResponse(recaptchaWidgetId.current)
-      if (!recaptchaToken) {
-        setError("Please complete the security check.")
+    if (process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY && window.grecaptcha) {
+      try {
+        recaptchaToken = await new Promise<string>((resolve, reject) => {
+          window.grecaptcha!.ready(async () => {
+            try {
+              const token = await window.grecaptcha!.execute(
+                process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY!,
+                { action: "submit" },
+              )
+              resolve(token)
+            } catch (e) {
+              reject(e)
+            }
+          })
+        })
+      } catch {
+        setError("Security verification failed. Please try again.")
+        setLoading(false)
         return
       }
     }
-
-    setLoading(true)
 
     try {
       const body: Record<string, unknown> = {
@@ -203,13 +194,6 @@ export function CombinedGateDialog({
             </p>
           </div>
 
-          {/* reCAPTCHA v2 widget */}
-          {process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY && (
-            <div className="flex justify-center">
-              <div ref={recaptchaRef} />
-            </div>
-          )}
-
           {error && (
             <div className="flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
               <AlertCircle className="h-4 w-4 flex-shrink-0" />
@@ -225,7 +209,7 @@ export function CombinedGateDialog({
             {loading ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Sending verification…
+                Verifying &amp; sending…
               </>
             ) : (
               "Send Verification Link"
