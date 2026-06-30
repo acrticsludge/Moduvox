@@ -2,27 +2,6 @@ import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { trackEventSchema } from "@/lib/validations/share"
 
-// Simple in-memory rate limiter: 100 req/min per presentation
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
-
-function checkRateLimit(presentationId: string): boolean {
-  const now = Date.now()
-  const key = `track:${presentationId}`
-  const entry = rateLimitMap.get(key)
-
-  if (!entry || now > entry.resetAt) {
-    rateLimitMap.set(key, { count: 1, resetAt: now + 60_000 })
-    return true
-  }
-
-  if (entry.count >= 100) {
-    return false
-  }
-
-  entry.count++
-  return true
-}
-
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ shareToken: string }> },
@@ -56,8 +35,17 @@ export async function POST(
     return NextResponse.json({ error: "Presentation not found" }, { status: 404 })
   }
 
-  // Rate limit
-  if (!checkRateLimit(presentation.id)) {
+  // Rate limit: 100 events per minute per presentation (DB-backed, works on serverless)
+  const oneMinuteAgo = new Date(Date.now() - 60_000).toISOString()
+  const { count: recentCount, error: countError } = await supabase
+    .from("viewer_events")
+    .select("id", { count: "exact", head: true })
+    .eq("presentation_id", presentation.id)
+    .gte("created_at", oneMinuteAgo)
+
+  if (countError) {
+    console.error("Rate limit check failed:", countError.message)
+  } else if (recentCount !== null && recentCount >= 100) {
     return NextResponse.json({ error: "Too many requests" }, { status: 429 })
   }
 
