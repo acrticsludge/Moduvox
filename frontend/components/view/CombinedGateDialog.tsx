@@ -25,30 +25,18 @@ export function CombinedGateDialog({
   const turnstileRef = useRef<HTMLDivElement>(null)
   const turnstileWidgetId = useRef<string | undefined>(undefined)
 
-  // Load Turnstile widget
+  // Load Turnstile widget (runs once — ref guards against StrictMode double-mount)
+  const turnstileRendered = useRef(false)
   useEffect(() => {
     if (!turnstileRef.current || !process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY) return
-    const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
+    if (turnstileRendered.current) return // Already rendered (StrictMode guard)
+    turnstileRendered.current = true
 
-    // Load Turnstile script if not already loaded
-    const w = window as { turnstile?: { render: (el: HTMLElement, opts: Record<string, unknown>) => string; remove: (id: string) => void } }
-    if (!w.turnstile) {
-      const script = document.createElement("script")
-      script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js"
-      script.async = true
-      script.defer = true
-      script.onload = () => {
-        if (turnstileRef.current) {
-          turnstileWidgetId.current = w.turnstile?.render(turnstileRef.current, {
-            sitekey: siteKey,
-            callback: (token: string) => {
-              turnstileRef.current?.setAttribute("data-token", token)
-            },
-          })
-        }
-      }
-      document.head.appendChild(script)
-    } else if (turnstileRef.current) {
+    const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
+    const w = window as { turnstile?: { render: (el: HTMLElement, opts: Record<string, unknown>) => string; remove: (id: string) => void; getResponse?: (id: string) => string } }
+
+    function renderWidget() {
+      if (!turnstileRef.current || turnstileRef.current.hasChildNodes()) return
       turnstileWidgetId.current = w.turnstile?.render(turnstileRef.current, {
         sitekey: siteKey,
         callback: (token: string) => {
@@ -57,9 +45,23 @@ export function CombinedGateDialog({
       })
     }
 
+    if (w.turnstile) {
+      renderWidget()
+    } else {
+      // Load script once
+      if (!document.querySelector('script[src*="turnstile/v0/api.js"]')) {
+        const script = document.createElement("script")
+        script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js"
+        script.async = true
+        script.defer = true
+        script.onload = renderWidget
+        document.head.appendChild(script)
+      }
+    }
+
     return () => {
       if (turnstileWidgetId.current && w.turnstile) {
-        w.turnstile.remove(turnstileWidgetId.current)
+        try { w.turnstile.remove(turnstileWidgetId.current) } catch { /* ignore */ }
       }
     }
   }, [])
