@@ -34,6 +34,7 @@ export function DeleteVoiceDialog({
         return
       }
       onDeleted()
+      onClose()
     } catch {
       setError("Something went wrong")
     } finally {
