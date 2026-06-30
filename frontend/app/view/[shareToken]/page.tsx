@@ -48,15 +48,16 @@ type PageState =
       sessionToken: string
     }
 
-const STORAGE_KEY_PREFIX = "moduvox_gate_"
+const GATE_KEY_PREFIX = "moduvox_gate_"
+const SESSION_KEY_PREFIX = "moduvox_session_"
 
-function getGateStorageKey(shareToken: string) {
-  return `${STORAGE_KEY_PREFIX}${shareToken}`
+function storageKey(prefix: string, shareToken: string) {
+  return `${prefix}${shareToken}`
 }
 
 function loadGateState(shareToken: string): { viewerId: string; viewerName: string; email: string } | null {
   try {
-    const stored = sessionStorage.getItem(getGateStorageKey(shareToken))
+    const stored = localStorage.getItem(storageKey(GATE_KEY_PREFIX, shareToken))
     if (stored) return JSON.parse(stored)
   } catch { /* ignore */ }
   return null
@@ -64,13 +65,26 @@ function loadGateState(shareToken: string): { viewerId: string; viewerName: stri
 
 function saveGateState(shareToken: string, data: { viewerId: string; viewerName: string; email: string }) {
   try {
-    sessionStorage.setItem(getGateStorageKey(shareToken), JSON.stringify(data))
+    localStorage.setItem(storageKey(GATE_KEY_PREFIX, shareToken), JSON.stringify(data))
   } catch { /* ignore */ }
 }
 
 function clearGateState(shareToken: string) {
   try {
-    sessionStorage.removeItem(getGateStorageKey(shareToken))
+    localStorage.removeItem(storageKey(GATE_KEY_PREFIX, shareToken))
+  } catch { /* ignore */ }
+}
+
+function loadSession(shareToken: string): string | null {
+  try {
+    return localStorage.getItem(storageKey(SESSION_KEY_PREFIX, shareToken))
+  } catch { /* ignore */ }
+  return null
+}
+
+function saveSession(shareToken: string, token: string) {
+  try {
+    localStorage.setItem(storageKey(SESSION_KEY_PREFIX, shareToken), token)
   } catch { /* ignore */ }
 }
 
@@ -84,29 +98,32 @@ export default function ViewPresentationPage() {
   useEffect(() => {
     const sessionFromUrl = searchParams.get("session")
     if (sessionFromUrl) {
-      // Store in sessionStorage and strip from URL to prevent leakage
-      sessionStorage.setItem(`moduvox_session_${shareToken}`, sessionFromUrl)
+      // Store in localStorage and strip from URL to prevent leakage
+      saveSession(shareToken, sessionFromUrl)
       window.history.replaceState(null, "", `/view/${shareToken}`)
-      validateAndLoad(sessionFromUrl)
+      validateAndLoad(sessionFromUrl, false)
     } else {
-      // Check sessionStorage for existing session (from a prior redirect that was stripped)
-      const storedSession = sessionStorage.getItem(`moduvox_session_${shareToken}`)
+      // Check localStorage for existing session (survives tab close)
+      const storedSession = loadSession(shareToken)
       if (storedSession) {
-        validateAndLoad(storedSession)
-      } else {
-        // Check if gate was already passed (survives page refresh)
-        const gateState = loadGateState(shareToken)
-        if (gateState) {
-          setState({
-            type: "email_sent",
-            viewerId: gateState.viewerId,
-            viewerName: gateState.viewerName,
-            email: gateState.email,
-          })
-        } else {
-          loadPresentation()
-        }
+        validateAndLoad(storedSession, true)
+        return
       }
+
+      // Check if gate was already passed (survives tab close)
+      const gateState = loadGateState(shareToken)
+      if (gateState) {
+        setState({
+          type: "email_sent",
+          viewerId: gateState.viewerId,
+          viewerName: gateState.viewerName,
+          email: gateState.email,
+        })
+        return
+      }
+
+      // No stored state — load presentation to show gate or player
+      loadPresentation()
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shareToken, searchParams])
@@ -141,14 +158,19 @@ export default function ViewPresentationPage() {
     }
   }
 
-  async function validateAndLoad(sessionToken: string) {
+  async function validateAndLoad(sessionToken: string, fromStorage = false) {
     setState({ type: "loading" })
 
     try {
       // First verify the session
       const verifyRes = await fetch(`/api/view/${shareToken}/verify?vt=${sessionToken}`)
       if (!verifyRes.ok) {
-        const json = await verifyRes.json().catch(() => ({}))
+        // Stored session is invalid — clear it and fall back to gate
+        if (fromStorage) {
+          try { localStorage.removeItem(storageKey(SESSION_KEY_PREFIX, shareToken)) } catch { /* ignore */ }
+          loadPresentation()
+          return
+        }
         setState({ type: "verify_error" })
         return
       }
@@ -159,6 +181,11 @@ export default function ViewPresentationPage() {
       const json = await res.json()
 
       if (!res.ok || !json.data?.slides) {
+        if (fromStorage) {
+          try { localStorage.removeItem(storageKey(SESSION_KEY_PREFIX, shareToken)) } catch { /* ignore */ }
+          loadPresentation()
+          return
+        }
         setState({ type: "verify_error" })
         return
       }
@@ -172,6 +199,11 @@ export default function ViewPresentationPage() {
         sessionToken: sessionToken,
       })
     } catch {
+      if (fromStorage) {
+        try { localStorage.removeItem(storageKey(SESSION_KEY_PREFIX, shareToken)) } catch { /* ignore */ }
+        loadPresentation()
+        return
+      }
       setState({ type: "verify_error" })
     }
   }
