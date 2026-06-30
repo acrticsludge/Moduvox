@@ -62,7 +62,7 @@ export function EmailGateDialog({
           Verify your identity
         </h1>
         <p className="mb-6 text-center text-sm text-zinc-500">
-          Enter your details to watch this training presentation.
+          Enter your details to watch this presentation.
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -95,7 +95,7 @@ export function EmailGateDialog({
               className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-[#18181B] focus:ring-zinc-500"
             />
             <span className="text-sm leading-relaxed text-zinc-600">
-              I confirm I am watching this training myself and not on behalf of another person.
+              I confirm I am watching this myself and not on behalf of another person.
             </span>
           </label>
 
