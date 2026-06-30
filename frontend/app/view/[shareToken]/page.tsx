@@ -48,6 +48,32 @@ type PageState =
       sessionToken: string
     }
 
+const STORAGE_KEY_PREFIX = "moduvox_gate_"
+
+function getGateStorageKey(shareToken: string) {
+  return `${STORAGE_KEY_PREFIX}${shareToken}`
+}
+
+function loadGateState(shareToken: string): { viewerId: string; viewerName: string; email: string } | null {
+  try {
+    const stored = sessionStorage.getItem(getGateStorageKey(shareToken))
+    if (stored) return JSON.parse(stored)
+  } catch { /* ignore */ }
+  return null
+}
+
+function saveGateState(shareToken: string, data: { viewerId: string; viewerName: string; email: string }) {
+  try {
+    sessionStorage.setItem(getGateStorageKey(shareToken), JSON.stringify(data))
+  } catch { /* ignore */ }
+}
+
+function clearGateState(shareToken: string) {
+  try {
+    sessionStorage.removeItem(getGateStorageKey(shareToken))
+  } catch { /* ignore */ }
+}
+
 export default function ViewPresentationPage() {
   const params = useParams<{ shareToken: string }>()
   const searchParams = useSearchParams()
@@ -55,15 +81,23 @@ export default function ViewPresentationPage() {
 
   const [state, setState] = useState<PageState>({ type: "loading" })
 
-  // Check for session token in URL (from magic link redirect)
   useEffect(() => {
     const sessionFromUrl = searchParams.get("session")
     if (sessionFromUrl) {
-      // Validate the session and load player
       validateAndLoad(sessionFromUrl)
     } else {
-      // Initial load — fetch presentation metadata
-      loadPresentation()
+      // Check if gate was already passed (survives page refresh)
+      const gateState = loadGateState(shareToken)
+      if (gateState) {
+        setState({
+          type: "email_sent",
+          viewerId: gateState.viewerId,
+          viewerName: gateState.viewerName,
+          email: gateState.email,
+        })
+      } else {
+        loadPresentation()
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shareToken, searchParams])
@@ -87,13 +121,11 @@ export default function ViewPresentationPage() {
 
       const data = json.data
 
-      // If presentation is gated (password or email), show the combined gate
       if (data.has_password || data.email_gate_enabled) {
         setState({ type: "gate", meta: data })
         return
       }
 
-      // No gate — load directly into player
       loadPlayerFromFullData(data)
     } catch {
       setState({ type: "not_found" })
@@ -112,7 +144,6 @@ export default function ViewPresentationPage() {
         return
       }
 
-      // Verify the viewer session is valid
       const verifyRes = await fetch(`/api/view/${shareToken}/verify?vt=${sessionToken}`)
       const verifyJson = await verifyRes.json()
 
@@ -121,8 +152,9 @@ export default function ViewPresentationPage() {
         return
       }
 
-      // Session is valid, load player
       if (json.data) {
+        // Clear gate state — verification succeeded
+        clearGateState(shareToken)
         setState({
           type: "player",
           data: json.data as PlayerData,
@@ -136,8 +168,6 @@ export default function ViewPresentationPage() {
   }
 
   function loadPlayerFromFullData(data: PresentationMeta) {
-    // For no-gate mode, generate a viewer session client-side
-    // Data has all required fields since gates are skipped
     const tempSession = crypto.randomUUID()
     setState({
       type: "player",
@@ -148,11 +178,17 @@ export default function ViewPresentationPage() {
   }
 
   function handleGateSuccess(data: { viewer_id: string; viewer_name: string; email: string }) {
+    // Store gate state in sessionStorage so it survives refresh
+    saveGateState(shareToken, {
+      viewerId: data.viewer_id,
+      viewerName: data.viewer_name,
+      email: data.email,
+    })
     setState({ type: "email_sent", viewerId: data.viewer_id, viewerName: data.viewer_name, email: data.email })
   }
 
   function handleVerifyRetry() {
-    // Go back to gate
+    clearGateState(shareToken)
     loadPresentation()
   }
 
