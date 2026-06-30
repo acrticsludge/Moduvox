@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createPresentationSchema } from "@/lib/validations/presentation"
+import { checkPresentationQuota, checkDailyPresentationQuota, quotaBlockResponse } from "@/lib/quota"
 
 export async function POST(request: Request) {
   const supabase = await createClient()
@@ -35,6 +36,17 @@ export async function POST(request: Request) {
 
   if (projectError || !project) {
     return NextResponse.json({ error: "Project not found" }, { status: 404 })
+  }
+
+  // Check free tier quotas
+  const lifetimeCheck = await checkPresentationQuota(supabase, user.id)
+  if (!lifetimeCheck.allowed) {
+    return quotaBlockResponse(lifetimeCheck)
+  }
+
+  const dailyCheck = await checkDailyPresentationQuota(supabase, user.id)
+  if (!dailyCheck.allowed) {
+    return quotaBlockResponse(dailyCheck)
   }
 
   const { data, error } = await supabase

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { checkVoiceCloneQuota, quotaBlockResponse } from "@/lib/quota"
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 const ALLOWED_TYPES = ["audio/wav", "audio/mpeg", "audio/mp4", "audio/x-m4a", "audio/webm", "audio/ogg"]
@@ -33,6 +34,12 @@ export async function POST(request: Request) {
 
   if (!name || !name.trim()) {
     return NextResponse.json({ error: "Name is required" }, { status: 400 })
+  }
+
+  // Check free tier voice clone quota
+  const cloneCheck = await checkVoiceCloneQuota(supabase, user.id)
+  if (!cloneCheck.allowed) {
+    return quotaBlockResponse(cloneCheck)
   }
 
   // Upload file to Supabase Storage using admin client
