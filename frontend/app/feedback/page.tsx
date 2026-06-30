@@ -118,6 +118,9 @@ export default function FeedbackPage() {
         <p className="mt-1.5 text-sm text-[#71717A]">
           Help us improve Moduvox. What's on your mind?
         </p>
+        <p className="mt-1 text-xs text-zinc-400">
+          Limit: 1 submission per 12 hours
+        </p>
 
         {state.type === "success" && (
           <div className="mt-8 space-y-4 text-center">
