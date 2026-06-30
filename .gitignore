@@ -99,9 +99,9 @@ temp/
 # Audit files can contain sensitive info — keep local
 /audits/
 
-# ── Superpowers ──────────────────────────────────────────────────
+# ── Superpowers (legacy) ─────────────────────────────────────────
 .superpowers/
-docs/*
+docs/superpowers/
 /me
 
 _distill_*

@@ -1,0 +1,69 @@
+import { NextResponse } from "next/server"
+import { createClient } from "@/lib/supabase/server"
+
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const supabase = await createClient()
+  const { id: presentationId } = await params
+
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  // Verify ownership
+  const { data: presentation } = await supabase
+    .from("presentations")
+    .select("id")
+    .eq("id", presentationId)
+    .eq("user_id", user.id)
+    .single()
+
+  if (!presentation) {
+    return NextResponse.json({ error: "Presentation not found" }, { status: 404 })
+  }
+
+  // Get viewers ordered by most recent first
+  const { data: viewers, error } = await supabase
+    .from("viewers")
+    .select("id, viewer_name, viewer_email, email_verified, consent_granted, viewed_at, completed_at, time_spent_seconds, progress_pct, created_at")
+    .eq("presentation_id", presentationId)
+    .order("created_at", { ascending: false })
+
+  if (error) {
+    console.error("Failed to fetch viewers:", error.message)
+    return NextResponse.json({ error: "Failed to fetch viewers" }, { status: 500 })
+  }
+
+  const result = (viewers || []).map((v) => {
+    let status: "not_viewed" | "in_progress" | "completed" = "not_viewed"
+    if (v.completed_at) {
+      status = "completed"
+    } else if (v.viewed_at) {
+      status = "in_progress"
+    }
+
+    return {
+      id: v.id,
+      name: v.viewer_name,
+      email: v.viewer_email,
+      email_verified: v.email_verified,
+      consent_granted: v.consent_granted,
+      status,
+      progress_pct: v.progress_pct || 0,
+      time_spent_seconds: v.time_spent_seconds || 0,
+      viewed_at: v.viewed_at,
+      completed_at: v.completed_at,
+      created_at: v.created_at,
+    }
+  })
+
+  return NextResponse.json({
+    data: {
+      viewers: result,
+      total: result.length,
+    },
+  })
+}

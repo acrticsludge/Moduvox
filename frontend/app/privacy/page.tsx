@@ -124,7 +124,33 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="mb-3 text-base font-semibold text-[#18181B]">8. Security</h2>
+            <h2 className="mb-3 text-base font-semibold text-[#18181B]">8. Bot Protection</h2>
+            <p>
+              We use reCAPTCHA v2 by Google to protect against automated abuse of the service.
+              reCAPTCHA analyzes interactions to distinguish human users from bots. This
+              processing is governed by Google's{" "}
+              <a
+                href="https://policies.google.com/privacy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[#18181B] underline underline-offset-2"
+              >
+                Privacy Policy
+              </a>{" "}
+              and{" "}
+              <a
+                href="https://policies.google.com/terms"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[#18181B] underline underline-offset-2"
+              >
+                Terms of Service
+              </a>.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="mb-3 text-base font-semibold text-[#18181B]">9. Security</h2>
             <p>
               We implement industry-standard security measures including HTTPS encryption,
               database-level access controls (Row Level Security), and AES-256 encryption for
@@ -134,7 +160,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="mb-3 text-base font-semibold text-[#18181B]">9. Your Rights</h2>
+            <h2 className="mb-3 text-base font-semibold text-[#18181B]">10. Your Rights</h2>
             <p className="mb-2">Depending on your jurisdiction, you may have the right to:</p>
             <ul className="list-disc pl-5 space-y-1.5">
               <li>Access the personal data we hold about you</li>
@@ -152,7 +178,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="mb-3 text-base font-semibold text-[#18181B]">10. Third-Party Links</h2>
+            <h2 className="mb-3 text-base font-semibold text-[#18181B]">11. Third-Party Links</h2>
             <p>
               The service may contain links to third-party websites (e.g., HuggingFace, Google).
               We are not responsible for the privacy practices of these third parties.
@@ -160,7 +186,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="mb-3 text-base font-semibold text-[#18181B]">11. Changes to This Policy</h2>
+            <h2 className="mb-3 text-base font-semibold text-[#18181B]">12. Changes to This Policy</h2>
             <p>
               We may update this Privacy Policy from time to time. Material changes will be
               notified via email or through the service. Continued use after changes take
@@ -169,7 +195,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="mb-3 text-base font-semibold text-[#18181B]">12. Contact</h2>
+            <h2 className="mb-3 text-base font-semibold text-[#18181B]">13. Contact</h2>
             <p>
               For privacy-related inquiries:{" "}
               <a href="mailto:anubhavrai100@gmail.com" className="text-[#18181B] underline underline-offset-2">

@@ -15,6 +15,10 @@ export type Presentation = {
   title: string
   status: PresentationStatus
   slide_count: number
+  share_token: string
+  password_hash: string | null
+  expires_at: string | null
+  email_gate_enabled: boolean
   created_at: string
   updated_at: string
 }

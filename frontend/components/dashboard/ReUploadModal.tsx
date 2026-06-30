@@ -53,7 +53,7 @@ export function ReUploadModal({
         {!isReplacement && !isIdentical && activeChanges.length > 0 && (
           <div className="mt-4 space-y-1.5">
             <p className="text-xs font-medium text-zinc-400 uppercase tracking-wide">Per-slide changes</p>
-            <div className="max-h-[40vh] overflow-y-auto space-y-1">
+            <div className="max-h-[40vh] overflow-y-auto space-y-1 hide-scrollbar">
               {activeChanges.map((c) => (
                 <div key={c.number} className="flex items-center gap-2 text-sm">
                   <span className="text-zinc-400 w-6 flex-shrink-0">#{c.number}</span>

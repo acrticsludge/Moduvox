@@ -43,7 +43,7 @@ export function DeleteVoiceDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#18181B]/40">
-      <div className="w-full max-w-sm rounded-xl border border-zinc-200 bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+      <div className="w-full max-w-sm rounded-xl border border-zinc-200 bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto hide-scrollbar">
         <div className="mx-auto mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
           <TriangleAlert className="h-5 w-5 text-red-600" />
         </div>

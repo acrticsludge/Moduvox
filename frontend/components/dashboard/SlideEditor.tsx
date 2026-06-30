@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import { Play, Loader2, ExternalLink, FileText, ChevronRight, X, TriangleAlert } from "lucide-react"
+import { Play, Loader2, ExternalLink, FileText, ChevronRight, X, TriangleAlert, Share2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
@@ -11,6 +11,7 @@ import toast from "react-hot-toast"
 import { ReUploadModal } from "./ReUploadModal"
 import { RegenerateModal } from "./RegenerateModal"
 import { AudioPlayer } from "./AudioPlayer"
+import { SharePresentationModal } from "./SharePresentationModal"
 
 export function SlideEditor({
   voiceSelected,
@@ -83,6 +84,7 @@ export function SlideEditor({
   const [iframeError, setIframeError] = useState(false)
   const [internalChangedSlides, setInternalChangedSlides] = useState<number[]>([])
   const [showRegenModal, setShowRegenModal] = useState(false)
+  const [showShareModal, setShowShareModal] = useState(false)
   const [lastRegenCount, setLastRegenCount] = useState(0)
   const [generatingNarrations, setGeneratingNarrations] = useState(false)
   const [generationFailed, setGenerationFailed] = useState(false)
@@ -885,7 +887,7 @@ export function SlideEditor({
       </div>
 
       {/* Right — Controls panel */}
-      <div className="flex w-full flex-col gap-5 border-t border-[var(--color-border-faint)] bg-white p-6 lg:w-[380px] lg:flex-shrink-0 lg:border-l lg:border-t-0 lg:overflow-y-auto lg:max-h-[calc(100vh-8rem)]">
+      <div className="flex w-full flex-col gap-5 border-t border-[var(--color-border-faint)] bg-white p-6 lg:w-[380px] lg:flex-shrink-0 lg:border-l lg:border-t-0 lg:overflow-y-auto lg:max-h-[calc(100vh-8rem)] hide-scrollbar">
         {/* Slide info + jump input */}
         <div className="flex items-center justify-between gap-2">
           <form onSubmit={handleSlideJump} className="flex items-center gap-1.5">
@@ -975,7 +977,7 @@ export function SlideEditor({
               </div>
 
               {/* Content */}
-              <div className="max-h-[50vh] overflow-y-auto px-5 pb-4">
+              <div className="max-h-[50vh] overflow-y-auto px-5 pb-4 hide-scrollbar">
                 {current.bullets.length > 0 ? (
                   <div className="space-y-1.5">
                     {current.bullets.map((b, i) => (
@@ -1142,6 +1144,18 @@ export function SlideEditor({
                 }}
               />
             )}
+
+            {/* Share & Track button */}
+            {audioGenerated && (
+              <Button
+                onClick={() => setShowShareModal(true)}
+                variant="outline"
+                className="w-full"
+              >
+                <Share2 className="h-4 w-4" />
+                Share & Track Viewers
+              </Button>
+            )}
           </>
         )}
       </div>
@@ -1158,6 +1172,14 @@ export function SlideEditor({
             setPendingSlides([])
           }}
           parsing={reUploadParsing}
+        />
+      )}
+
+      {/* Share modal */}
+      {showShareModal && (
+        <SharePresentationModal
+          presentationId={presentationId}
+          onClose={() => setShowShareModal(false)}
         />
       )}
 
