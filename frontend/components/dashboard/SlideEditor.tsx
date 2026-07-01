@@ -97,6 +97,7 @@ export function SlideEditor({
   const [audioGenFailed, setAudioGenFailed] = useState(false)
   const originalNarrationsRef = useRef<Record<number, string>>({})
   const generatedWithVoiceRef = useRef<{ voiceId: string | null; description: string; ultimateMode: boolean } | null>(null)
+  const snapshotInitialized = useRef(false)
 
   const audioUrl = externalAudioUrl ?? internalAudioUrl
   const [removingPpt, setRemovingPpt] = useState(false)
@@ -255,6 +256,15 @@ export function SlideEditor({
         description: voiceDescription ?? "",
         ultimateMode: ultimateMode ?? false,
       }
+      snapshotInitialized.current = true
+      setVoiceChangedSinceAudio(false)
+      return
+    }
+
+    // On the first comparison after initialization, don't flag as changed
+    // (snapshot was just taken with current values — nothing actually changed)
+    if (snapshotInitialized.current) {
+      snapshotInitialized.current = false
       setVoiceChangedSinceAudio(false)
       return
     }
