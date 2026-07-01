@@ -12,6 +12,7 @@ import { CreatePresentationDialog } from "@/components/dashboard/CreatePresentat
 import { PresentationCardActions } from "@/components/dashboard/PresentationCardActions"
 import { RenamePresentationDialog } from "@/components/dashboard/RenamePresentationDialog"
 import { DeletePresentationDialog } from "@/components/dashboard/DeletePresentationDialog"
+import { ConfirmArchiveDialog } from "@/components/dashboard/ConfirmArchiveDialog"
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   FolderKanban,
@@ -42,6 +43,7 @@ export default function ProjectDetailPage() {
   const [showCreatePresentation, setShowCreatePresentation] = useState(false)
   const [renameTarget, setRenameTarget] = useState<PresentationType | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<PresentationType | null>(null)
+  const [archiveTarget, setArchiveTarget] = useState<PresentationType | null>(null)
   const [archiving, setArchiving] = useState<Set<string>>(new Set())
 
   const fetchData = useCallback(async () => {
@@ -212,7 +214,7 @@ export default function ProjectDetailPage() {
                   <PresentationCardActions
                     presentation={p}
                     onRename={() => setRenameTarget(p)}
-                    onArchive={() => handleArchive(p)}
+                    onArchive={() => setArchiveTarget(p)}
                     onRestore={() => handleRestore(p)}
                     onDelete={() => setDeleteTarget(p)}
                   />
@@ -246,6 +248,14 @@ export default function ProjectDetailPage() {
                 if (data) setProject(data)
               })
           }}
+        />
+      )}
+
+      {archiveTarget && (
+        <ConfirmArchiveDialog
+          presentation={archiveTarget}
+          onClose={() => setArchiveTarget(null)}
+          onArchive={() => { handleArchive(archiveTarget); setArchiveTarget(null) }}
         />
       )}
 

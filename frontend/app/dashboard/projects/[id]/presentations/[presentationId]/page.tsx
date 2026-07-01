@@ -12,6 +12,7 @@ import { SlideEditor } from "@/components/dashboard/SlideEditor"
 import { ErrorBoundary } from "@/components/dashboard/ErrorBoundary"
 import { DeletePresentationDialog } from "@/components/dashboard/DeletePresentationDialog"
 import { RenamePresentationDialog } from "@/components/dashboard/RenamePresentationDialog"
+import { ConfirmArchiveDialog } from "@/components/dashboard/ConfirmArchiveDialog"
 
 type EditorState = {
   selectedVoiceId?: string
@@ -41,6 +42,7 @@ export default function PresentationCreatePage() {
   const [presentation, setPresentation] = useState<PresentationType | null>(null)
   const [showDelete, setShowDelete] = useState(false)
   const [showRename, setShowRename] = useState(false)
+  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false)
   const [projectName, setProjectName] = useState("")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -80,6 +82,7 @@ export default function PresentationCreatePage() {
         body: JSON.stringify({ status: "archived" }),
       })
       if (!res.ok) throw new Error()
+      setShowArchiveConfirm(false)
       toast.success("Presentation archived")
       router.push(`/dashboard/projects/${params.id}`)
     } catch {
@@ -305,7 +308,7 @@ export default function PresentationCreatePage() {
               ) : (
                 <button
                   type="button"
-                  onClick={handleArchive}
+                  onClick={() => setShowArchiveConfirm(true)}
                   className="flex h-8 w-8 items-center justify-center rounded-lg text-[#71717A] transition-colors hover:bg-zinc-100 hover:text-[#18181B]"
                   aria-label="Archive"
                 >
@@ -376,6 +379,14 @@ export default function PresentationCreatePage() {
           </ErrorBoundary>
         )}
       </div>
+
+      {showArchiveConfirm && presentation && (
+        <ConfirmArchiveDialog
+          presentation={presentation}
+          onClose={() => setShowArchiveConfirm(false)}
+          onArchive={handleArchive}
+        />
+      )}
 
       {showRename && presentation && (
         <RenamePresentationDialog
