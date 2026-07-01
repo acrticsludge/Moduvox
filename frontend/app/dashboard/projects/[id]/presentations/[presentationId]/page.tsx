@@ -297,6 +297,7 @@ export default function PresentationCreatePage() {
               onChangedSlidesChange={handleChangedSlidesChange}
               selectedVoiceId={selectedVoiceId || null}
               voiceDescription={controlInstructions}
+              ultimateMode={ultimateMode}
               audioUrl={audioUrl}
               onAudioUrlChange={setAudioUrl}
               audioStoragePath={audioStoragePath}
