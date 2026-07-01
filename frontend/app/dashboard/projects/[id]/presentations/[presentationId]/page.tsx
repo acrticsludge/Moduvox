@@ -58,6 +58,7 @@ export default function PresentationCreatePage() {
   const [slideData, setSlideData] = useState<{ title: string; bullets: string[] }[]>([])
   const [changedSlides, setChangedSlides] = useState<number[]>([])
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle")
+  const [dirty, setDirty] = useState(false)
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -65,6 +66,11 @@ export default function PresentationCreatePage() {
     setUploadedFile(file)
     setMode("editor")
   }
+
+  function handleVoiceChange(id: string) { setSelectedVoiceId(id); setDirty(true) }
+  function handleControlInstructionsChange(v: string) { setControlInstructions(v); setDirty(true) }
+  function handleUltimateModeChange(v: boolean) { setUltimateMode(v); setDirty(true) }
+  function handleNarrationsChange(n: Record<number, string>) { setNarrations(n); setDirty(true) }
 
   function handleChangedSlidesChange(slides: number[]) {
     setChangedSlides(slides)
@@ -144,7 +150,7 @@ export default function PresentationCreatePage() {
         body: JSON.stringify(state),
       })
         .then((res) => {
-          if (res.ok) { setSaveStatus("saved"); toast.success("Changes saved", { id: "editor-save" }) }
+          if (res.ok) { setSaveStatus("saved"); setDirty(false); toast.success("Changes saved", { id: "editor-save" }) }
           else { setSaveStatus("error"); toast.error("Failed to save changes", { id: "editor-save" }) }
         })
         .catch(() => { setSaveStatus("error"); toast.error("Failed to save changes", { id: "editor-save" }) })
@@ -157,17 +163,16 @@ export default function PresentationCreatePage() {
     saveState()
   }, [saveState, loading])
 
-  // Warn on navigate away with unsaved narration edits
+  // Warn on navigate away with unsaved changes
   useEffect(() => {
-    const hasContent = Object.keys(narrations).length > 0
-    if (!hasContent) return
+    if (!dirty) return
     function handleBeforeUnload(e: BeforeUnloadEvent) {
       e.preventDefault()
       e.returnValue = ""
     }
     window.addEventListener("beforeunload", handleBeforeUnload)
     return () => window.removeEventListener("beforeunload", handleBeforeUnload)
-  }, [narrations])
+  }, [dirty])
 
   if (loading) {
     return (
@@ -199,11 +204,11 @@ export default function PresentationCreatePage() {
       <CreatePageSidebar
         className="absolute bottom-0 left-0 top-0 z-30"
         selectedVoiceId={selectedVoiceId}
-        onVoiceChange={setSelectedVoiceId}
+        onVoiceChange={handleVoiceChange}
         controlInstructions={controlInstructions}
-        onControlInstructionsChange={setControlInstructions}
+        onControlInstructionsChange={handleControlInstructionsChange}
         ultimateMode={ultimateMode}
-        onUltimateModeChange={setUltimateMode}
+        onUltimateModeChange={handleUltimateModeChange}
       />
 
       {/* Content */}
@@ -279,7 +284,7 @@ export default function PresentationCreatePage() {
               file={uploadedFile}
               presentationId={params.presentationId}
               narrations={narrations}
-              onNarrationsChange={setNarrations}
+              onNarrationsChange={handleNarrationsChange}
               audioGenerated={audioGenerated}
               onAudioGeneratedChange={setAudioGenerated}
               storagePath={storagePath}
