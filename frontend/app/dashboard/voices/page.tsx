@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react"
 import { createClient } from "@/lib/supabase/client"
-import { Plus, Mic, Trash2, Music, Loader2, Volume2 } from "lucide-react"
+import { Plus, Mic, Trash2, Music, Loader2, Volume2, Play } from "lucide-react"
 import { DeleteVoiceDialog } from "@/components/dashboard/DeleteVoiceDialog"
 import { WaitlistDialog } from "@/components/dashboard/WaitlistDialog"
 import type { QuotaResult } from "@/lib/quota"
@@ -49,64 +49,138 @@ function VoiceRow({
   onTest: (voice: Voice) => void
   onDelete: (voice: Voice) => void
 }) {
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [playing, setPlaying] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
   const presetInfo = voice.preset_id
     ? PRESET_VOICES.find((p) => p.id === voice.preset_id)
     : null
 
+  function handlePlaySample() {
+    if (!voice.sample_path) return
+
+    if (playing && audioRef.current) {
+      audioRef.current.pause()
+      audioRef.current.currentTime = 0
+      setPlaying(false)
+      setProgress(0)
+      return
+    }
+
+    if (previewUrl && audioRef.current) {
+      audioRef.current.play()
+      setPlaying(true)
+      return
+    }
+
+    // Load signed URL then play
+    const supabase = createClient()
+    supabase.storage
+      .from("voice-samples")
+      .createSignedUrl(voice.sample_path, 300)
+      .then(({ data }) => {
+        if (!data) return
+        setPreviewUrl(data.signedUrl)
+        const audio = new Audio(data.signedUrl)
+        audioRef.current = audio
+        audio.addEventListener("timeupdate", () => {
+          setProgress(audio.currentTime / audio.duration)
+        })
+        audio.addEventListener("ended", () => {
+          setPlaying(false)
+          setProgress(0)
+        })
+        audio.play()
+        setPlaying(true)
+      })
+  }
+
   return (
-    <div className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-zinc-50">
-      {/* Icon */}
-      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-zinc-100">
-        {voice.type === "preset" ? (
-          <Music className="h-3.5 w-3.5 text-[#71717A]" />
-        ) : (
-          <Mic className="h-3.5 w-3.5 text-[#71717A]" />
+    <div className="relative">
+      <div className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-zinc-50">
+        {/* Icon */}
+        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-zinc-100">
+          {voice.type === "preset" ? (
+            <Music className="h-3.5 w-3.5 text-[#71717A]" />
+          ) : (
+            <Mic className="h-3.5 w-3.5 text-[#71717A]" />
+          )}
+        </div>
+
+        {/* Name */}
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold text-[#18181B]">
+            {voice.name}
+          </p>
+        </div>
+
+        {/* Type badge */}
+        <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium text-[#71717A]">
+          {voice.type === "preset" ? "Preset" : "Cloned"}
+        </span>
+
+        {/* Description — preset only, truncated with native tooltip */}
+        {voice.type === "preset" && presetInfo && (
+          <p
+            className="hidden max-w-[180px] truncate text-xs text-zinc-500 md:block"
+            title={presetInfo.description}
+          >
+            {presetInfo.description}
+          </p>
         )}
+
+        {/* Play sample — cloned voices only */}
+        {voice.type === "cloned" && voice.sample_path && (
+          <button
+            type="button"
+            onClick={handlePlaySample}
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-[#18181B]"
+            aria-label={playing ? "Stop" : "Play sample"}
+          >
+            <Play className="h-3 w-3" />
+          </button>
+        )}
+
+        {/* Test */}
+        <button
+          type="button"
+          onClick={() => onTest(voice)}
+          className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-zinc-400 transition-colors hover:text-[#18181B]"
+        >
+          <Volume2 className="h-3 w-3" strokeWidth={1.5} />
+          <span className="hidden sm:inline">Test</span>
+        </button>
+
+        {/* Date */}
+        <span className="hidden shrink-0 text-xs text-zinc-400 md:block">
+          {formatDate(voice.created_at)}
+        </span>
+
+        {/* Delete */}
+        <button
+          type="button"
+          onClick={() => onDelete(voice)}
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-600"
+          aria-label="Delete voice"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
       </div>
 
-      {/* Name */}
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold text-[#18181B]">
-          {voice.name}
-        </p>
-      </div>
-
-      {/* Type badge */}
-      <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium text-[#71717A]">
-        {voice.type === "preset" ? "Preset" : "Cloned"}
-      </span>
-
-      {/* Description — preset only */}
-      {voice.type === "preset" && presetInfo && (
-        <p className="hidden max-w-[180px] truncate text-xs text-zinc-500 md:block">
-          {presetInfo.description}
-        </p>
+      {/* Playback progress bar */}
+      {playing && (
+        <div className="absolute bottom-0 left-2 right-2">
+          <div className="h-0.5 rounded-full bg-zinc-200">
+            <div
+              className="h-0.5 rounded-full bg-[#18181B] transition-all duration-150"
+              style={{ width: `${progress * 100}%` }}
+            />
+          </div>
+        </div>
       )}
 
-      {/* Test */}
-      <button
-        type="button"
-        onClick={() => onTest(voice)}
-        className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-zinc-400 transition-colors hover:text-[#18181B]"
-      >
-        <Volume2 className="h-3 w-3" strokeWidth={1.5} />
-        <span className="hidden sm:inline">Test</span>
-      </button>
-
-      {/* Date */}
-      <span className="hidden shrink-0 text-xs text-zinc-400 md:block">
-        {formatDate(voice.created_at)}
-      </span>
-
-      {/* Delete */}
-      <button
-        type="button"
-        onClick={() => onDelete(voice)}
-        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-600"
-        aria-label="Delete voice"
-      >
-        <Trash2 className="h-3.5 w-3.5" />
-      </button>
+      <audio ref={audioRef} className="hidden" />
     </div>
   )
 }
