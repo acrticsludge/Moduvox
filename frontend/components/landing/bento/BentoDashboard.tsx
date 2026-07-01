@@ -56,7 +56,7 @@ export function BentoDashboard() {
                     </p>
                   </div>
                 </div>
-                <p className="mt-1 text-[10px] text-zinc-400">
+                <p className="mt-1 text-[10px] text-[#71717A]">
                   {project.date}
                 </p>
               </div>

@@ -396,7 +396,7 @@ function AddVoiceModal({
                 value={voiceName}
                 onChange={(e) => setVoiceName(e.target.value)}
                 placeholder="e.g. Training Narrator"
-                className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm text-[#18181B] outline-none transition-colors placeholder:text-zinc-400 focus:border-zinc-400"
+                className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm text-[#18181B] outline-none transition-colors placeholder:text-zinc-500 focus:border-zinc-400"
               />
             </div>
 
@@ -411,7 +411,7 @@ function AddVoiceModal({
                   onChange={(e) => setControlInstruction(e.target.value)}
                   placeholder="Describe how this voice should sound — e.g. 'A calm, professional male voice with clear enunciation...'"
                   rows={3}
-                  className="w-full resize-none rounded-lg border border-zinc-200 px-3 py-2 text-sm text-[#18181B] outline-none transition-colors placeholder:text-zinc-400 focus:border-zinc-400"
+                  className="w-full resize-none rounded-lg border border-zinc-200 px-3 py-2 text-sm text-[#18181B] outline-none transition-colors placeholder:text-zinc-500 focus:border-zinc-400"
                 />
                 <p className="mt-1 text-xs text-[#71717A]">
                   This instruction will be pre-filled and locked when you use this voice in the editor.
@@ -503,7 +503,7 @@ function AddVoiceModal({
                 value={voiceName}
                 onChange={(e) => setVoiceName(e.target.value)}
                 placeholder="e.g. My Training Voice"
-                className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm text-[#18181B] outline-none transition-colors placeholder:text-zinc-400 focus:border-zinc-400"
+                className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm text-[#18181B] outline-none transition-colors placeholder:text-zinc-500 focus:border-zinc-400"
               />
             </div>
 

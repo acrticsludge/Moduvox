@@ -5,7 +5,7 @@ export function BentoPlayer() {
     <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
       {/* Slide area */}
       <div className="bg-zinc-100 p-5">
-        <div className="relative overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
+        <div className="relative overflow-hidden rounded-xl border border-zinc-200 bg-white">
           <div className="absolute right-3 top-3 z-10 rounded-full bg-white/90 px-2 py-0.5 text-xs font-semibold text-zinc-500 shadow-sm">
             1 / 5
           </div>
