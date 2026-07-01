@@ -99,73 +99,70 @@ function VoiceRow({
   return (
     <div className="relative">
       <div className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-zinc-50">
-        {/* Icon */}
-        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-zinc-100">
-          {voice.type === "preset" ? (
-            <Music className="h-3.5 w-3.5 text-[#71717A]" />
-          ) : (
-            <Mic className="h-3.5 w-3.5 text-[#71717A]" />
-          )}
-        </div>
-
-        {/* Name */}
-        <div className="min-w-0 flex-1">
+        {/* LEFT: Icon + Name + Description */}
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-zinc-100">
+            {voice.type === "preset" ? (
+              <Music className="h-3.5 w-3.5 text-[#71717A]" />
+            ) : (
+              <Mic className="h-3.5 w-3.5 text-[#71717A]" />
+            )}
+          </div>
           <p className="truncate text-sm font-semibold text-[#18181B]">
             {voice.name}
           </p>
+          {voice.type === "preset" && presetInfo && (
+            <>
+              <span className="hidden shrink-0 text-xs text-zinc-300 md:inline">·</span>
+              <p
+                className="hidden truncate text-xs text-zinc-500 md:block"
+                title={presetInfo.description}
+              >
+                {presetInfo.description}
+              </p>
+            </>
+          )}
         </div>
 
-        {/* Type badge */}
-        <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium text-[#71717A]">
-          {voice.type === "preset" ? "Preset" : "Cloned"}
-        </span>
+        {/* RIGHT: Badge + Actions */}
+        <div className="flex shrink-0 items-center gap-2">
+          <span className="inline-flex items-center gap-1 rounded-md bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium text-[#71717A]">
+            {voice.type === "preset" ? "Preset" : "Cloned"}
+          </span>
 
-        {/* Description — preset only, truncated with native tooltip */}
-        {voice.type === "preset" && presetInfo && (
-          <p
-            className="hidden max-w-[180px] truncate text-xs text-zinc-500 md:block"
-            title={presetInfo.description}
-          >
-            {presetInfo.description}
-          </p>
-        )}
+          {voice.type === "cloned" && voice.sample_path && (
+            <button
+              type="button"
+              onClick={handlePlaySample}
+              className="flex h-7 w-7 items-center justify-center rounded-full text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-[#18181B]"
+              aria-label={playing ? "Stop" : "Play sample"}
+            >
+              <Play className="h-3 w-3" />
+            </button>
+          )}
 
-        {/* Play sample — cloned voices only */}
-        {voice.type === "cloned" && voice.sample_path && (
           <button
             type="button"
-            onClick={handlePlaySample}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-[#18181B]"
-            aria-label={playing ? "Stop" : "Play sample"}
+            onClick={() => onTest(voice)}
+            className="inline-flex items-center gap-1 text-xs font-medium text-zinc-400 transition-colors hover:text-[#18181B]"
           >
-            <Play className="h-3 w-3" />
+            <Volume2 className="h-3 w-3" strokeWidth={1.5} />
+            <span className="hidden sm:inline">Test</span>
           </button>
-        )}
 
-        {/* Test */}
-        <button
-          type="button"
-          onClick={() => onTest(voice)}
-          className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-zinc-400 transition-colors hover:text-[#18181B]"
-        >
-          <Volume2 className="h-3 w-3" strokeWidth={1.5} />
-          <span className="hidden sm:inline">Test</span>
-        </button>
+          <span className="hidden text-xs text-zinc-400 md:block">
+            {formatDate(voice.created_at)}
+          </span>
 
-        {/* Date */}
-        <span className="hidden shrink-0 text-xs text-zinc-400 md:block">
-          {formatDate(voice.created_at)}
-        </span>
-
-        {/* Delete */}
-        <button
-          type="button"
-          onClick={() => onDelete(voice)}
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-600"
-          aria-label="Delete voice"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
+          <button
+            type="button"
+            onClick={() => onDelete(voice)}
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-600"
+            aria-label="Delete voice"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        </div>
       </div>
 
       {/* Playback progress bar */}
