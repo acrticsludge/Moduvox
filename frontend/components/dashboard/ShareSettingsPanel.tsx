@@ -21,7 +21,7 @@ export function ShareSettingsPanel({
 const [showPasswordInput, setShowPasswordInput] = useState(false)
 const [showPassword, setShowPassword] = useState(false)
 const [expireInput, setExpireInput] = useState("")
-  const [saving, setSaving] = useState(false)
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle")
 
   const fetchSettings = useCallback(async () => {
     try {
@@ -46,7 +46,7 @@ const [expireInput, setExpireInput] = useState("")
   }, [fetchSettings])
 
   async function updateSettings(updates: Record<string, unknown>) {
-    setSaving(true)
+    setSaveState("saving")
     try {
       const res = await fetch(`/api/presentations/${presentationId}/share`, {
         method: "PATCH",
@@ -56,14 +56,13 @@ const [expireInput, setExpireInput] = useState("")
       if (res.ok) {
         const json = await res.json()
         setSettings(json.data)
-        toast.success("Share settings updated")
+        setSaveState("saved")
+        setTimeout(() => setSaveState("idle"), 1500)
       } else {
-        toast.error("Failed to update settings")
+        setSaveState("idle")
       }
     } catch {
-      toast.error("Network error")
-    } finally {
-      setSaving(false)
+      setSaveState("idle")
     }
   }
 
@@ -132,7 +131,13 @@ const [expireInput, setExpireInput] = useState("")
   if (!settings) return null
 
   return (
-    <div className="space-y-5 rounded-xl border border-zinc-200 bg-white p-6">
+    <div className={`space-y-5 rounded-xl border bg-white p-6 transition-all duration-300 ${
+      saveState === "saving"
+        ? "border-[#18181B] ring-1 ring-[#18181B]"
+        : saveState === "saved"
+          ? "border-green-500 ring-1 ring-green-500"
+          : "border-zinc-200"
+    }`}>
       <h3 className="flex items-center gap-2 text-sm font-semibold text-[#18181B]">
         <Link className="h-4 w-4" />
         Share Settings
@@ -184,10 +189,10 @@ const [expireInput, setExpireInput] = useState("")
             role="switch"
             aria-checked={settings.email_gate_enabled}
             onClick={handleToggleEmailGate}
-            disabled={saving}
+            disabled={saveState === "saving"}
             className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-              settings.email_gate_enabled ? "bg-[#18181B]" : "bg-zinc-300"
-            }`}
+               settings.email_gate_enabled ? "bg-[#18181B]" : "bg-zinc-300"
+             }`}
           >
             <span
               className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
@@ -236,7 +241,7 @@ const [expireInput, setExpireInput] = useState("")
             <button
               type="button"
               onClick={handleClearPassword}
-              disabled={saving}
+              disabled={saveState === "saving"}
               className="text-xs text-zinc-400 hover:text-red-500 transition-colors disabled:opacity-50"
             >
               Remove
@@ -315,10 +320,10 @@ const [expireInput, setExpireInput] = useState("")
                 <button
                   type="button"
                   onClick={() => { handleSetPassword(); setShowPasswordInput(false); setShowPassword(false) }}
-                  disabled={saving || !passwordInput.trim()}
+                  disabled={saveState === "saving" || !passwordInput.trim()}
                   className="flex-1 rounded-lg bg-[#18181B] px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-[#27272A] disabled:opacity-50"
                 >
-                  {saving ? (
+                  {saveState === "saving" ? (
                     <span className="inline-flex items-center gap-1.5">
                       <Loader2 className="h-3 w-3 animate-spin" />
                       Saving…
@@ -358,7 +363,7 @@ const [expireInput, setExpireInput] = useState("")
           <button
             type="button"
             onClick={handleSetExpiration}
-            disabled={saving}
+            disabled={saveState === "saving"}
             className="rounded-lg bg-[#18181B] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#27272A] disabled:opacity-50"
           >
             {settings.expires_at ? "Update" : "Set"}
@@ -366,7 +371,7 @@ const [expireInput, setExpireInput] = useState("")
           <button
             type="button"
             onClick={handleClearExpiration}
-            disabled={saving}
+            disabled={saveState === "saving"}
             className="text-xs text-red-500 hover:text-red-600 disabled:opacity-50"
           >
             Reset
@@ -379,12 +384,6 @@ const [expireInput, setExpireInput] = useState("")
         )}
       </div>
 
-      {saving && (
-        <div className="flex items-center justify-center gap-1.5 text-xs text-zinc-400">
-          <Loader2 className="h-3 w-3 animate-spin" />
-          Saving…
-        </div>
-      )}
     </div>
   )
 }
