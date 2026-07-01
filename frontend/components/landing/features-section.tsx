@@ -3,93 +3,32 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
-import { Upload, FileText, Mic, Speaker, Edit3, Smile, Music, Play, Mail, BarChart3, Link, RotateCcw, Shield } from "lucide-react";
+import { Mic, Sparkles, Mail, BarChart3 } from "lucide-react";
+import { BentoPlayer } from "./bento/BentoPlayer";
+import { BentoDashboard } from "./bento/BentoDashboard";
+import { BentoUpload } from "./bento/BentoUpload";
+import { BentoEditor } from "./bento/BentoEditor";
 
-const featureGroups = [
+const highlights = [
   {
-    title: "Upload & Generate",
-    features: [
-      {
-        icon: Upload,
-        name: "PPTX Upload & Parsing",
-        desc: "Drop in any .pptx file. We extract every slide, speaker notes, and text with full formatting preserved.",
-      },
-      {
-        icon: FileText,
-        name: "AI Narration Generation",
-        desc: "Send slide notes to Gemini AI. It writes natural, conversational narration so you don't have to.",
-      },
-      {
-        icon: Mic,
-        name: "Voice Cloning",
-        desc: "Record a 30-second voice sample. We clone it and synthesize the narration in your voice.",
-      },
-      {
-        icon: Speaker,
-        name: "Preset AI Voices",
-        desc: "No microphone? Pick from built-in preset voices and still get a professional result.",
-      },
-    ],
+    icon: Mic,
+    name: "Voice Cloning",
+    desc: "30-second sample creates a realistic clone of your voice.",
   },
   {
-    title: "Edit & Refine",
-    features: [
-      {
-        icon: Edit3,
-        name: "Slide-by-Slide Editor",
-        desc: "Review each slide's narration one by one. Edit text, fix tone, and preview before finalizing.",
-      },
-      {
-        icon: Smile,
-        name: "Emotion Control",
-        desc: "Pick from 12 emotions like excited, calm, angry, or whisper. Change delivery per slide, not just words.",
-      },
-      {
-        icon: Music,
-        name: "Audio Assembly",
-        desc: "Per-slide audio is stitched together automatically. No clicks, no dead air, no manual syncing.",
-      },
-    ],
+    icon: Sparkles,
+    name: "AI Narration",
+    desc: "Gemini generates natural narration from your slide notes.",
   },
   {
-    title: "Share & Track",
-    features: [
-      {
-        icon: Play,
-        name: "Hosted Player",
-        desc: "A dedicated page for each presentation. Slides auto-advance in sync with your narration.",
-      },
-      {
-        icon: Mail,
-        name: "Email-Gated Tracking",
-        desc: "Viewers enter their email before watching. You know exactly who watched and for how long.",
-      },
-      {
-        icon: BarChart3,
-        name: "Viewer Dashboard & CSV",
-        desc: "See completion rates, time spent, and status per viewer. Export a CSV for compliance audits.",
-      },
-      {
-        icon: Link,
-        name: "Shareable Link + Password",
-        desc: "Get a unique URL per presentation. Optionally protect it with a password, just like a Google Doc.",
-      },
-    ],
+    icon: Mail,
+    name: "Email Gate",
+    desc: "Viewers verify before watching. You know who watched.",
   },
   {
-    title: "Updates",
-    features: [
-      {
-        icon: RotateCcw,
-        name: "Smart Update",
-        desc: "Upload a revised PPTX. Only the changed slides get re-narrated. Your existing link stays the same.",
-      },
-      {
-        icon: Shield,
-        name: "Free Tier Included",
-        desc: "Up to 15 presentations, 3 per day, 1 voice clone. Email verification and reCAPTCHA keep things safe.",
-      },
-    ],
+    icon: BarChart3,
+    name: "Viewer Dashboard",
+    desc: "Completion rates, time spent, and CSV export for audits.",
   },
 ];
 
@@ -114,34 +53,57 @@ export function FeaturesSection() {
           </p>
         </div>
 
-        {/* Feature groups */}
-        <div className="mt-16 space-y-20">
-          {featureGroups.map((group) => (
-            <div key={group.title}>
-              <h3 className="mb-8 text-sm font-semibold uppercase tracking-widest text-[#71717A]">
-                {group.title}
-              </h3>
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-                {group.features.map((feature) => (
-                  <div
-                    key={feature.name}
-                    className="rounded-xl border border-zinc-200 bg-white p-6 transition-shadow hover:shadow-md"
-                  >
-                    <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-100">
-                      <feature.icon className="h-5 w-5 text-[#18181B]" />
-                    </div>
-                    <h4 className="text-sm font-semibold text-[#18181B]">{feature.name}</h4>
-                    <p className="mt-2 text-sm leading-relaxed text-[#71717A]">{feature.desc}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
+        {/* Bento grid */}
+        <div className="mt-16 grid grid-cols-1 gap-5 lg:grid-cols-3">
+          {/* Player — hero cell */}
+          <div className="lg:col-span-2">
+            <BentoPlayer />
+          </div>
+
+          {/* Dashboard — top right */}
+          <div className="lg:col-span-1">
+            <BentoDashboard />
+          </div>
+
+          {/* Upload — bottom left */}
+          <div className="lg:col-span-1">
+            <BentoUpload />
+          </div>
+
+          {/* Editor — bottom right, wider */}
+          <div className="lg:col-span-2">
+            <BentoEditor />
+          </div>
         </div>
 
-        {/* Bottom CTA — only shown to logged-out users */}
+        {/* Feature highlights row */}
+        <div className="mt-12 grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {highlights.map((feature) => {
+            const Icon = feature.icon;
+            return (
+              <div
+                key={feature.name}
+                className="rounded-lg border border-zinc-200 bg-white px-4 py-3 transition-shadow hover:shadow-sm"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-md bg-zinc-100">
+                    <Icon className="h-3.5 w-3.5 text-[#18181B]" />
+                  </div>
+                  <p className="text-sm font-semibold text-[#18181B]">
+                    {feature.name}
+                  </p>
+                </div>
+                <p className="mt-1 text-xs leading-relaxed text-[#71717A]">
+                  {feature.desc}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Bottom CTA — only for logged-out users */}
         {!user && (
-          <div className="mt-24 text-center">
+          <div className="mt-16 text-center">
             <p className="text-lg text-[#71717A]">
               All features included in the Free tier.
             </p>

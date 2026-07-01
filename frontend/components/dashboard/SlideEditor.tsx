@@ -37,6 +37,7 @@ export function SlideEditor({
   onAudioStoragePathChange,
   onAudioSlidePathsChange,
   selectedVoiceId,
+  ultimateMode,
 }: {
   voiceSelected: boolean
   file: File | null
@@ -61,6 +62,7 @@ export function SlideEditor({
   onAudioStoragePathChange?: (v: string | null) => void
   onAudioSlidePathsChange?: (v: Record<number, string>) => void
   selectedVoiceId?: string | null
+  ultimateMode?: boolean
 }) {
   const [slides, setSlides] = useState<ParsedSlide[]>([])
   const [internalIndex, setInternalIndex] = useState(0)
@@ -94,7 +96,8 @@ export function SlideEditor({
   const [audioGenError, setAudioGenError] = useState<string | null>(null)
   const [audioGenFailed, setAudioGenFailed] = useState(false)
   const originalNarrationsRef = useRef<Record<number, string>>({})
-  const generatedWithVoiceRef = useRef<{ voiceId: string | null; description: string } | null>(null)
+  const generatedWithVoiceRef = useRef<{ voiceId: string | null; description: string; ultimateMode: boolean } | null>(null)
+  const snapshotInitialized = useRef(false)
 
   const audioUrl = externalAudioUrl ?? internalAudioUrl
   const [removingPpt, setRemovingPpt] = useState(false)
@@ -251,7 +254,17 @@ export function SlideEditor({
       generatedWithVoiceRef.current = {
         voiceId: selectedVoiceId ?? null,
         description: voiceDescription ?? "",
+        ultimateMode: ultimateMode ?? false,
       }
+      snapshotInitialized.current = true
+      setVoiceChangedSinceAudio(false)
+      return
+    }
+
+    // On the first comparison after initialization, don't flag as changed
+    // (snapshot was just taken with current values — nothing actually changed)
+    if (snapshotInitialized.current) {
+      snapshotInitialized.current = false
       setVoiceChangedSinceAudio(false)
       return
     }
@@ -259,8 +272,9 @@ export function SlideEditor({
     const snap = generatedWithVoiceRef.current
     const voiceChanged = snap.voiceId !== (selectedVoiceId ?? null)
     const descChanged = snap.description !== (voiceDescription ?? "")
-    setVoiceChangedSinceAudio(voiceChanged || descChanged)
-  }, [selectedVoiceId, voiceDescription, audioGenerated])
+    const ultChanged = snap.ultimateMode !== (ultimateMode ?? false)
+    setVoiceChangedSinceAudio(voiceChanged || descChanged || ultChanged)
+  }, [selectedVoiceId, voiceDescription, ultimateMode, audioGenerated])
 
   // Shared helper: generate narrations via API. Returns true if narrations were generated.
   async function generateNarrations(targetSlides: ParsedSlide[], showRateLimitPrompt = true): Promise<boolean> {
@@ -430,7 +444,7 @@ export function SlideEditor({
     onAudioUrlChange?.(combinedUrl)
     setInternalAudioGenerated(true)
     onAudioGeneratedChange?.(true)
-    generatedWithVoiceRef.current = { voiceId: selectedVoiceId ?? null, description: voiceDescription ?? "" }
+    generatedWithVoiceRef.current = { voiceId: selectedVoiceId ?? null, description: voiceDescription ?? "", ultimateMode: ultimateMode ?? false }
     setGeneratingAudio(false)
     setAudioGenProgress(null)
   }
@@ -496,7 +510,7 @@ export function SlideEditor({
       onAudioUrlChange?.(combinedUrl)
       setInternalAudioGenerated(true)
       onAudioGeneratedChange?.(true)
-      generatedWithVoiceRef.current = { voiceId: selectedVoiceId ?? null, description: voiceDescription ?? "" }
+      generatedWithVoiceRef.current = { voiceId: selectedVoiceId ?? null, description: voiceDescription ?? "", ultimateMode: ultimateMode ?? false }
 
       // Clear changed status for regenerated slides
       if (selectedSlides) {

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react"
 import { createClient } from "@/lib/supabase/client"
-import { Plus, Mic, Play, Trash2, Music, Loader2, Volume2 } from "lucide-react"
+import { Plus, Mic, Trash2, Music, Loader2, Volume2, Play } from "lucide-react"
 import { DeleteVoiceDialog } from "@/components/dashboard/DeleteVoiceDialog"
 import { WaitlistDialog } from "@/components/dashboard/WaitlistDialog"
 import type { QuotaResult } from "@/lib/quota"
@@ -39,8 +39,8 @@ function formatDate(iso: string) {
   })
 }
 
-// ── Voice Card ───────────────────────────────────────
-function VoiceCard({
+// ── Voice Row ────────────────────────────────────────
+function VoiceRow({
   voice,
   onTest,
   onDelete,
@@ -50,98 +50,134 @@ function VoiceCard({
   onDelete: (voice: Voice) => void
 }) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-  const [loadingUrl, setLoadingUrl] = useState(false)
+  const [playing, setPlaying] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
   const presetInfo = voice.preset_id
     ? PRESET_VOICES.find((p) => p.id === voice.preset_id)
     : null
 
+  function handlePlaySample() {
+    if (!voice.sample_path) return
+
+    if (playing && audioRef.current) {
+      audioRef.current.pause()
+      audioRef.current.currentTime = 0
+      setPlaying(false)
+      setProgress(0)
+      return
+    }
+
+    if (previewUrl && audioRef.current) {
+      audioRef.current.play()
+      setPlaying(true)
+      return
+    }
+
+    // Load signed URL then play
+    const supabase = createClient()
+    supabase.storage
+      .from("voice-samples")
+      .createSignedUrl(voice.sample_path, 300)
+      .then(({ data }) => {
+        if (!data) return
+        setPreviewUrl(data.signedUrl)
+        const audio = new Audio(data.signedUrl)
+        audioRef.current = audio
+        audio.addEventListener("timeupdate", () => {
+          setProgress(audio.currentTime / audio.duration)
+        })
+        audio.addEventListener("ended", () => {
+          setPlaying(false)
+          setProgress(0)
+        })
+        audio.play()
+        setPlaying(true)
+      })
+  }
+
   return (
-    <div className="self-start rounded-xl border border-zinc-200 bg-white p-5 transition-all duration-150 hover:border-zinc-300 hover:shadow-sm">
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-100">
+    <div className="relative">
+      <div className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-zinc-50">
+        {/* LEFT: Icon + Name + Description */}
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-zinc-100">
             {voice.type === "preset" ? (
-              <Music className="h-5 w-5 text-[#71717A]" />
+              <Music className="h-3.5 w-3.5 text-[#71717A]" />
             ) : (
-              <Mic className="h-5 w-5 text-[#71717A]" />
+              <Mic className="h-3.5 w-3.5 text-[#71717A]" />
             )}
           </div>
-          <div>
-            <h3 className="font-medium text-[#18181B]">{voice.name}</h3>
-            <p className="text-sm text-[#71717A]">
-              {voice.type === "preset" ? "Preset" : "Cloned voice"}
-            </p>
-          </div>
+          <p className="truncate text-sm font-semibold text-[#18181B]">
+            {voice.name}
+          </p>
+          {voice.type === "preset" && (presetInfo || voice.control_instruction) && (
+            <>
+              <span className="hidden shrink-0 text-xs text-zinc-300 md:inline">·</span>
+              <p
+                className="hidden truncate text-xs text-zinc-500 md:block"
+                title={presetInfo ? presetInfo.description : voice.control_instruction!}
+              >
+                {presetInfo ? presetInfo.description : voice.control_instruction}
+              </p>
+            </>
+          )}
         </div>
 
-        <div className="flex items-center gap-1 shrink-0">
+        {/* RIGHT: Badge + Actions */}
+        <div className="flex shrink-0 items-center gap-2">
+          <span className="inline-flex items-center gap-1 rounded-md bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium text-[#71717A]">
+            {voice.type === "preset" ? "Preset" : "Cloned"}
+          </span>
+
+          {voice.type === "cloned" && voice.sample_path && (
+            <button
+              type="button"
+              onClick={handlePlaySample}
+              className="flex h-7 w-7 items-center justify-center rounded-full text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-[#18181B]"
+              aria-label={playing ? "Stop" : "Play sample"}
+            >
+              <Play className="h-3 w-3" />
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => onTest(voice)}
+            className="inline-flex items-center gap-1 text-xs font-medium text-zinc-400 transition-colors hover:text-[#18181B]"
+          >
+            <Volume2 className="h-3 w-3" strokeWidth={1.5} />
+            <span className="hidden sm:inline">Test</span>
+          </button>
+
+          <span className="hidden text-xs text-zinc-400 md:block">
+            {formatDate(voice.created_at)}
+          </span>
+
           <button
             type="button"
             onClick={() => onDelete(voice)}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#71717A] transition-colors hover:bg-red-50 hover:text-red-600"
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-600"
             aria-label="Delete voice"
           >
-            <Trash2 className="h-4 w-4" />
+            <Trash2 className="h-3.5 w-3.5" />
           </button>
         </div>
       </div>
 
-      {voice.type === "preset" && presetInfo && (
-        <p className="mt-4 text-xs leading-relaxed text-zinc-500">
-          {presetInfo.description}
-        </p>
-      )}
-
-      <button
-        type="button"
-        onClick={() => onTest(voice)}
-        className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-[#71717A] transition-colors hover:text-[#18181B]"
-      >
-        <Volume2 className="h-3.5 w-3.5" strokeWidth={1.5} />
-        Test voice
-      </button>
-
-      {voice.type === "cloned" && voice.sample_path && (
-        <div className="mt-3">
-          {previewUrl ? (
-            <audio
-              controls
-              src={previewUrl}
-              className="w-full rounded-lg"
-              style={{ height: 40 }}
-            >
-              Your browser does not support the audio element.
-            </audio>
-          ) : (
-            <div className="rounded-lg bg-zinc-50 p-3">
-              <button
-                type="button"
-                onClick={async () => {
-                  if (loadingUrl) return
-                  setLoadingUrl(true)
-                  const supabase = createClient()
-                  const { data } = await supabase.storage
-                    .from("voice-samples")
-                    .createSignedUrl(voice.sample_path!, 300)
-                  if (data) setPreviewUrl(data.signedUrl)
-                  setLoadingUrl(false)
-                }}
-                disabled={loadingUrl}
-                className="flex w-full items-center justify-center gap-2 text-sm font-medium text-[#71717A] transition-colors hover:text-[#18181B] disabled:opacity-50"
-              >
-                {loadingUrl ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Play className="h-3.5 w-3.5" />
-                )}
-                {loadingUrl ? "Loading..." : "Preview voice sample"}
-              </button>
-            </div>
-          )}
+      {/* Playback progress bar */}
+      {playing && (
+        <div className="absolute bottom-0 left-2 right-2">
+          <div className="h-0.5 rounded-full bg-zinc-200">
+            <div
+              className="h-0.5 rounded-full bg-[#18181B] transition-all duration-150"
+              style={{ width: `${progress * 100}%` }}
+            />
+          </div>
         </div>
       )}
 
-      <p className="mt-1 text-xs text-zinc-400">Created {formatDate(voice.created_at)}</p>
+      <audio ref={audioRef} className="hidden" />
     </div>
   )
 }
@@ -167,7 +203,9 @@ function AddVoiceModal({
   const fileRef = useRef<HTMLInputElement>(null)
 
   async function handleSavePreset() {
-    if (!voiceName.trim() || !selectedPreset) return
+    const isCustom = !selectedPreset
+    if (!voiceName.trim()) return
+    if (isCustom && !controlInstruction.trim()) return
 
     setUploading(true)
     setError(null)
@@ -312,32 +350,44 @@ function AddVoiceModal({
         {/* Step: Pick preset */}
         {step === "preset" && (
           <div className="space-y-3">
-            <div className="grid grid-cols-1 gap-2">
-                  {PRESET_VOICES.map((pv) => (
-                    <button
-                      key={pv.id}
-                      type="button"
-                      onClick={() => setSelectedPreset(pv.id)}
-                      className={`flex items-start gap-3 rounded-xl border p-3 text-left transition-all ${
-                        selectedPreset === pv.id
-                          ? "border-[#18181B] bg-zinc-50"
-                          : "border-zinc-200 hover:border-zinc-300"
-                      }`}
-                    >
-                      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-zinc-100">
-                        <Music className="h-4 w-4 text-[#71717A]" />
-                      </div>
-                      <div>
-                        <span className="text-sm font-medium text-[#18181B]">
-                          {pv.label}
-                        </span>
-                        <p className="text-xs text-[#71717A]">{pv.description}</p>
-                      </div>
-                    </button>
-                  ))}
+            {/* Built-in preset selection */}
+            <div>
+              <p className="mb-2 text-sm font-medium text-[#71717A]">Built-in voices</p>
+              <div className="grid grid-cols-1 gap-2">
+                {PRESET_VOICES.map((pv) => (
+                  <button
+                    key={pv.id}
+                    type="button"
+                    onClick={() => setSelectedPreset(selectedPreset === pv.id ? null : pv.id)}
+                    className={`flex items-start gap-3 rounded-xl border p-3 text-left transition-all ${
+                      selectedPreset === pv.id
+                        ? "border-[#18181B] bg-zinc-50"
+                        : "border-zinc-200 hover:border-zinc-300"
+                    }`}
+                  >
+                    <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-zinc-100">
+                      <Music className="h-4 w-4 text-[#71717A]" />
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-[#18181B]">
+                        {pv.label}
+                      </span>
+                      <p className="text-xs text-[#71717A]">{pv.description}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <div className="mt-4">
+            {/* Divider */}
+            <div className="flex items-center gap-3">
+              <div className="h-px flex-1 bg-zinc-200" />
+              <span className="text-xs text-zinc-400">or create your own</span>
+              <div className="h-px flex-1 bg-zinc-200" />
+            </div>
+
+            {/* Voice name */}
+            <div>
               <label className="mb-1.5 block text-sm font-medium text-[#18181B]">
                 Voice name
               </label>
@@ -346,25 +396,34 @@ function AddVoiceModal({
                 value={voiceName}
                 onChange={(e) => setVoiceName(e.target.value)}
                 placeholder="e.g. Training Narrator"
-                className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm text-[#18181B] outline-none transition-colors placeholder:text-zinc-400 focus:border-zinc-400"
+                className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm text-[#18181B] outline-none transition-colors placeholder:text-zinc-500 focus:border-zinc-400"
               />
             </div>
 
-            <div className="mt-4">
-              <label className="mb-1.5 block text-sm font-medium text-[#18181B]">
-                Control instruction <span className="text-xs text-[#71717A]">(optional)</span>
-              </label>
-              <textarea
-                value={controlInstruction}
-                onChange={(e) => setControlInstruction(e.target.value)}
-                placeholder="Describe how this voice should sound — e.g. 'A calm, professional male voice with clear enunciation...'"
-                rows={3}
-                className="w-full resize-none rounded-lg border border-zinc-200 px-3 py-2 text-sm text-[#18181B] outline-none transition-colors placeholder:text-zinc-400 focus:border-zinc-400"
-              />
-              <p className="mt-1 text-xs text-[#71717A]">
-                This instruction will be pre-filled and locked when you use this voice in the editor.
-              </p>
-            </div>
+            {/* Control instruction — only for custom presets */}
+            {!selectedPreset ? (
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-[#18181B]">
+                  Control instruction <span className="text-xs text-[#71717A]">(required for custom voices)</span>
+                </label>
+                <textarea
+                  value={controlInstruction}
+                  onChange={(e) => setControlInstruction(e.target.value)}
+                  placeholder="Describe how this voice should sound — e.g. 'A calm, professional male voice with clear enunciation...'"
+                  rows={3}
+                  className="w-full resize-none rounded-lg border border-zinc-200 px-3 py-2 text-sm text-[#18181B] outline-none transition-colors placeholder:text-zinc-500 focus:border-zinc-400"
+                />
+                <p className="mt-1 text-xs text-[#71717A]">
+                  This instruction will be pre-filled and locked when you use this voice in the editor.
+                </p>
+              </div>
+            ) : (
+              <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2.5">
+                <p className="text-xs text-[#71717A]">
+                  This built-in voice uses pre-configured settings. No control instruction needed.
+                </p>
+              </div>
+            )}
 
             <div className="mt-6 flex items-center justify-between">
               <button
@@ -377,11 +436,16 @@ function AddVoiceModal({
               <button
                 type="button"
                 onClick={handleSavePreset}
-                disabled={!selectedPreset || !voiceName.trim() || uploading}
+                disabled={
+                  uploading ||
+                  !voiceName.trim() ||
+                  (!selectedPreset && !controlInstruction.trim()) ||
+                  (!!selectedPreset && !voiceName.trim())
+                }
                 className="inline-flex items-center gap-2 rounded-lg border border-[#18181B]/70 bg-[#18181B] px-4 py-2 text-sm font-medium text-white transition-all hover:border-[#18181B] hover:bg-[#27272A] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {uploading && <Loader2 className="h-4 w-4 animate-spin" />}
-                Save Voice
+                {selectedPreset ? "Save Voice" : "Create Custom Voice"}
               </button>
             </div>
           </div>
@@ -439,7 +503,7 @@ function AddVoiceModal({
                 value={voiceName}
                 onChange={(e) => setVoiceName(e.target.value)}
                 placeholder="e.g. My Training Voice"
-                className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm text-[#18181B] outline-none transition-colors placeholder:text-zinc-400 focus:border-zinc-400"
+                className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm text-[#18181B] outline-none transition-colors placeholder:text-zinc-500 focus:border-zinc-400"
               />
             </div>
 
@@ -600,8 +664,6 @@ export default function VoicesPage() {
   const [showModal, setShowModal] = useState(false)
   const [testVoice, setTestVoice] = useState<Voice | null>(null)
   const [deleteVoice, setDeleteVoice] = useState<Voice | null>(null)
-  const audioRef = useRef<HTMLAudioElement | null>(null)
-
   useEffect(() => {
     async function fetchVoices() {
       try {
@@ -616,19 +678,6 @@ export default function VoicesPage() {
     }
     fetchVoices()
   }, [])
-
-  async function handlePlay(voice: Voice) {
-    if (!voice.sample_path) return
-    const supabase = createClient()
-    const { data } = await supabase.storage
-      .from("voice-samples")
-      .createSignedUrl(voice.sample_path, 60)
-    if (!data) return
-    if (audioRef.current) audioRef.current.pause()
-    const audio = new Audio(data.signedUrl)
-    audioRef.current = audio
-    audio.play()
-  }
 
   async function handleDelete(id: string) {
     setVoices((prev) => prev.filter((v) => v.id !== id))
@@ -661,15 +710,17 @@ export default function VoicesPage() {
             <Loader2 className="h-5 w-5 animate-spin text-[#71717A]" />
           </div>
         ) : voices.length > 0 ? (
-          <div className="grid w-full grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="w-full overflow-hidden rounded-xl border border-zinc-200 bg-white">
+            <div className="divide-y divide-zinc-100">
               {voices.map((v) => (
-                <VoiceCard
+                <VoiceRow
                   key={v.id}
                   voice={v}
                   onTest={setTestVoice}
                   onDelete={setDeleteVoice}
                 />
               ))}
+            </div>
           </div>
         ) : (
           /* Empty state */
