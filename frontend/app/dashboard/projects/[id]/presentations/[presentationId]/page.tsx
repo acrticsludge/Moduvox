@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { ChevronRight, MoreHorizontal, Trash2, Pencil } from "lucide-react"
+import { ChevronRight, MoreHorizontal, Trash2, Pencil, Archive } from "lucide-react"
 import toast from "react-hot-toast"
 import { createClient } from "@/lib/supabase/client"
 import type { Presentation as PresentationType } from "@/lib/validations/presentation"
@@ -71,6 +71,21 @@ export default function PresentationCreatePage() {
   function handleControlInstructionsChange(v: string) { setControlInstructions(v); setDirty(true) }
   function handleUltimateModeChange(v: boolean) { setUltimateMode(v); setDirty(true) }
   function handleNarrationsChange(n: Record<number, string>) { setNarrations(n); setDirty(true) }
+
+  async function handleArchive() {
+    try {
+      const res = await fetch(`/api/presentations/${params.presentationId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "archived" }),
+      })
+      if (!res.ok) throw new Error()
+      toast.success("Presentation archived")
+      router.push(`/dashboard/projects/${params.id}`)
+    } catch {
+      toast.error("Failed to archive presentation")
+    }
+  }
 
   function handleChangedSlidesChange(slides: number[]) {
     setChangedSlides(slides)
@@ -212,7 +227,7 @@ export default function PresentationCreatePage() {
       />
 
       {/* Content */}
-      <div className="ml-80 flex flex-1 flex-col">
+      <div className="ml-80 mr-[380px] flex flex-1 flex-col">
         {/* Top bar */}
         <div className="flex items-center justify-between border-b border-[var(--color-border-faint)] bg-white px-6 py-4">
           <div className="flex items-center gap-2 text-sm">
@@ -261,6 +276,14 @@ export default function PresentationCreatePage() {
                 aria-label="Rename"
               >
                 <Pencil className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={handleArchive}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-[#71717A] transition-colors hover:bg-zinc-100 hover:text-[#18181B]"
+                aria-label="Archive"
+              >
+                <Archive className="h-4 w-4" />
               </button>
               <button
                 type="button"
