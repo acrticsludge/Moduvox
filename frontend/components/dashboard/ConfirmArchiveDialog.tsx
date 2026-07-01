@@ -1,3 +1,5 @@
+"use client"
+
 import { useState } from "react"
 import { Archive, Loader2, X } from "lucide-react"
 import type { Presentation } from "@/lib/validations/presentation"

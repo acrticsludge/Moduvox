@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Plus, Mic, Trash2, Music, Loader2, Volume2, Play } from "lucide-react"
+import toast from "react-hot-toast"
 import { DeleteVoiceDialog } from "@/components/dashboard/DeleteVoiceDialog"
 import { WaitlistDialog } from "@/components/dashboard/WaitlistDialog"
 import type { QuotaResult } from "@/lib/quota"
@@ -51,15 +52,17 @@ function VoiceRow({
 }) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [playing, setPlaying] = useState(false)
+  const [loadingSample, setLoadingSample] = useState(false)
   const [progress, setProgress] = useState(0)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const presetInfo = voice.preset_id
     ? PRESET_VOICES.find((p) => p.id === voice.preset_id)
     : null
 
-  function handlePlaySample() {
+  async function handlePlaySample() {
     if (!voice.sample_path) return
 
+    // Toggle off if already playing
     if (playing && audioRef.current) {
       audioRef.current.pause()
       audioRef.current.currentTime = 0
@@ -68,6 +71,7 @@ function VoiceRow({
       return
     }
 
+    // Resume if already loaded
     if (previewUrl && audioRef.current) {
       audioRef.current.play()
       setPlaying(true)
@@ -75,25 +79,33 @@ function VoiceRow({
     }
 
     // Load signed URL then play
+    setLoadingSample(true)
     const supabase = createClient()
-    supabase.storage
-      .from("voice-samples")
-      .createSignedUrl(voice.sample_path, 300)
-      .then(({ data }) => {
-        if (!data) return
-        setPreviewUrl(data.signedUrl)
-        const audio = new Audio(data.signedUrl)
-        audioRef.current = audio
-        audio.addEventListener("timeupdate", () => {
-          setProgress(audio.currentTime / audio.duration)
-        })
-        audio.addEventListener("ended", () => {
-          setPlaying(false)
-          setProgress(0)
-        })
-        audio.play()
-        setPlaying(true)
+    try {
+      const { data } = await supabase.storage
+        .from("voice-samples")
+        .createSignedUrl(voice.sample_path, 300)
+      if (!data) {
+        toast.error("Failed to load voice sample")
+        return
+      }
+      setPreviewUrl(data.signedUrl)
+      const audio = new Audio(data.signedUrl)
+      audioRef.current = audio
+      audio.addEventListener("timeupdate", () => {
+        setProgress(audio.currentTime / audio.duration)
       })
+      audio.addEventListener("ended", () => {
+        setPlaying(false)
+        setProgress(0)
+      })
+      audio.play()
+      setPlaying(true)
+    } catch {
+      toast.error("Failed to load voice sample")
+    } finally {
+      setLoadingSample(false)
+    }
   }
 
   return (
@@ -134,10 +146,21 @@ function VoiceRow({
             <button
               type="button"
               onClick={handlePlaySample}
-              className="flex h-7 w-7 items-center justify-center rounded-full text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-[#18181B]"
-              aria-label={playing ? "Stop" : "Play sample"}
+              disabled={loadingSample}
+              className="flex h-7 w-7 items-center justify-center rounded-full text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-[#18181B] disabled:opacity-40"
+              aria-label={loadingSample ? "Loading" : playing ? "Stop" : "Play sample"}
             >
-              <Play className="h-3 w-3" />
+              {loadingSample ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : playing ? (
+                <span className="flex items-center gap-[2px]">
+                  <span className="h-2.5 w-0.5 rounded-full bg-current" />
+                  <span className="h-1.5 w-0.5 rounded-full bg-current" />
+                  <span className="h-2.5 w-0.5 rounded-full bg-current" />
+                </span>
+              ) : (
+                <Play className="h-3 w-3" />
+              )}
             </button>
           )}
 

@@ -482,6 +482,7 @@ export function SlideEditor({
               body: JSON.stringify({
                 slide_number: slideTexts[i].number,
                 text: slideTexts[i].text,
+                voice_id: selectedVoiceId || undefined,
                 voice_description: voiceDescription || "Natural, clear, professional speaking voice",
                 cfg_value: 2.0,
                 presentation_id: presentationId,
@@ -1130,7 +1131,7 @@ export function SlideEditor({
 
             {/* Voice changed banner */}
             {voiceChangedSinceAudio && (
-              <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
                 Voice settings changed. Regenerate audio to apply the new voice.
               </div>
             )}
