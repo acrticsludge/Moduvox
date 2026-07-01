@@ -93,6 +93,29 @@ export async function POST(
     )
   }
 
+  // Check if viewer already exists and is verified
+  const { data: existingViewer } = await supabase
+    .from("viewers")
+    .select("id, email_verified")
+    .eq("presentation_id", presentation.id)
+    .eq("viewer_email", parsed.data.viewer_email)
+    .maybeSingle()
+
+  const alreadyVerified = existingViewer?.email_verified === true
+
+  // If already verified, skip email send and return success
+  if (alreadyVerified) {
+    return NextResponse.json({
+      data: {
+        viewer_id: existingViewer.id,
+        viewer_name: parsed.data.viewer_name,
+        viewer_email: parsed.data.viewer_email,
+        email_sent: false,
+        already_verified: true,
+      },
+    })
+  }
+
   // Upsert viewer — create or update in one shot
   const newSessionToken = crypto.randomUUID()
 
@@ -103,7 +126,7 @@ export async function POST(
       viewer_email: parsed.data.viewer_email,
       viewer_name: parsed.data.viewer_name,
       consent_granted: true,
-      email_verified: false,
+      email_verified: alreadyVerified,
       session_token: newSessionToken,
       verification_sent_at: new Date().toISOString(),
       ip_address: ipAddress,

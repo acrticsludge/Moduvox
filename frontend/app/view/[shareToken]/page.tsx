@@ -111,23 +111,38 @@ export default function ViewPresentationPage() {
         return
       }
 
-      // Check if gate was already passed (survives tab close)
-      const gateState = loadGateState(shareToken)
-      if (gateState) {
-        setState({
-          type: "email_sent",
-          viewerId: gateState.viewerId,
-          viewerName: gateState.viewerName,
-          email: gateState.email,
-        })
-        return
-      }
-
-      // No stored state — load presentation to show gate or player
+      // Always load presentation — server is source of truth
       loadPresentation()
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shareToken, searchParams])
+
+  // Re-fetch gate settings when tab regains focus
+  useEffect(() => {
+    if (state.type !== "gate") return
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        fetch(`/api/view/${shareToken}`)
+          .then((res) => res.json())
+          .then((json) => {
+            if (!json.data) return
+            if (!json.data.has_password && !json.data.email_gate_enabled) {
+              // Gate no longer required — go to player
+              clearGateState(shareToken)
+              loadPlayerFromFullData(json.data)
+            } else {
+              // Gate still active — update meta (settings may have changed)
+              setState({ type: "gate", meta: json.data })
+            }
+          })
+          .catch(() => {})
+      }
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange)
+  }, [state.type, shareToken]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function loadPresentation() {
     setState({ type: "loading" })
@@ -137,6 +152,7 @@ export default function ViewPresentationPage() {
       const json = await res.json()
 
       if (res.status === 410) {
+        clearGateState(shareToken)
         if (json.error?.toLowerCase().includes("archived")) {
           setState({ type: "archived" })
         } else {
@@ -146,6 +162,7 @@ export default function ViewPresentationPage() {
       }
 
       if (!res.ok) {
+        clearGateState(shareToken)
         setState({ type: "not_found" })
         return
       }
@@ -153,10 +170,23 @@ export default function ViewPresentationPage() {
       const data = json.data
 
       if (data.has_password || data.email_gate_enabled) {
+        // Gate still required — check localStorage as cache hint
+        const gateState = loadGateState(shareToken)
+        if (gateState) {
+          setState({
+            type: "email_sent",
+            viewerId: gateState.viewerId,
+            viewerName: gateState.viewerName,
+            email: gateState.email,
+          })
+          return
+        }
         setState({ type: "gate", meta: data })
         return
       }
 
+      // No gate — clear stale localStorage, go to player
+      clearGateState(shareToken)
       loadPlayerFromFullData(data)
     } catch {
       setState({ type: "not_found" })
