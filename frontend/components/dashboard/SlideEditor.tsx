@@ -808,9 +808,9 @@ export function SlideEditor({
 
   return (
     <>
-      <div className="flex flex-1 flex-col gap-0 lg:flex-row">
+      <div className="relative flex flex-1 flex-col">
       {/* Left — Office Online viewer showing the actual PPTX */}
-      <div className="relative flex flex-1 flex-col bg-zinc-100">
+      <div className="relative flex flex-1 flex-col bg-zinc-100 lg:mr-[380px]">
         {/* Processing overlay during re-upload */}
         {reUploading ? (
           <div className="flex h-full min-h-[60vh] flex-col items-center justify-center gap-3">
@@ -900,8 +900,8 @@ export function SlideEditor({
         )}
       </div>
 
-      {/* Right — Controls panel */}
-      <div className="flex w-full flex-col gap-5 border-t border-[var(--color-border-faint)] bg-white p-6 lg:w-[380px] lg:flex-shrink-0 lg:border-l lg:border-t-0 lg:overflow-y-auto lg:max-h-[calc(100vh-8rem)] hide-scrollbar">
+      {/* Right — Controls panel (absolute sidebar, doesn't affect PPT layout) */}
+      <div className="absolute bottom-0 right-0 top-0 z-20 flex w-[380px] flex-col gap-5 overflow-y-auto border-l border-[var(--color-border-faint)] bg-white p-6 hide-scrollbar">
         {/* Slide info + jump input */}
         <div className="flex items-center justify-between gap-2">
           <form onSubmit={handleSlideJump} className="flex items-center gap-1.5">
