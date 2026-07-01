@@ -111,14 +111,14 @@ function VoiceRow({
           <p className="truncate text-sm font-semibold text-[#18181B]">
             {voice.name}
           </p>
-          {voice.type === "preset" && presetInfo && (
+          {voice.type === "preset" && (presetInfo || voice.control_instruction) && (
             <>
               <span className="hidden shrink-0 text-xs text-zinc-300 md:inline">·</span>
               <p
                 className="hidden truncate text-xs text-zinc-500 md:block"
-                title={presetInfo.description}
+                title={presetInfo ? presetInfo.description : voice.control_instruction!}
               >
-                {presetInfo.description}
+                {presetInfo ? presetInfo.description : voice.control_instruction}
               </p>
             </>
           )}
