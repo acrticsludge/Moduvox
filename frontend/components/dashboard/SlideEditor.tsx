@@ -482,6 +482,7 @@ export function SlideEditor({
               body: JSON.stringify({
                 slide_number: slideTexts[i].number,
                 text: slideTexts[i].text,
+                voice_id: selectedVoiceId || undefined,
                 voice_description: voiceDescription || "Natural, clear, professional speaking voice",
                 cfg_value: 2.0,
                 presentation_id: presentationId,
@@ -808,9 +809,9 @@ export function SlideEditor({
 
   return (
     <>
-      <div className="relative flex flex-1 flex-col">
+      <div className="flex flex-1 flex-col">
       {/* Left — Office Online viewer showing the actual PPTX */}
-      <div className="relative flex flex-1 flex-col bg-zinc-100 lg:mr-[380px]">
+      <div className="relative flex flex-1 flex-col bg-zinc-100">
         {/* Processing overlay during re-upload */}
         {reUploading ? (
           <div className="flex h-full min-h-[60vh] flex-col items-center justify-center gap-3">
@@ -899,9 +900,10 @@ export function SlideEditor({
           </div>
         )}
       </div>
+      </div>{/* end wrapper */}
 
-      {/* Right — Controls panel (absolute sidebar, doesn't affect PPT layout) */}
-      <div className="absolute bottom-0 right-0 top-0 z-20 flex w-[380px] flex-col gap-5 overflow-y-auto border-l border-[var(--color-border-faint)] bg-white p-6 hide-scrollbar">
+      {/* Right — Controls panel (absolute sidebar relative to <main>, doesn't affect PPT) */}
+      <div className="absolute bottom-0 right-0 top-0 z-20 hidden w-[380px] flex-col gap-5 overflow-y-auto border-l border-[var(--color-border-faint)] bg-white p-6 lg:flex hide-scrollbar">
         {/* Slide info + jump input */}
         <div className="flex items-center justify-between gap-2">
           <form onSubmit={handleSlideJump} className="flex items-center gap-1.5">
@@ -1129,7 +1131,7 @@ export function SlideEditor({
 
             {/* Voice changed banner */}
             {voiceChangedSinceAudio && (
-              <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
                 Voice settings changed. Regenerate audio to apply the new voice.
               </div>
             )}
@@ -1173,7 +1175,6 @@ export function SlideEditor({
           </>
         )}
       </div>
-    </div>
 
       {/* Re-upload modal overlay */}
       {showReUpload && pendingDiff && (

@@ -48,6 +48,10 @@ export function ViewPlayer({
 
   // Map currentTime to the active slide based on cumulative timings
   const updateSlideFromTime = useCallback((timeMs: number) => {
+    if (timings.length === 0) {
+      setCurrentIndex(0)
+      return
+    }
     let cumulative = 0
     for (let i = 0; i < timings.length; i++) {
       cumulative += timings[i].durationMs

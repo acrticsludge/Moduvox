@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { ChevronRight, MoreHorizontal, Trash2, Pencil } from "lucide-react"
+import { ChevronRight, MoreHorizontal, Trash2, Pencil, Archive, RotateCcw, Loader2 } from "lucide-react"
 import toast from "react-hot-toast"
 import { createClient } from "@/lib/supabase/client"
 import type { Presentation as PresentationType } from "@/lib/validations/presentation"
@@ -12,6 +12,7 @@ import { SlideEditor } from "@/components/dashboard/SlideEditor"
 import { ErrorBoundary } from "@/components/dashboard/ErrorBoundary"
 import { DeletePresentationDialog } from "@/components/dashboard/DeletePresentationDialog"
 import { RenamePresentationDialog } from "@/components/dashboard/RenamePresentationDialog"
+import { ConfirmArchiveDialog } from "@/components/dashboard/ConfirmArchiveDialog"
 
 type EditorState = {
   selectedVoiceId?: string
@@ -41,6 +42,7 @@ export default function PresentationCreatePage() {
   const [presentation, setPresentation] = useState<PresentationType | null>(null)
   const [showDelete, setShowDelete] = useState(false)
   const [showRename, setShowRename] = useState(false)
+  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false)
   const [projectName, setProjectName] = useState("")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -59,6 +61,7 @@ export default function PresentationCreatePage() {
   const [changedSlides, setChangedSlides] = useState<number[]>([])
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle")
   const [dirty, setDirty] = useState(false)
+  const [restoring, setRestoring] = useState(false)
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -71,6 +74,41 @@ export default function PresentationCreatePage() {
   function handleControlInstructionsChange(v: string) { setControlInstructions(v); setDirty(true) }
   function handleUltimateModeChange(v: boolean) { setUltimateMode(v); setDirty(true) }
   function handleNarrationsChange(n: Record<number, string>) { setNarrations(n); setDirty(true) }
+
+  async function handleArchive() {
+    try {
+      const res = await fetch(`/api/presentations/${params.presentationId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "archived" }),
+      })
+      if (!res.ok) throw new Error()
+      setShowArchiveConfirm(false)
+      toast.success("Presentation archived")
+      router.push(`/dashboard/projects/${params.id}`)
+    } catch {
+      toast.error("Failed to archive presentation")
+    }
+  }
+
+  async function handleRestore() {
+    setRestoring(true)
+    try {
+      const res = await fetch(`/api/presentations/${params.presentationId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "draft" }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error()
+      if (json.data) setPresentation(json.data)
+      toast.success("Presentation restored")
+    } catch {
+      toast.error("Failed to restore presentation")
+    } finally {
+      setRestoring(false)
+    }
+  }
 
   function handleChangedSlidesChange(slides: number[]) {
     setChangedSlides(slides)
@@ -212,7 +250,7 @@ export default function PresentationCreatePage() {
       />
 
       {/* Content */}
-      <div className="ml-80 flex flex-1 flex-col">
+      <div className="ml-80 mr-[380px] flex flex-1 flex-col">
         {/* Top bar */}
         <div className="flex items-center justify-between border-b border-[var(--color-border-faint)] bg-white px-6 py-4">
           <div className="flex items-center gap-2 text-sm">
@@ -262,20 +300,68 @@ export default function PresentationCreatePage() {
               >
                 <Pencil className="h-4 w-4" />
               </button>
-              <button
-                type="button"
-                onClick={() => setShowDelete(true)}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-[#71717A] transition-colors hover:bg-red-50 hover:text-red-600"
-                aria-label="Delete"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
+              {presentation?.status === "archived" ? (
+                <button
+                  type="button"
+                  onClick={handleRestore}
+                  disabled={restoring}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-[#71717A] transition-colors hover:bg-zinc-100 hover:text-[#18181B] disabled:opacity-40"
+                  aria-label="Restore"
+                >
+                  {restoring ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RotateCcw className="h-4 w-4" />
+                  )}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowArchiveConfirm(true)}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-[#71717A] transition-colors hover:bg-zinc-100 hover:text-[#18181B]"
+                  aria-label="Archive"
+                >
+                  <Archive className="h-4 w-4" />
+                </button>
+              )}
+              {presentation?.status !== "archived" && (
+                <button
+                  type="button"
+                  onClick={() => setShowDelete(true)}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-[#71717A] transition-colors hover:bg-red-50 hover:text-red-600"
+                  aria-label="Delete"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
             </div>
           </div>
         </div>
 
         {/* Content */}
-        {mode === "upload" ? (
+        {presentation?.status === "archived" ? (
+          <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8">
+            <div className="mx-auto max-w-md rounded-lg border border-amber-200 bg-amber-50 px-6 py-5 text-center">
+              <h3 className="text-sm font-semibold text-amber-800">Presentation Archived</h3>
+              <p className="mt-1 text-sm text-amber-700">
+                This presentation is archived. Restore it to make changes.
+              </p>
+              <button
+                type="button"
+                onClick={handleRestore}
+                disabled={restoring}
+                className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-[#18181B] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#27272A] disabled:opacity-50"
+              >
+                {restoring ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RotateCcw className="h-4 w-4" />
+                )}
+                {restoring ? "Restoring..." : "Restore Presentation"}
+              </button>
+            </div>
+          </div>
+        ) : mode === "upload" ? (
           <PptxUploadZone onFileAccepted={handleFileAccepted} />
         ) : (
           <ErrorBoundary>
@@ -307,6 +393,14 @@ export default function PresentationCreatePage() {
           </ErrorBoundary>
         )}
       </div>
+
+      {showArchiveConfirm && presentation && (
+        <ConfirmArchiveDialog
+          presentation={presentation}
+          onClose={() => setShowArchiveConfirm(false)}
+          onArchive={handleArchive}
+        />
+      )}
 
       {showRename && presentation && (
         <RenamePresentationDialog

@@ -37,6 +37,7 @@ type PlayerData = {
 type PageState =
   | { type: "loading" }
   | { type: "expired" }
+  | { type: "archived" }
   | { type: "not_found" }
   | { type: "gate"; meta: PresentationMeta }
   | { type: "email_sent"; viewerId: string; viewerName: string; email: string }
@@ -136,7 +137,11 @@ export default function ViewPresentationPage() {
       const json = await res.json()
 
       if (res.status === 410) {
-        setState({ type: "expired" })
+        if (json.error?.toLowerCase().includes("archived")) {
+          setState({ type: "archived" })
+        } else {
+          setState({ type: "expired" })
+        }
         return
       }
 
@@ -240,6 +245,16 @@ export default function ViewPresentationPage() {
           <div className="flex flex-col items-center gap-3">
             <Loader2 className="h-8 w-8 animate-spin text-zinc-400" />
             <p className="text-sm text-zinc-500">Loading presentation...</p>
+          </div>
+        </div>
+      )
+
+    case "archived":
+      return (
+        <div className="flex min-h-screen items-center justify-center bg-[#F9FAFB] px-4">
+          <div className="w-full max-w-sm text-center">
+            <h1 className="mb-2 text-lg font-semibold text-[#18181B]">Presentation Archived</h1>
+            <p className="text-sm text-zinc-500">This presentation has been archived by its owner and is no longer available.</p>
           </div>
         </div>
       )
