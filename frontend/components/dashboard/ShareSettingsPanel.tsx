@@ -133,14 +133,16 @@ const [expireInput, setExpireInput] = useState("")
   return (
     <div className={`space-y-5 rounded-xl border bg-white p-6 transition-all duration-300 ${
       saveState === "saving"
-        ? "border-[#18181B] ring-1 ring-[#18181B]"
+        ? "border-[#18181B] shadow-[0_0_0_1px_#18181B]"
         : saveState === "saved"
-          ? "border-green-500 ring-1 ring-green-500"
+          ? "border-green-500 shadow-[0_0_0_1px_#22c55e]"
           : "border-zinc-200"
     }`}>
       <h3 className="flex items-center gap-2 text-sm font-semibold text-[#18181B]">
         <Link className="h-4 w-4" />
         Share Settings
+        {saveState === "saving" && <span className="ml-1 h-2 w-2 rounded-full bg-[#18181B] animate-pulse" />}
+        {saveState === "saved" && <span className="ml-1 h-2 w-2 rounded-full bg-green-500" />}
       </h3>
 
       {/* Share link */}
