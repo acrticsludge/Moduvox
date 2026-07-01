@@ -93,17 +93,55 @@ export async function POST(
     )
   }
 
-  // Check if viewer already exists and is verified
+  // Email gate disabled → create viewer as verified, skip email, return success
+  if (!presentation.email_gate_enabled) {
+    const newSessionToken = crypto.randomUUID()
+
+    const { data: viewer, error: viewerError } = await supabase
+      .from("viewers")
+      .upsert({
+        presentation_id: presentation.id,
+        viewer_email: parsed.data.viewer_email,
+        viewer_name: parsed.data.viewer_name,
+        consent_granted: true,
+        email_verified: true,
+        session_token: newSessionToken,
+        verification_sent_at: new Date().toISOString(),
+        ip_address: ipAddress,
+        user_agent: userAgent,
+      }, {
+        onConflict: "presentation_id, viewer_email",
+        ignoreDuplicates: false,
+      })
+      .select("id, session_token, viewer_email, viewer_name")
+      .single()
+
+    if (viewerError || !viewer) {
+      console.error("Failed to create/update viewer:", viewerError?.message)
+      return NextResponse.json({ error: "Failed to process gate" }, { status: 500 })
+    }
+
+    return NextResponse.json({
+      data: {
+        viewer_id: viewer.id,
+        viewer_name: viewer.viewer_name,
+        viewer_email: viewer.viewer_email,
+        email_sent: false,
+        already_verified: true,
+      },
+    })
+  }
+
+  // Check if viewer already exists and is verified (email-gated flow only)
   const { data: existingViewer } = await supabase
     .from("viewers")
-    .select("id, email_verified")
+    .select("id, email_verified, session_token")
     .eq("presentation_id", presentation.id)
     .eq("viewer_email", parsed.data.viewer_email)
     .maybeSingle()
 
   const alreadyVerified = existingViewer?.email_verified === true
 
-  // If already verified, skip email send and return success
   if (alreadyVerified) {
     return NextResponse.json({
       data: {
@@ -112,6 +150,7 @@ export async function POST(
         viewer_email: parsed.data.viewer_email,
         email_sent: false,
         already_verified: true,
+        session_token: existingViewer.session_token,
       },
     })
   }

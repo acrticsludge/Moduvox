@@ -50,13 +50,13 @@ export function CombinedGateDialog({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError("")
+    setLoading(true)
 
     if (!consent) {
       setError("You must confirm you are watching for yourself.")
+      setLoading(false)
       return
     }
-
-    setLoading(true)
 
     // Get reCAPTCHA v3 token (silent, no user interaction)
     let recaptchaToken = ""
@@ -103,6 +103,16 @@ export function CombinedGateDialog({
 
       if (!res.ok) {
         setError(json.error || "Something went wrong")
+        return
+      }
+
+      if (json.data?.already_verified) {
+        onSuccess({
+          viewer_id: json.data.viewer_id,
+          viewer_name: json.data.viewer_name || name,
+          email: json.data.viewer_email,
+        })
+        setLoading(false)
         return
       }
 
@@ -187,12 +197,14 @@ export function CombinedGateDialog({
             </span>
           </label>
 
-          <div className="flex items-start gap-2 rounded-lg bg-blue-50 px-3 py-2">
-            <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-500" />
-            <p className="text-xs leading-relaxed text-blue-700">
-              We'll send a verification link to your email to confirm your identity.
-            </p>
-          </div>
+          {emailGateEnabled && (
+            <div className="flex items-start gap-2 rounded-lg bg-blue-50 px-3 py-2">
+              <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-500" />
+              <p className="text-xs leading-relaxed text-blue-700">
+                We'll send a verification link to your email to confirm your identity.
+              </p>
+            </div>
+          )}
 
           {error && (
             <div className="flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
@@ -209,10 +221,10 @@ export function CombinedGateDialog({
             {loading ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Verifying &amp; sending…
+                {emailGateEnabled ? "Verifying & sending…" : "Verifying…"}
               </>
             ) : (
-              "Send Verification Link"
+              emailGateEnabled ? "Send Verification Link" : "Watch Presentation"
             )}
           </button>
         </form>
