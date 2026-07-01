@@ -13,7 +13,7 @@ export function SharePresentationModal({
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#18181B]/40 p-4">
-      <div className="flex max-h-[85vh] w-full max-w-2xl flex-col rounded-xl border border-zinc-200 bg-white shadow-xl">
+      <div className="flex max-h-[85vh] w-full max-w-5xl flex-col rounded-xl border border-zinc-200 bg-white shadow-xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-zinc-100 px-6 py-4">
           <h2 className="text-lg font-semibold text-[#18181B]">
