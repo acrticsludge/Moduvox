@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useParams, useSearchParams } from "next/navigation"
 import { Loader2 } from "lucide-react"
 import { CombinedGateDialog } from "@/components/view/CombinedGateDialog"
@@ -95,6 +95,7 @@ export default function ViewPresentationPage() {
   const shareToken = params.shareToken
 
   const [state, setState] = useState<PageState>({ type: "loading" })
+  const pendingPlayerData = useRef<PresentationMeta | null>(null)
 
   useEffect(() => {
     const sessionFromUrl = searchParams.get("session")
@@ -128,9 +129,14 @@ export default function ViewPresentationPage() {
           .then((json) => {
             if (!json.data) return
             if (!json.data.has_password && !json.data.email_gate_enabled) {
-              // Gate no longer required — go to player
-              clearGateState(shareToken)
-              loadPlayerFromFullData(json.data)
+              if (pendingPlayerData.current) {
+                // Tracking-only mode — update stored data
+                pendingPlayerData.current = json.data
+              } else {
+                // Gate no longer required — go to player
+                clearGateState(shareToken)
+                loadPlayerFromFullData(json.data)
+              }
             } else {
               // Gate still active — update meta (settings may have changed)
               setState({ type: "gate", meta: json.data })
@@ -185,9 +191,16 @@ export default function ViewPresentationPage() {
         return
       }
 
-      // No gate — clear stale localStorage, go to player
-      clearGateState(shareToken)
-      loadPlayerFromFullData(data)
+      // No gate — still show dialog for viewer tracking
+      pendingPlayerData.current = data
+      const gateState = loadGateState(shareToken)
+      if (gateState) {
+        // Already submitted tracking info — go straight to player
+        loadPlayerFromFullData(data)
+      } else {
+        clearGateState(shareToken)
+        setState({ type: "gate", meta: data })
+      }
     } catch {
       setState({ type: "not_found" })
     }
@@ -254,12 +267,20 @@ export default function ViewPresentationPage() {
   }
 
   function handleGateSuccess(data: { viewer_id: string; viewer_name: string; email: string }) {
-    // Store gate state in sessionStorage so it survives refresh
     saveGateState(shareToken, {
       viewerId: data.viewer_id,
       viewerName: data.viewer_name,
       email: data.email,
     })
+
+    // If this was tracking-only (no gate), go straight to player
+    if (pendingPlayerData.current) {
+      const playerData = pendingPlayerData.current
+      pendingPlayerData.current = null
+      loadPlayerFromFullData(playerData)
+      return
+    }
+
     setState({ type: "email_sent", viewerId: data.viewer_id, viewerName: data.viewer_name, email: data.email })
   }
 
