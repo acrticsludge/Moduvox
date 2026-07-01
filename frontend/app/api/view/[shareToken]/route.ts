@@ -13,12 +13,20 @@ export async function GET(
 
   const { data: presentation } = await supabase
     .from("presentations")
-    .select("id, user_id, title, slide_count, editor_state, password_hash, expires_at, email_gate_enabled, created_at")
+    .select("id, user_id, title, slide_count, editor_state, password_hash, expires_at, email_gate_enabled, created_at, status")
     .eq("share_token", shareToken)
     .single()
 
   if (!presentation) {
     return NextResponse.json({ error: "Presentation not found" }, { status: 404 })
+  }
+
+  // Check archived
+  if (presentation.status === "archived") {
+    return NextResponse.json(
+      { error: "This presentation has been archived by its owner." },
+      { status: 410 },
+    )
   }
 
   // Check expiration

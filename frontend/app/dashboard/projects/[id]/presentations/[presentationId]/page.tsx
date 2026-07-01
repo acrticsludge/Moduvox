@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { ChevronRight, MoreHorizontal, Trash2, Pencil, Archive } from "lucide-react"
+import { ChevronRight, MoreHorizontal, Trash2, Pencil, Archive, RotateCcw } from "lucide-react"
 import toast from "react-hot-toast"
 import { createClient } from "@/lib/supabase/client"
 import type { Presentation as PresentationType } from "@/lib/validations/presentation"
@@ -84,6 +84,22 @@ export default function PresentationCreatePage() {
       router.push(`/dashboard/projects/${params.id}`)
     } catch {
       toast.error("Failed to archive presentation")
+    }
+  }
+
+  async function handleRestore() {
+    try {
+      const res = await fetch(`/api/presentations/${params.presentationId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "draft" }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error()
+      if (json.data) setPresentation(json.data)
+      toast.success("Presentation restored")
+    } catch {
+      toast.error("Failed to restore presentation")
     }
   }
 
@@ -277,28 +293,58 @@ export default function PresentationCreatePage() {
               >
                 <Pencil className="h-4 w-4" />
               </button>
-              <button
-                type="button"
-                onClick={handleArchive}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-[#71717A] transition-colors hover:bg-zinc-100 hover:text-[#18181B]"
-                aria-label="Archive"
-              >
-                <Archive className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowDelete(true)}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-[#71717A] transition-colors hover:bg-red-50 hover:text-red-600"
-                aria-label="Delete"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
+              {presentation?.status === "archived" ? (
+                <button
+                  type="button"
+                  onClick={handleRestore}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-[#71717A] transition-colors hover:bg-zinc-100 hover:text-[#18181B]"
+                  aria-label="Restore"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleArchive}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-[#71717A] transition-colors hover:bg-zinc-100 hover:text-[#18181B]"
+                  aria-label="Archive"
+                >
+                  <Archive className="h-4 w-4" />
+                </button>
+              )}
+              {presentation?.status !== "archived" && (
+                <button
+                  type="button"
+                  onClick={() => setShowDelete(true)}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-[#71717A] transition-colors hover:bg-red-50 hover:text-red-600"
+                  aria-label="Delete"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
             </div>
           </div>
         </div>
 
         {/* Content */}
-        {mode === "upload" ? (
+        {presentation?.status === "archived" ? (
+          <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8">
+            <div className="mx-auto max-w-md rounded-lg border border-amber-200 bg-amber-50 px-6 py-5 text-center">
+              <h3 className="text-sm font-semibold text-amber-800">Presentation Archived</h3>
+              <p className="mt-1 text-sm text-amber-700">
+                This presentation is archived. Restore it to make changes.
+              </p>
+              <button
+                type="button"
+                onClick={handleRestore}
+                className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-[#18181B] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#27272A]"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Restore Presentation
+              </button>
+            </div>
+          </div>
+        ) : mode === "upload" ? (
           <PptxUploadZone onFileAccepted={handleFileAccepted} />
         ) : (
           <ErrorBoundary>

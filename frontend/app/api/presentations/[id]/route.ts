@@ -30,10 +30,10 @@ export async function PATCH(
     )
   }
 
-  // Verify ownership
+  // Verify ownership and get current state
   const { data: existing } = await supabase
     .from("presentations")
-    .select("id")
+    .select("id, status, previous_status")
     .eq("id", presentationId)
     .eq("user_id", user.id)
     .single()
@@ -47,7 +47,20 @@ export async function PATCH(
   }
 
   if (parsed.data.title !== undefined) updates.title = parsed.data.title
-  if (parsed.data.status !== undefined) updates.status = parsed.data.status
+  if (parsed.data.status !== undefined) {
+    updates.status = parsed.data.status
+
+    // Save previous status when archiving
+    if (parsed.data.status === "archived" && existing.status !== "archived") {
+      updates.previous_status = existing.status
+    }
+
+    // Restore to previous status when un-archiving
+    if (existing.status === "archived" && parsed.data.status !== "archived") {
+      updates.status = existing.previous_status || parsed.data.status
+      updates.previous_status = null
+    }
+  }
 
   const { data, error } = await supabase
     .from("presentations")
