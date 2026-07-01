@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { ChevronRight, MoreHorizontal, Trash2, Pencil, Archive, RotateCcw } from "lucide-react"
+import { ChevronRight, MoreHorizontal, Trash2, Pencil, Archive, RotateCcw, Loader2 } from "lucide-react"
 import toast from "react-hot-toast"
 import { createClient } from "@/lib/supabase/client"
 import type { Presentation as PresentationType } from "@/lib/validations/presentation"
@@ -61,6 +61,7 @@ export default function PresentationCreatePage() {
   const [changedSlides, setChangedSlides] = useState<number[]>([])
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle")
   const [dirty, setDirty] = useState(false)
+  const [restoring, setRestoring] = useState(false)
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -91,6 +92,7 @@ export default function PresentationCreatePage() {
   }
 
   async function handleRestore() {
+    setRestoring(true)
     try {
       const res = await fetch(`/api/presentations/${params.presentationId}`, {
         method: "PATCH",
@@ -103,6 +105,8 @@ export default function PresentationCreatePage() {
       toast.success("Presentation restored")
     } catch {
       toast.error("Failed to restore presentation")
+    } finally {
+      setRestoring(false)
     }
   }
 
@@ -300,10 +304,15 @@ export default function PresentationCreatePage() {
                 <button
                   type="button"
                   onClick={handleRestore}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-[#71717A] transition-colors hover:bg-zinc-100 hover:text-[#18181B]"
+                  disabled={restoring}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-[#71717A] transition-colors hover:bg-zinc-100 hover:text-[#18181B] disabled:opacity-40"
                   aria-label="Restore"
                 >
-                  <RotateCcw className="h-4 w-4" />
+                  {restoring ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RotateCcw className="h-4 w-4" />
+                  )}
                 </button>
               ) : (
                 <button
@@ -340,10 +349,15 @@ export default function PresentationCreatePage() {
               <button
                 type="button"
                 onClick={handleRestore}
-                className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-[#18181B] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#27272A]"
+                disabled={restoring}
+                className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-[#18181B] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#27272A] disabled:opacity-50"
               >
-                <RotateCcw className="h-4 w-4" />
-                Restore Presentation
+                {restoring ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RotateCcw className="h-4 w-4" />
+                )}
+                {restoring ? "Restoring..." : "Restore Presentation"}
               </button>
             </div>
           </div>

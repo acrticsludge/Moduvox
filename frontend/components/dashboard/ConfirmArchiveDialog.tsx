@@ -1,4 +1,5 @@
-import { Archive, X } from "lucide-react"
+import { useState } from "react"
+import { Archive, Loader2, X } from "lucide-react"
 import type { Presentation } from "@/lib/validations/presentation"
 
 export function ConfirmArchiveDialog({
@@ -10,6 +11,17 @@ export function ConfirmArchiveDialog({
   onClose: () => void
   onArchive: () => void
 }) {
+  const [archiving, setArchiving] = useState(false)
+
+  async function handleArchive() {
+    setArchiving(true)
+    try {
+      await onArchive()
+    } finally {
+      setArchiving(false)
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#18181B]/40 p-4">
       <div className="w-full max-w-sm rounded-xl border border-zinc-200 bg-white p-6 shadow-xl">
@@ -17,7 +29,8 @@ export function ConfirmArchiveDialog({
         <button
           type="button"
           onClick={onClose}
-          className="float-right flex h-6 w-6 items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600"
+          disabled={archiving}
+          className="float-right flex h-6 w-6 items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600 disabled:opacity-30"
           aria-label="Close"
         >
           <X className="h-4 w-4" />
@@ -40,17 +53,23 @@ export function ConfirmArchiveDialog({
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
+            disabled={archiving}
+            className="flex-1 rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-40"
           >
             Cancel
           </button>
           <button
             type="button"
-            onClick={onArchive}
-            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-700"
+            onClick={handleArchive}
+            disabled={archiving}
+            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-700 disabled:opacity-50"
           >
-            <Archive className="h-4 w-4" />
-            Archive
+            {archiving ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Archive className="h-4 w-4" />
+            )}
+            {archiving ? "Archiving..." : "Archive"}
           </button>
         </div>
       </div>
