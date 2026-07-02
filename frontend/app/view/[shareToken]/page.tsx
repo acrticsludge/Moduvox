@@ -1,15 +1,11 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 import { useParams, useSearchParams } from "next/navigation"
 import { Loader2 } from "lucide-react"
 import { CombinedGateDialog } from "@/components/view/CombinedGateDialog"
 import { EmailSentScreen } from "@/components/view/EmailSentScreen"
 import { VerifyErrorScreen } from "@/components/view/VerifyErrorScreen"
-import { ViewPlayer } from "@/components/view/ViewPlayer"
-
-type SlideData = { number: number; title: string; bullets: string[]; narration: string }
-type TimingData = { slideNumber: number; durationMs: number }
 
 type PresentationMeta = {
   id: string
@@ -17,21 +13,7 @@ type PresentationMeta = {
   slide_count: number
   has_password: boolean
   email_gate_enabled: boolean
-  slides?: SlideData[]
-  timings?: TimingData[]
-  total_duration_ms?: number
-  combined_audio_url?: string
   created_at?: string
-}
-
-type PlayerData = {
-  id: string
-  title: string
-  slide_count: number
-  slides: SlideData[]
-  timings: TimingData[]
-  total_duration_ms: number
-  combined_audio_url: string
 }
 
 type PageState =
@@ -42,12 +24,7 @@ type PageState =
   | { type: "gate"; meta: PresentationMeta }
   | { type: "email_sent"; viewerId: string; viewerName: string; email: string }
   | { type: "verify_error" }
-  | {
-      type: "player"
-      data: PlayerData
-      viewerId: string
-      sessionToken: string
-    }
+  | { type: "verified"; viewerId: string }
 
 const GATE_KEY_PREFIX = "moduvox_gate_"
 const SESSION_KEY_PREFIX = "moduvox_session_"
@@ -95,24 +72,19 @@ export default function ViewPresentationPage() {
   const shareToken = params.shareToken
 
   const [state, setState] = useState<PageState>({ type: "loading" })
-  const pendingPlayerData = useRef<PresentationMeta | null>(null)
 
   useEffect(() => {
     const sessionFromUrl = searchParams.get("session")
     if (sessionFromUrl) {
-      // Store in localStorage and strip from URL to prevent leakage
       saveSession(shareToken, sessionFromUrl)
       window.history.replaceState(null, "", `/view/${shareToken}`)
       validateAndLoad(sessionFromUrl, false)
     } else {
-      // Check localStorage for existing session (survives tab close)
       const storedSession = loadSession(shareToken)
       if (storedSession) {
         validateAndLoad(storedSession, true)
         return
       }
-
-      // Always load presentation — server is source of truth
       loadPresentation()
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -146,14 +118,9 @@ export default function ViewPresentationPage() {
           .then((json) => {
             if (!json) return
             if (!json.data.has_password && !json.data.email_gate_enabled) {
-              if (pendingPlayerData.current) {
-                // Tracking-only mode — update stored data
-                pendingPlayerData.current = json.data
-              } else {
-                // Gate no longer required — go to player
-                clearGateState(shareToken)
-                loadPlayerFromFullData(json.data)
-              }
+              // Gate no longer required — go to verified
+              clearGateState(shareToken)
+              setState({ type: "verified", viewerId: "" })
             } else {
               // Gate still active — update meta (settings may have changed)
               setState({ type: "gate", meta: json.data })
@@ -214,11 +181,10 @@ export default function ViewPresentationPage() {
       }
 
       // No gate — still show dialog for viewer tracking
-      pendingPlayerData.current = data
       const gateState = loadGateState(shareToken)
       if (gateState) {
-        // Already submitted tracking info — go straight to player
-        loadPlayerFromFullData(data)
+        // Already submitted tracking info — go to verified
+        setState({ type: "verified", viewerId: gateState.viewerId })
       } else {
         clearGateState(shareToken)
         setState({ type: "gate", meta: data })
@@ -232,8 +198,9 @@ export default function ViewPresentationPage() {
     setState({ type: "loading" })
 
     try {
-      // First verify the session
       const verifyRes = await fetch(`/api/view/${shareToken}/verify?vt=${sessionToken}`)
+      const verifyJson = await verifyRes.json()
+
       if (!verifyRes.ok) {
         // Stored session is invalid — clear it and fall back to gate
         if (fromStorage) {
@@ -244,30 +211,13 @@ export default function ViewPresentationPage() {
         setState({ type: "verify_error" })
         return
       }
-      const verifyJson = await verifyRes.json()
 
-      // Then fetch full presentation data with session token (bypasses gate)
-      const res = await fetch(`/api/view/${shareToken}?session=${sessionToken}`)
-      const json = await res.json()
-
-      if (!res.ok || !json.data?.slides) {
-        if (fromStorage) {
-          try { localStorage.removeItem(storageKey(SESSION_KEY_PREFIX, shareToken)) } catch { /* ignore */ }
-          loadPresentation()
-          return
-        }
-        setState({ type: "verify_error" })
-        return
-      }
-
-      // Clear gate state — verification succeeded
+      // Clear gate state and persist session — verification succeeded
       clearGateState(shareToken)
       saveSession(shareToken, sessionToken)
       setState({
-        type: "player",
-        data: json.data as PlayerData,
+        type: "verified",
         viewerId: verifyJson.data?.viewer_id || sessionToken,
-        sessionToken: sessionToken,
       })
     } catch {
       if (fromStorage) {
@@ -279,16 +229,6 @@ export default function ViewPresentationPage() {
     }
   }
 
-  function loadPlayerFromFullData(data: PresentationMeta) {
-    const tempSession = crypto.randomUUID()
-    setState({
-      type: "player",
-      data: data as PlayerData,
-      viewerId: tempSession,
-      sessionToken: tempSession,
-    })
-  }
-
   function handleGateSuccess(data: { viewer_id: string; viewer_name: string; email: string; session_token?: string; email_sent?: boolean }) {
     saveGateState(shareToken, {
       viewerId: data.viewer_id,
@@ -296,22 +236,7 @@ export default function ViewPresentationPage() {
       email: data.email,
     })
 
-    // If this was tracking-only (no gate), go straight to player
-    if (pendingPlayerData.current) {
-      const playerData = pendingPlayerData.current
-      pendingPlayerData.current = null
-      // Persist session so reload bypasses gate
-      if (data.session_token) saveSession(shareToken, data.session_token)
-      setState({
-        type: "player",
-        data: playerData as PlayerData,
-        viewerId: data.viewer_id,
-        sessionToken: data.session_token!, // Use real DB-backed session
-      })
-      return
-    }
-
-    // If no email was sent (gate disabled or already verified), load player
+    // If no email was sent (gate disabled or already verified), go straight to verified
     if (data.email_sent === false && data.session_token) {
       validateAndLoad(data.session_token)
       return
@@ -383,19 +308,8 @@ export default function ViewPresentationPage() {
     case "verify_error":
       return <VerifyErrorScreen shareToken={shareToken} onRetry={handleVerifyRetry} />
 
-    case "player":
-      return (
-        <ViewPlayer
-          slides={state.data.slides}
-          combinedAudioUrl={state.data.combined_audio_url}
-          timings={state.data.timings}
-          totalDurationMs={state.data.total_duration_ms}
-          presentationId={state.data.id}
-          viewerId={state.viewerId}
-          sessionToken={state.sessionToken}
-          shareToken={shareToken}
-        />
-      )
+    case "verified":
+      return null
 
     default:
       return null

@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { getAllSlideDurations } from "@/lib/wav-duration"
 
 export async function GET(
   request: Request,
@@ -13,7 +11,7 @@ export async function GET(
 
   const { data: presentation } = await supabase
     .from("presentations")
-    .select("id, user_id, title, slide_count, editor_state, password_hash, expires_at, email_gate_enabled, created_at, status")
+    .select("id, user_id, title, slide_count, password_hash, expires_at, email_gate_enabled, created_at, status")
     .eq("share_token", shareToken)
     .single()
 
@@ -52,18 +50,13 @@ export async function GET(
     }
   }
 
-  // Parse editor_state for slide data and narrations
-  const editorState = presentation.editor_state as Record<string, unknown> | null
-  const slideData = (editorState?.slideData as { title: string; bullets: string[] }[]) || []
-  const narrations = (editorState?.narrations as Record<number, string>) || {}
-
   // If email gate is enabled or password is set (and no verified session), return only metadata
   if ((presentation.email_gate_enabled || presentation.password_hash) && !sessionVerified) {
     return NextResponse.json({
       data: {
         id: presentation.id,
         title: presentation.title,
-        slide_count: presentation.slide_count || slideData.length,
+        slide_count: presentation.slide_count || 0,
         has_password: !!presentation.password_hash,
         email_gate_enabled: presentation.email_gate_enabled,
         created_at: presentation.created_at,
@@ -71,37 +64,11 @@ export async function GET(
     })
   }
 
-  // No gate — return full data with timings
-  const slides = slideData.map((s, i) => ({
-    number: i + 1,
-    title: s.title,
-    bullets: s.bullets,
-    narration: narrations[i + 1] || "",
-  }))
-
-  const userId = presentation.user_id
-  const presentationId = presentation.id
-  const slideCount = presentation.slide_count || slideData.length
-
-  let timings: { slideNumber: number; durationMs: number }[] = []
-  try {
-    timings = await getAllSlideDurations(userId, presentationId, slideCount)
-  } catch {
-    // Timing data is non-critical — proceed without it
-  }
-
-  const totalDurationMs = timings.reduce((sum, t) => sum + t.durationMs, 0)
-
+  // No gate (or session verified) — return minimal verified response
   return NextResponse.json({
     data: {
-      id: presentation.id,
+      verified: true,
       title: presentation.title,
-      slide_count: slideCount,
-      slides,
-      timings,
-      total_duration_ms: totalDurationMs,
-      combined_audio_url: `/api/presentations/${presentationId}/audio/combined`,
-      created_at: presentation.created_at,
     },
   })
 }
