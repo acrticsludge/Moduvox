@@ -14,9 +14,10 @@ type ViewAudioBarProps = {
   viewerId: string
   presentationId: string
   totalDurationMs?: number
+  audioUrl?: string
 }
 
-export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationId, totalDurationMs }: ViewAudioBarProps) {
+export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationId, totalDurationMs, audioUrl }: ViewAudioBarProps) {
   const howlRef = useRef<Howl | null>(null)
   const liveRef = useRef<HTMLDivElement>(null)
   const isSeeking = useRef(false)
@@ -33,10 +34,9 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
   const [showTimeRemaining, setShowTimeRemaining] = useState(false)
   const [showVolumeSlider, setShowVolumeSlider] = useState(false)
 
-  const audioUrl = `/api/presentations/${presentationId}/audio/combined?session=${sessionToken}`
-
   // Howler initialization
   useEffect(() => {
+    if (!audioUrl) return
     const howl = new Howl({
       src: [audioUrl],
       format: ["wav"],

@@ -76,7 +76,7 @@ export default function ViewPresentationPage() {
   const shareToken = params.shareToken
 
   const [state, setState] = useState<PageState>({ type: "loading" })
-  const viewDataRef = useRef<{ title: string; created_at?: string; slide_count?: number; expires_at?: string | null; total_duration_ms?: number; viewer_created_at?: string | null; presentation_id?: string; viewer_id?: string | null } | null>(null)
+  const viewDataRef = useRef<{ title: string; created_at?: string; slide_count?: number; expires_at?: string | null; total_duration_ms?: number; audio_url?: string | null; viewer_created_at?: string | null; presentation_id?: string; viewer_id?: string | null } | null>(null)
 
   useEffect(() => {
     const sessionFromUrl = searchParams.get("session")
@@ -354,6 +354,7 @@ export default function ViewPresentationPage() {
           viewerId={state.viewerId}
           presentationId={viewDataRef.current?.presentation_id || ""}
           totalDurationMs={viewDataRef.current?.total_duration_ms}
+          audioUrl={viewDataRef.current?.audio_url || undefined}
         />
           <ViewFooter />
         </div>

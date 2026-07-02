@@ -76,6 +76,17 @@ export async function GET(
     // non-critical
   }
 
+  // Generate signed URL for cached combined audio
+  let audioUrl: string | null = null
+  try {
+    const admin2 = createAdminClient()
+    const combinedPath = `${presentation.user_id}/audio/${presentation.id}/combined.wav`
+    const { data: signed } = await admin2.storage
+      .from("presentation-files")
+      .createSignedUrl(combinedPath, 86400)
+    if (signed?.signedUrl) audioUrl = signed.signedUrl
+  } catch { /* combined.wav may not exist yet */ }
+
   return NextResponse.json({
     data: {
       verified: true,
@@ -85,6 +96,7 @@ export async function GET(
       slide_count: presentation.slide_count || 0,
       expires_at: presentation.expires_at,
       total_duration_ms: totalDurationMs,
+      audio_url: audioUrl,
       viewer_created_at: viewerData ? (viewerData.viewed_at || viewerData.created_at) : null,
       viewer_id: viewerData?.id || null,
     },
