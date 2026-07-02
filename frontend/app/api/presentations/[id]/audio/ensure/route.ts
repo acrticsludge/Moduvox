@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { concatWavBuffers, isValidWav } from "@/lib/wav-utils"
-import { fileExists, uploadFile, createSignedUrl } from "@/lib/r2"
+import { downloadFile, listFiles, fileExists, uploadFile, createSignedUrl } from "@/lib/r2"
 
 export async function GET(
   request: Request,
@@ -50,20 +50,19 @@ export async function GET(
       }
     }
 
-    // Generate combined.wav from per-slide WAVs in Supabase Storage
-    const slidesDir = `${userId}/audio/${presentationId}/slides`
-    const { data: slideFiles } = await admin.storage
-      .from("presentation-files")
-      .list(slidesDir, { limit: 200 })
+    // Generate combined.wav from per-slide WAVs in R2
+    const slidesPrefix = `audio/${userId}/${presentationId}/slides/`
+    const allFiles = await listFiles(slidesPrefix)
 
-    if (!slideFiles || slideFiles.length === 0) {
+    if (allFiles.length === 0) {
       return NextResponse.json({ error: "No audio found" }, { status: 404 })
     }
 
-    const matched = slideFiles
+    const matched = allFiles
       .map((f) => {
-        const m = f.name?.match(/^slide-(\d+)\.wav$/)
-        return m ? { number: parseInt(m[1], 10), name: f.name } : null
+        const relativeName = f.name.replace(slidesPrefix, "")
+        const m = relativeName.match(/^slide-(\d+)\.wav$/)
+        return m ? { number: parseInt(m[1], 10), key: f.name } : null
       })
       .filter(Boolean)
       .sort((a, b) => a!.number - b!.number)
@@ -74,13 +73,8 @@ export async function GET(
 
     const wavBuffers: Buffer[] = []
     for (const sf of matched) {
-      const { data } = await admin.storage
-        .from("presentation-files")
-        .download(`${slidesDir}/${sf!.name}`)
-      if (data) {
-        const buf = Buffer.from(await data.arrayBuffer())
-        if (isValidWav(buf)) wavBuffers.push(buf)
-      }
+      const data = await downloadFile(sf!.key)
+      if (data && isValidWav(data)) wavBuffers.push(data)
     }
 
     if (wavBuffers.length === 0) {

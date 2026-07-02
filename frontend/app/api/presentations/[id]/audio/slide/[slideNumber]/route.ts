@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
+import { downloadFile } from "@/lib/r2"
 import { isValidWav } from "@/lib/wav-utils"
 
 export async function GET(
@@ -20,18 +20,12 @@ export async function GET(
     return NextResponse.json({ error: "Invalid slide number" }, { status: 400 })
   }
 
-  const admin = createAdminClient()
-  const storagePath = `${user.id}/audio/${presentationId}/slides/slide-${slideNum}.wav`
+  const r2Key = `audio/${user.id}/${presentationId}/slides/slide-${slideNum}.wav`
+  const buf = await downloadFile(r2Key)
 
-  const { data } = await admin.storage
-    .from("presentation-files")
-    .download(storagePath)
-
-  if (!data) {
+  if (!buf) {
     return NextResponse.json({ error: "Slide audio not found" }, { status: 404 })
   }
-
-  const buf = Buffer.from(await data.arrayBuffer())
   if (!isValidWav(buf)) {
     return NextResponse.json({ error: "Invalid audio file" }, { status: 500 })
   }

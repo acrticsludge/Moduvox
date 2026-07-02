@@ -1,4 +1,4 @@
-import { S3Client, GetObjectCommand, PutObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3"
+import { S3Client, GetObjectCommand, PutObjectCommand, DeleteObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 
 let client: S3Client | null = null
@@ -70,5 +70,27 @@ export async function createSignedUrl(key: string, expiresInSeconds = 86400): Pr
     return await getSignedUrl(getClient(), cmd, { expiresIn: expiresInSeconds })
   } catch {
     return null
+  }
+}
+
+export async function createUploadUrl(key: string, contentType: string, expiresInSeconds = 3600): Promise<string | null> {
+  try {
+    const cmd = new PutObjectCommand({
+      Bucket: BUCKET,
+      Key: key,
+      ContentType: contentType,
+    })
+    return await getSignedUrl(getClient(), cmd, { expiresIn: expiresInSeconds })
+  } catch {
+    return null
+  }
+}
+
+export async function removeFile(key: string): Promise<void> {
+  try {
+    const cmd = new DeleteObjectCommand({ Bucket: BUCKET, Key: key })
+    await getClient().send(cmd)
+  } catch {
+    // Non-critical
   }
 }

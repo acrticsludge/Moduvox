@@ -61,6 +61,7 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
       },
       onloaderror: (_id: number, err: unknown) => {
         console.error("Howler load error:", err)
+        setReady(true)
       },
       onplay: () => {
         setPlaying(true)

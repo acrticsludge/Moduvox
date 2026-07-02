@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { concatWavBuffers, isValidWav } from "@/lib/wav-utils"
-import { fileExists, createSignedUrl } from "@/lib/r2"
+import { downloadFile, listFiles, fileExists, createSignedUrl } from "@/lib/r2"
 
 async function getUserId(
   request: Request,
@@ -81,14 +81,13 @@ export async function GET(
 ) {
   try {
     const { id: presentationId } = await params
-    const admin = createAdminClient()
 
     // Get userId from auth or session token
     const { userId, error } = await getUserId(request, presentationId)
     if (error) return error
 
     // Check if cached combined.wav exists in R2
-    const r2Key = `audio/${userId}/audio/${presentationId}/combined.wav`
+    const r2Key = `audio/${userId}/${presentationId}/combined.wav`
     const cached = await fileExists(r2Key)
 
     if (cached) {
@@ -99,19 +98,18 @@ export async function GET(
     }
 
     // No cached combined file — generate from per-slide WAVs
-    const slidesDir = `${userId}/audio/${presentationId}/slides`
-    const { data: files } = await admin.storage
-      .from("presentation-files")
-      .list(slidesDir, { limit: 200 })
+    const slidesPrefix = `audio/${userId}/${presentationId}/slides/`
+    const allFiles = await listFiles(slidesPrefix)
 
-    if (!files || files.length === 0) {
+    if (allFiles.length === 0) {
       return NextResponse.json({ error: "No audio found" }, { status: 404 })
     }
 
-    const slideFiles = files
+    const slideFiles = allFiles
       .map((f) => {
-        const match = f.name?.match(/^slide-(\d+)\.wav$/)
-        return match ? { number: parseInt(match[1], 10), name: f.name } : null
+        const relativeName = f.name.replace(slidesPrefix, "")
+        const match = relativeName.match(/^slide-(\d+)\.wav$/)
+        return match ? { number: parseInt(match[1], 10), key: f.name } : null
       })
       .filter(Boolean)
       .sort((a, b) => a!.number - b!.number)
@@ -123,15 +121,9 @@ export async function GET(
     // Read and concatenate all per-slide WAVs
     const wavBuffers: Buffer[] = []
     for (const sf of slideFiles) {
-      const { data } = await admin.storage
-        .from("presentation-files")
-        .download(`${slidesDir}/${sf!.name}`)
-
-      if (data) {
-        const buf = Buffer.from(await data.arrayBuffer())
-        if (isValidWav(buf)) {
-          wavBuffers.push(buf)
-        }
+      const data = await downloadFile(sf!.key)
+      if (data && isValidWav(data)) {
+        wavBuffers.push(data)
       }
     }
 
@@ -142,9 +134,8 @@ export async function GET(
     const combined = concatWavBuffers(wavBuffers)
 
     // Store combined audio in R2 for future requests (fire-and-forget)
-    import("@/lib/r2").then(({ uploadFile }) => {
-      uploadFile(r2Key, combined, "audio/wav").catch(() => {})
-    })
+    const { uploadFile } = await import("@/lib/r2")
+    uploadFile(r2Key, combined, "audio/wav").catch(() => {})
 
     const rangeHeader = request.headers.get("range")
     return serveWav(combined, rangeHeader, new Date().toISOString())
