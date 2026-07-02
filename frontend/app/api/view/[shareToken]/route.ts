@@ -69,6 +69,9 @@ export async function GET(
     data: {
       verified: true,
       title: presentation.title,
+      created_at: presentation.created_at,
+      slide_count: presentation.slide_count || 0,
+      expires_at: presentation.expires_at,
     },
   })
 }

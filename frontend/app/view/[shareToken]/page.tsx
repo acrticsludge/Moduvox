@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useParams, useSearchParams } from "next/navigation"
 import { Loader2 } from "lucide-react"
 import { CombinedGateDialog } from "@/components/view/CombinedGateDialog"
@@ -9,6 +9,7 @@ import { VerifyErrorScreen } from "@/components/view/VerifyErrorScreen"
 import { ViewNavbar } from "@/components/view/ViewNavbar"
 import { ViewFooter } from "@/components/view/ViewFooter"
 import { ViewAudioBar } from "@/components/view/ViewAudioBar"
+import { ViewSidebar } from "@/components/view/ViewSidebar"
 
 type PresentationMeta = {
   id: string
@@ -75,6 +76,7 @@ export default function ViewPresentationPage() {
   const shareToken = params.shareToken
 
   const [state, setState] = useState<PageState>({ type: "loading" })
+  const viewDataRef = useRef<{ title: string; created_at?: string; slide_count?: number; expires_at?: string | null } | null>(null)
 
   useEffect(() => {
     const sessionFromUrl = searchParams.get("session")
@@ -161,6 +163,7 @@ export default function ViewPresentationPage() {
       }
 
       const data = json.data
+      viewDataRef.current = data
 
       if (data.has_password || data.email_gate_enabled) {
         // Gate still required — check localStorage as cache hint
@@ -311,8 +314,13 @@ export default function ViewPresentationPage() {
         <div className="flex min-h-screen flex-col bg-[#F9FAFB]">
           <ViewNavbar />
           <div className="flex flex-1">
-            <aside className="hidden w-64 border-r border-zinc-200 bg-white md:block" />
-            <main className="flex-1" />
+            <ViewSidebar
+              title={viewDataRef.current?.title || "Untitled"}
+              createdAt={viewDataRef.current?.created_at || new Date().toISOString()}
+              slideCount={viewDataRef.current?.slide_count || 0}
+              expiresAt={viewDataRef.current?.expires_at || null}
+            />
+            <main id="viewer-main-content" className="flex flex-1" />
           </div>
           <ViewAudioBar />
           <ViewFooter />
