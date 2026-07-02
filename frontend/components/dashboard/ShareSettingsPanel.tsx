@@ -1,8 +1,12 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Copy, Check, Link, Lock, Clock, Globe, Info, Loader2, Eye, EyeOff } from "lucide-react"
+import { Copy, Check, Link, Lock, Clock, Globe, Info, Loader2, Eye, EyeOff, CalendarIcon, ChevronLeft, ChevronRight, X } from "lucide-react"
+import { format } from "date-fns"
 import toast from "react-hot-toast"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Calendar } from "@/components/ui/calendar"
+import { cn } from "@/lib/utils"
 
 export function ShareSettingsPanel({
   presentationId,
@@ -20,7 +24,8 @@ export function ShareSettingsPanel({
   const [passwordInput, setPasswordInput] = useState("")
 const [showPasswordInput, setShowPasswordInput] = useState(false)
 const [showPassword, setShowPassword] = useState(false)
-const [expireInput, setExpireInput] = useState("")
+const [expireDate, setExpireDate] = useState<Date | undefined>(undefined)
+  const [expireTime, setExpireTime] = useState("23:59")
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle")
 
   const fetchSettings = useCallback(async () => {
@@ -30,8 +35,9 @@ const [expireInput, setExpireInput] = useState("")
         const json = await res.json()
         setSettings(json.data)
         if (json.data.expires_at) {
-          // Convert ISO to datetime-local format
-          setExpireInput(new Date(json.data.expires_at).toISOString().slice(0, 16))
+          const dt = new Date(json.data.expires_at)
+          setExpireDate(dt)
+          setExpireTime(format(dt, "HH:mm"))
         }
       }
     } catch {
@@ -95,23 +101,17 @@ const [expireInput, setExpireInput] = useState("")
   }
 
   function handleSetExpiration() {
-    // Empty input = no expiration
-    if (!expireInput) {
-      updateSettings({ expires_at: null })
-      return
-    }
-    // Convert datetime-local to ISO 8601
-    const iso = new Date(expireInput).toISOString()
-    // new Date("") gives Invalid Date — treat as no expiration
-    if (iso === "Invalid Date" || isNaN(new Date(expireInput).getTime())) {
-      updateSettings({ expires_at: null })
-      return
-    }
-    updateSettings({ expires_at: iso })
+    if (!expireDate) return
+    const [hours, minutes] = expireTime.split(":").map(Number)
+    const dt = new Date(expireDate)
+    dt.setHours(hours, minutes, 0, 0)
+    if (isNaN(dt.getTime())) return
+    updateSettings({ expires_at: dt.toISOString() })
   }
 
   function handleClearExpiration() {
-    setExpireInput("")
+    setExpireDate(undefined)
+    setExpireTime("23:59")
     updateSettings({ expires_at: null })
   }
 
@@ -356,28 +356,70 @@ const [expireInput, setExpireInput] = useState("")
           <label className="text-sm font-medium text-[#18181B]">Expiration</label>
         </div>
         <div className="flex items-center gap-2">
-          <input
-            type="datetime-local"
-            value={expireInput}
-            onChange={(e) => setExpireInput(e.target.value)}
-            className="flex-1 rounded-lg border border-zinc-300 px-3 py-1.5 text-sm focus:border-zinc-500 focus:outline-none"
-          />
-          <button
-            type="button"
-            onClick={handleSetExpiration}
-            disabled={saveState === "saving"}
-            className="rounded-lg bg-[#18181B] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#27272A] disabled:opacity-50"
-          >
-            {settings.expires_at ? "Update" : "Set"}
-          </button>
-          <button
-            type="button"
-            onClick={handleClearExpiration}
-            disabled={saveState === "saving"}
-            className="text-xs text-red-500 hover:text-red-600 disabled:opacity-50"
-          >
-            Reset
-          </button>
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className={cn(
+                  "flex flex-1 items-center gap-2 rounded-lg border px-3 py-1.5 text-sm transition-colors",
+                  expireDate
+                    ? "border-zinc-300 text-[#18181B]"
+                    : "border-zinc-300 text-zinc-400 hover:border-zinc-400",
+                )}
+              >
+                <CalendarIcon className="h-4 w-4 shrink-0 text-zinc-500" />
+                <span className="flex-1 text-left">
+                  {expireDate
+                    ? `${format(expireDate, "MMM d, yyyy")} at ${expireTime}`
+                    : "Pick a date and time"}
+                </span>
+                {expireDate && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setExpireDate(undefined); setExpireTime("23:59") }}
+                    className="rounded p-0.5 text-zinc-400 hover:text-zinc-600"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={expireDate}
+                onSelect={setExpireDate}
+                initialFocus
+                disabled={(date) => date < new Date()}
+              />
+              <div className="flex items-center gap-2 border-t border-zinc-200 p-3">
+                <input
+                  type="time"
+                  value={expireTime}
+                  onChange={(e) => setExpireTime(e.target.value)}
+                  className="flex-1 rounded-md border border-zinc-300 px-2 py-1 text-xs focus:border-zinc-500 focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => { handleSetExpiration(); document.body.click() }}
+                  disabled={saveState === "saving" || !expireDate}
+                  className="rounded-md bg-[#18181B] px-3 py-1 text-xs font-medium text-white hover:bg-[#27272A] disabled:opacity-50"
+                >
+                  Set
+                </button>
+              </div>
+            </PopoverContent>
+          </Popover>
+          {settings.expires_at && (
+            <button
+              type="button"
+              onClick={handleClearExpiration}
+              disabled={saveState === "saving"}
+              className="text-xs text-red-500 hover:text-red-600 disabled:opacity-50 shrink-0"
+            >
+              Reset
+            </button>
+          )}
         </div>
         {settings.expires_at && (
           <p className="text-xs text-zinc-400">
