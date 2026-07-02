@@ -213,15 +213,6 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
     : `${formatTime(currentTime)} / ${formatTime(duration)}`
   const currentSpeed = SPEEDS[speedIndex]
 
-  if (!ready) {
-    return (
-      <div className="flex items-center justify-center gap-2 border-t border-zinc-200 bg-white px-4 py-3">
-        <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />
-        <span className="text-xs text-zinc-400">Loading audio…</span>
-      </div>
-    )
-  }
-
   return (
     <TooltipProvider delayDuration={300}>
       <div className="border-t border-zinc-200 bg-white">
@@ -229,8 +220,8 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
           {/* Skip back 10s */}
           <Tooltip>
             <TooltipTrigger asChild>
-              <button type="button" aria-label="Skip back 10 seconds" onClick={() => skipSeconds(-10)}
-                className="flex h-8 w-8 items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300">
+              <button type="button" aria-label="Skip back 10 seconds" onClick={() => skipSeconds(-10)} disabled={!ready}
+                className="flex h-8 w-8 items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 disabled:opacity-30 disabled:pointer-events-none">
                 <SkipBack className="h-4 w-4" />
               </button>
             </TooltipTrigger>
@@ -240,9 +231,9 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
           {/* Play/Pause */}
           <Tooltip>
             <TooltipTrigger asChild>
-              <button type="button" aria-label={playing ? "Pause" : "Play"} onClick={togglePlay}
+              <button type="button" aria-label={ready ? (playing ? "Pause" : "Play") : "Loading audio"} onClick={togglePlay}
                 className="flex h-9 w-9 items-center justify-center rounded-full bg-[#18181B] text-white transition-colors hover:bg-[#27272A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2">
-                {playing ? <Pause className="h-4 w-4" /> : <Play className="ml-0.5 h-4 w-4" />}
+                {!ready ? <Loader2 className="h-4 w-4 animate-spin" /> : playing ? <Pause className="h-4 w-4" /> : <Play className="ml-0.5 h-4 w-4" />}
               </button>
             </TooltipTrigger>
             <TooltipContent side="top">{playing ? "Pause" : "Play"}</TooltipContent>
@@ -251,8 +242,8 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
           {/* Skip forward 10s */}
           <Tooltip>
             <TooltipTrigger asChild>
-              <button type="button" aria-label="Skip forward 10 seconds" onClick={() => skipSeconds(10)}
-                className="flex h-8 w-8 items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300">
+              <button type="button" aria-label="Skip forward 10 seconds" onClick={() => skipSeconds(10)} disabled={!ready}
+                className="flex h-8 w-8 items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 disabled:opacity-30 disabled:pointer-events-none">
                 <SkipForward className="h-4 w-4" />
               </button>
             </TooltipTrigger>
@@ -265,6 +256,7 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
               value={[Math.min(currentTime, duration || 1)]}
               max={duration || 1}
               step={1}
+              disabled={!ready}
               onValueChange={handleSeek}
               onValueCommit={handleSeekEnd}
               aria-label="Presentation progress"
@@ -280,8 +272,8 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
           {/* Playback speed */}
           <Tooltip>
             <TooltipTrigger asChild>
-              <button type="button" aria-label={`Playback speed. Current: ${currentSpeed}x`} onClick={cycleSpeed}
-                className="flex h-7 items-center rounded-md px-2 text-xs font-medium text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300">
+              <button type="button" aria-label={`Playback speed. Current: ${currentSpeed}x`} onClick={cycleSpeed} disabled={!ready}
+                className="flex h-7 items-center rounded-md px-2 text-xs font-medium text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 disabled:opacity-30 disabled:pointer-events-none">
                 {currentSpeed}x
               </button>
             </TooltipTrigger>
@@ -292,8 +284,8 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
           <div className="relative flex items-center gap-1"
             onMouseEnter={() => setShowVolumeSlider(true)}
             onMouseLeave={() => setShowVolumeSlider(false)}>
-            <button type="button" aria-label={muted ? "Unmute" : "Mute"} onClick={toggleMute}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300">
+            <button type="button" aria-label={muted ? "Unmute" : "Mute"} onClick={toggleMute} disabled={!ready}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 disabled:opacity-30 disabled:pointer-events-none">
               {muted || volume === 0 ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
             </button>
             {showVolumeSlider && (
