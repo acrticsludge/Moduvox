@@ -88,15 +88,24 @@ export async function GET(
 
     const combinedPath = `${userId}/audio/${presentationId}/combined.wav`
 
-    // Try to serve from pre-generated combined.wav (single file = fast)
-    const { data: cachedData } = await admin.storage
+    // Check if cached combined.wav exists
+    const { data: existing } = await admin.storage
       .from("presentation-files")
-      .download(combinedPath)
+      .list(`${userId}/audio/${presentationId}`, { limit: 100 })
 
-    if (cachedData) {
-      const buf = Buffer.from(await cachedData.arrayBuffer())
-      const rangeHeader = request.headers.get("range")
-      return serveWav(buf, rangeHeader, new Date().toISOString())
+    const hasCachedFile = existing?.some((f) => f.name === "combined.wav")
+
+    if (hasCachedFile) {
+      // Redirect to Supabase Storage CDN — instant Range requests,
+      // no serverless proxy overhead. Browser follows the redirect
+      // transparently, re-sending Range headers to the CDN.
+      const { data: signed } = await admin.storage
+        .from("presentation-files")
+        .createSignedUrl(combinedPath, 86400)
+
+      if (signed?.signedUrl) {
+        return NextResponse.redirect(signed.signedUrl)
+      }
     }
 
     // No cached combined file — generate from per-slide WAVs
