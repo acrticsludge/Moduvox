@@ -258,34 +258,26 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
 
           {/* Volume */}
           <div
-            className="relative"
+            className="relative flex items-center gap-1"
             onMouseEnter={() => setShowVolumeSlider(true)}
             onMouseLeave={() => setShowVolumeSlider(false)}
           >
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  aria-label={muted ? "Unmute" : "Mute"}
-                  aria-pressed={muted}
-                  onClick={toggleMute}
-                  className="flex h-8 w-8 items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300"
-                >
-                  {muted || volume === 0 ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="top">{muted ? "Unmute" : "Mute"}</TooltipContent>
-            </Tooltip>
+            <button
+              type="button"
+              aria-label={muted ? "Unmute" : "Mute"}
+              onClick={toggleMute}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300"
+            >
+              {muted || volume === 0 ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+            </button>
             {showVolumeSlider && (
-              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 rounded-lg border border-zinc-200 bg-white p-2 shadow-md">
+              <div className="w-20">
                 <Slider
                   value={[muted ? 0 : volume]}
                   max={100}
                   step={1}
                   onValueChange={handleVolumeChange}
                   aria-label="Volume"
-                  className="h-20 cursor-pointer"
-                  orientation="vertical"
                 />
               </div>
             )}
