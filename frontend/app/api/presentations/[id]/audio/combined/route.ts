@@ -142,8 +142,8 @@ export async function GET(
 
     const combined = concatWavBuffers(wavBuffers)
 
-    // Store combined audio for future requests (fire-and-forget)
-    admin.storage
+    // Store combined audio for future requests (blocking — ensures cache is ready)
+    await admin.storage
       .from("presentation-files")
       .upload(combinedPath, combined, {
         contentType: "audio/wav",

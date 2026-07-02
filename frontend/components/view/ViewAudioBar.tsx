@@ -28,13 +28,15 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
   const liveRef = useRef<HTMLDivElement>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const rafRef = useRef<number>(0)
+  const isSeeking = useRef(false)
 
   const audioUrl = `/api/presentations/${presentationId}/audio/combined?session=${sessionToken}`
 
   // Sync display time with audio using requestAnimationFrame (throttled)
+  // Skipped while user is dragging the slider
   const updateDisplay = useCallback(() => {
     const audio = audioRef.current
-    if (!audio || audio.paused) return
+    if (!audio || audio.paused || isSeeking.current) return
     setDisplayTime(Math.floor(audio.currentTime))
     rafRef.current = requestAnimationFrame(updateDisplay)
   }, [])
@@ -45,27 +47,26 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
     audioRef.current = audio
 
     const onLoadedMeta = () => {
-      // Use server-side duration as source of truth, fall back to audio.duration
       const d = totalDurationMs ? Math.floor(totalDurationMs / 1000) : Math.floor(audio.duration)
       setDuration(d)
+    }
+    const onCanPlay = () => {
       setLoading(false)
+      setDuration(totalDurationMs ? Math.floor(totalDurationMs / 1000) : Math.floor(audio.duration))
     }
     const onEnded = () => { setPlaying(false); sendTracking("completed", 100) }
-    const onCanPlay = () => setLoading(false)
+    const onError = () => setLoading(false)
 
     audio.addEventListener("loadedmetadata", onLoadedMeta)
     audio.addEventListener("canplay", onCanPlay)
     audio.addEventListener("ended", onEnded)
-    audio.addEventListener("error", () => setLoading(false))
-
-    // Fallback: if metadata doesn't fire within 5s, show the bar anyway
-    const fallbackTimer = setTimeout(() => setLoading(false), 5000)
+    audio.addEventListener("error", onError)
 
     return () => {
-      clearTimeout(fallbackTimer)
       audio.removeEventListener("loadedmetadata", onLoadedMeta)
       audio.removeEventListener("canplay", onCanPlay)
       audio.removeEventListener("ended", onEnded)
+      audio.removeEventListener("error", onError)
       cancelAnimationFrame(rafRef.current)
       audio.pause()
       audio.src = ""
@@ -131,9 +132,14 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
     }
   }
 
+  const skipTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   function skipBack(seconds = 10) {
     const audio = audioRef.current
     if (!audio) return
+    // Debounce rapid skips — ignore if last skip was <100ms ago
+    if (skipTimer.current) return
+    skipTimer.current = setTimeout(() => { skipTimer.current = null }, 100)
     audio.currentTime = Math.max(0, audio.currentTime - seconds)
     setDisplayTime(Math.floor(audio.currentTime))
   }
@@ -141,15 +147,27 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
   function skipForward(seconds = 10) {
     const audio = audioRef.current
     if (!audio) return
+    if (skipTimer.current) return
+    skipTimer.current = setTimeout(() => { skipTimer.current = null }, 100)
     audio.currentTime = Math.min(duration, audio.currentTime + seconds)
     setDisplayTime(Math.floor(audio.currentTime))
   }
 
+  function handleSeekStart() {
+    isSeeking.current = true
+  }
+
   function handleSeek(value: number[]) {
+    // Update display during drag (responsive visual feedback)
+    setDisplayTime(value[0])
+  }
+
+  function handleSeekEnd(value: number[]) {
     const audio = audioRef.current
     if (!audio) return
     audio.currentTime = value[0]
     setDisplayTime(value[0])
+    isSeeking.current = false
   }
 
   function cycleSpeed() {
@@ -191,8 +209,9 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center border-t border-zinc-200 bg-white px-4 py-3">
-        <Loader2 className="h-5 w-5 animate-spin text-zinc-400" />
+      <div className="flex items-center justify-center gap-2 border-t border-zinc-200 bg-white px-4 py-3">
+        <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />
+        <span className="text-xs text-zinc-400">Preparing audio…</span>
       </div>
     )
   }
