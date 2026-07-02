@@ -348,12 +348,13 @@ export default function ViewPresentationPage() {
             />
             <main id="viewer-main-content" className="flex flex-1" />
           </div>
-          <ViewAudioBar
-            shareToken={shareToken}
-            sessionToken={sessionToken}
-            viewerId={state.viewerId}
-            presentationId={viewDataRef.current?.presentation_id || ""}
-          />
+        <ViewAudioBar
+          shareToken={shareToken}
+          sessionToken={sessionToken}
+          viewerId={state.viewerId}
+          presentationId={viewDataRef.current?.presentation_id || ""}
+          totalDurationMs={viewDataRef.current?.total_duration_ms}
+        />
           <ViewFooter />
         </div>
       )
