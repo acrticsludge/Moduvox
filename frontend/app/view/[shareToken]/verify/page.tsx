@@ -32,12 +32,12 @@ export default async function VerifyPage({
     .single()
 
   if (!presentation) {
-    return <VerifyError shareToken={shareToken} />
+    return <VerifyError />
   }
 
   // Check presentation expiration
   if (presentation.expires_at && new Date(presentation.expires_at) < new Date()) {
-    return <VerifyError shareToken={shareToken} />
+    return <VerifyError />
   }
 
   // Find the viewer by session_token
@@ -49,7 +49,7 @@ export default async function VerifyPage({
     .single()
 
   if (!viewer) {
-    return <VerifyError shareToken={shareToken} />
+    return <VerifyError />
   }
 
   // If already verified, skip magic link expiry — viewer was verified through
@@ -69,7 +69,7 @@ export default async function VerifyPage({
   // Use verification_sent_at (updated on every upsert) instead of created_at
   const fifteenMinAgo = new Date(Date.now() - 15 * 60 * 1000)
   if (viewer.verification_sent_at && new Date(viewer.verification_sent_at) < fifteenMinAgo) {
-    return <VerifyError shareToken={shareToken} />
+    return <VerifyError />
   }
 
   // Mark as verified
@@ -85,7 +85,7 @@ export default async function VerifyPage({
   redirect(`/view/${shareToken}?session=${vt}`)
 }
 
-function VerifyError({ shareToken }: { shareToken: string }) {
+function VerifyError() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#F9FAFB] px-4">
       <div className="w-full max-w-sm text-center">
@@ -93,12 +93,9 @@ function VerifyError({ shareToken }: { shareToken: string }) {
         <p className="text-sm text-zinc-500">
           This verification link has expired or is no longer valid.
         </p>
-        <a
-          href={`/view/${shareToken}`}
-          className="mt-4 inline-flex items-center justify-center rounded-lg bg-[#18181B] px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#27272A]"
-        >
-          Request New Link
-        </a>
+        <p className="mt-4 text-sm text-zinc-500">
+          Please contact the presentation owner to extend the link expiry or share a new one.
+        </p>
       </div>
     </div>
   )

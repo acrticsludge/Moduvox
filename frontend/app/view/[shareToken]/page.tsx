@@ -248,11 +248,6 @@ export default function ViewPresentationPage() {
     setState({ type: "email_sent", viewerId: data.viewer_id, viewerName: data.viewer_name, email: data.email })
   }
 
-  function handleVerifyRetry() {
-    clearGateState(shareToken)
-    loadPresentation()
-  }
-
   switch (state.type) {
     case "loading":
       return (
@@ -309,7 +304,7 @@ export default function ViewPresentationPage() {
       return <EmailSentScreen email={state.email} viewerName={state.viewerName} shareToken={shareToken} />
 
     case "verify_error":
-      return <VerifyErrorScreen shareToken={shareToken} onRetry={handleVerifyRetry} />
+      return <VerifyErrorScreen />
 
     case "verified":
       return (
