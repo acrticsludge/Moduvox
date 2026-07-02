@@ -5,9 +5,10 @@ let client: S3Client | null = null
 
 function getClient(): S3Client {
   if (!client) {
+    const accountId = process.env.R2_ACCOUNT_ID || "529b6166b86e90326e0c098738df70da"
     client = new S3Client({
       region: "auto",
-      endpoint: `https://${process.env.R2_ACCOUNT_ID!}.r2.cloudflarestorage.com`,
+      endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
       credentials: {
         accessKeyId: process.env.R2_ACCESS_KEY_ID!,
         secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
