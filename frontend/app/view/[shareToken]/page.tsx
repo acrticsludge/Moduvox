@@ -245,6 +245,7 @@ export default function ViewPresentationPage() {
 
       // Clear gate state — verification succeeded
       clearGateState(shareToken)
+      saveSession(shareToken, sessionToken)
       setState({
         type: "player",
         data: json.data as PlayerData,
