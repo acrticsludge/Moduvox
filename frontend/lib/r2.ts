@@ -40,12 +40,20 @@ export async function fileExists(key: string): Promise<boolean> {
     const cmd = new ListObjectsV2Command({ Bucket: BUCKET, Prefix: key, MaxKeys: 1 })
     const result = await getClient().send(cmd)
     return (result.Contents || []).some((obj) => obj.Key === key)
-  } catch { return false }
+  } catch (err) {
+    console.error("R2 fileExists failed:", err)
+    return false
+  }
 }
 
 export async function uploadFile(key: string, data: Buffer, contentType: string): Promise<void> {
-  const cmd = new PutObjectCommand({ Bucket: BUCKET, Key: key, Body: data, ContentType: contentType })
-  await getClient().send(cmd)
+  try {
+    const cmd = new PutObjectCommand({ Bucket: BUCKET, Key: key, Body: data, ContentType: contentType })
+    await getClient().send(cmd)
+  } catch (err) {
+    console.error("R2 uploadFile failed:", err)
+    throw err
+  }
 }
 
 export async function downloadFile(key: string): Promise<Buffer | null> {
@@ -54,13 +62,21 @@ export async function downloadFile(key: string): Promise<Buffer | null> {
     const result = await getClient().send(cmd)
     if (!result.Body) return null
     return Buffer.from(await result.Body.transformToByteArray())
-  } catch { return null }
+  } catch (err) {
+    console.error("R2 downloadFile failed:", err)
+    return null
+  }
 }
 
 export async function listFiles(prefix: string): Promise<{ name: string }[]> {
-  const cmd = new ListObjectsV2Command({ Bucket: BUCKET, Prefix: prefix })
-  const result = await getClient().send(cmd)
-  return (result.Contents || []).map((o) => ({ name: o.Key || "" })).filter((f) => f.name)
+  try {
+    const cmd = new ListObjectsV2Command({ Bucket: BUCKET, Prefix: prefix })
+    const result = await getClient().send(cmd)
+    return (result.Contents || []).map((o) => ({ name: o.Key || "" })).filter((f) => f.name)
+  } catch (err) {
+    console.error("R2 listFiles failed:", err)
+    return []
+  }
 }
 
 export async function createSignedUrl(key: string, expiresInSeconds = 86400): Promise<string | null> {
@@ -73,13 +89,19 @@ export async function createSignedUrl(key: string, expiresInSeconds = 86400): Pr
 export async function createUploadUrl(key: string, expiresInSeconds = 3600): Promise<string | null> {
   try {
     const cmd = new PutObjectCommand({ Bucket: BUCKET, Key: key })
-    return await getSignedUrl(getClient(), cmd, { expiresIn: expiresInSeconds })
-  } catch { return null }
+    const url = await getSignedUrl(getClient(), cmd, { expiresIn: expiresInSeconds })
+    return url
+  } catch (err) {
+    console.error("R2 createUploadUrl failed:", err)
+    return null
+  }
 }
 
 export async function removeFile(key: string): Promise<void> {
   try {
     const cmd = new DeleteObjectCommand({ Bucket: BUCKET, Key: key })
     await getClient().send(cmd)
-  } catch { /* ignore */ }
+  } catch (err) {
+    console.error("R2 removeFile failed:", err)
+  }
 }
