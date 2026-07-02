@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
+import { Howl } from "howler"
 import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Loader2 } from "lucide-react"
 import { Slider } from "@/components/ui/slider"
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip"
@@ -16,10 +17,11 @@ type ViewAudioBarProps = {
 }
 
 export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationId, totalDurationMs }: ViewAudioBarProps) {
-  const audioRef = useRef<HTMLAudioElement>(null)
+  const howlRef = useRef<Howl | null>(null)
   const liveRef = useRef<HTMLDivElement>(null)
   const isSeeking = useRef(false)
   const trackedOpened = useRef(false)
+  const rafRef = useRef<number>(0)
 
   const [ready, setReady] = useState(false)
   const [playing, setPlaying] = useState(false)
@@ -33,31 +35,62 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
 
   const audioUrl = `/api/presentations/${presentationId}/audio/combined?session=${sessionToken}`
 
-  // Native audio event handlers
-  function onPlay() { setPlaying(true) }
-  function onPause() { setPlaying(false) }
-  function onTimeUpdate() {
-    if (isSeeking.current) return
-    const a = audioRef.current
-    if (a) setCurrentTime(Math.floor(a.currentTime))
+  // Howler initialization
+  useEffect(() => {
+    const howl = new Howl({
+      src: [audioUrl],
+      html5: true,
+      preload: true,
+      onload: () => {
+        const d = totalDurationMs ? Math.floor(totalDurationMs / 1000) : Math.floor(howl.duration())
+        setDuration(d)
+        setReady(true)
+      },
+      onloaderror: (_id: number, err: unknown) => {
+        console.error("Howler load error:", err)
+        setReady(true)
+      },
+      onplay: () => {
+        setPlaying(true)
+        startPolling()
+      },
+      onpause: () => {
+        setPlaying(false)
+        stopPolling()
+      },
+      onend: () => {
+        setPlaying(false)
+        stopPolling()
+        sendTracking("completed", 100)
+      },
+      onseek: () => {
+        setCurrentTime(Math.floor(howl.seek() as number))
+      },
+    })
+    howlRef.current = howl
+
+    return () => {
+      stopPolling()
+      howl.unload()
+      howlRef.current = null
+    }
+  }, [audioUrl, totalDurationMs])
+
+  // RAF polling (replaces onTimeUpdate)
+  function startPolling() {
+    function poll() {
+      const howl = howlRef.current
+      if (!howl || !howl.playing()) return
+      if (!isSeeking.current) {
+        setCurrentTime(Math.floor(howl.seek() as number))
+      }
+      rafRef.current = requestAnimationFrame(poll)
+    }
+    rafRef.current = requestAnimationFrame(poll)
   }
-  function onLoadedMeta() {
-    const a = audioRef.current
-    if (!a) return
-    const d = totalDurationMs ? Math.floor(totalDurationMs / 1000) : Math.floor(a.duration)
-    setDuration(d)
-    setReady(true)
-  }
-  function onCanPlay() {
-    setReady(true)
-  }
-  function onEnded() {
-    setPlaying(false)
-    sendTracking("completed", 100)
-  }
-  function onError() {
-    console.error("Audio failed to load, falling back to controls")
-    setReady(true) // Show controls even if audio fails
+
+  function stopPolling() {
+    cancelAnimationFrame(rafRef.current)
   }
 
   // Track "opened" once
@@ -109,55 +142,56 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
   }
 
   function togglePlay() {
-    const a = audioRef.current
-    if (!a) return
-    if (a.paused) {
-      a.play().catch(() => {})
+    const howl = howlRef.current
+    if (!howl) return
+    if (howl.playing()) {
+      howl.pause()
     } else {
-      a.pause()
+      howl.play()
     }
   }
 
   function skipSeconds(offset: number) {
-    const a = audioRef.current
-    if (!a) return
-    const newTime = Math.max(0, Math.min(a.duration || 0, a.currentTime + offset))
-    a.currentTime = newTime
+    const howl = howlRef.current
+    if (!howl) return
+    const cur = howl.seek() as number
+    const dur = howl.duration() || 0
+    const newTime = Math.max(0, Math.min(dur, cur + offset))
+    howl.seek(newTime)
     setCurrentTime(Math.floor(newTime))
   }
 
-  function handleSeekStart() { isSeeking.current = true }
   function handleSeek(value: number[]) { setCurrentTime(value[0]) }
   function handleSeekEnd(value: number[]) {
-    const a = audioRef.current
-    if (!a) return
-    a.currentTime = value[0]
+    const howl = howlRef.current
+    if (!howl) return
+    howl.seek(value[0])
     setCurrentTime(value[0])
     isSeeking.current = false
   }
 
   function cycleSpeed() {
-    const a = audioRef.current
-    if (!a) return
+    const howl = howlRef.current
+    if (!howl) return
     const nextIndex = (speedIndex + 1) % SPEEDS.length
     setSpeedIndex(nextIndex)
-    a.playbackRate = SPEEDS[nextIndex]
+    howl.rate(SPEEDS[nextIndex])
   }
 
   function handleVolume(value: number[]) {
-    const a = audioRef.current
-    if (!a) return
+    const howl = howlRef.current
+    if (!howl) return
     setVolume(value[0])
-    a.volume = value[0] / 100
-    a.muted = false
+    howl.volume(value[0] / 100)
+    howl.mute(false)
     setMuted(false)
   }
 
   function toggleMute() {
-    const a = audioRef.current
-    if (!a) return
-    a.muted = !a.muted
-    setMuted(a.muted)
+    const howl = howlRef.current
+    if (!howl) return
+    howl.mute(!howl.mute())
+    setMuted(howl.mute())
   }
 
   function formatTime(seconds: number): string {
@@ -184,19 +218,6 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
   return (
     <TooltipProvider delayDuration={300}>
       <div className="border-t border-zinc-200 bg-white">
-        <audio
-          ref={audioRef}
-          src={audioUrl}
-          preload="auto"
-          onPlay={onPlay}
-          onPause={onPause}
-          onTimeUpdate={onTimeUpdate}
-          onLoadedMetadata={onLoadedMeta}
-          onCanPlay={onCanPlay}
-          onEnded={onEnded}
-          onError={onError}
-        />
-
         <div className="mx-auto flex max-w-[1400px] items-center gap-1.5 px-4 py-2.5">
           {/* Skip back 10s */}
           <Tooltip>
@@ -237,7 +258,7 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
               value={[Math.min(currentTime, duration || 1)]}
               max={duration || 1}
               step={1}
-              onFocus={handleSeekStart}
+              onFocus={() => { isSeeking.current = true }}
               onBlur={() => { isSeeking.current = false }}
               onValueChange={handleSeek}
               onValueCommit={handleSeekEnd}
