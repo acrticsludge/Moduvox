@@ -1,6 +1,6 @@
 import { S3Client, GetObjectCommand, PutObjectCommand, DeleteObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
-import { NodeHttpHandler } from "@smithy/node-http-handler"
+import { FetchHttpHandler } from "@smithy/fetch-http-handler"
 
 let client: S3Client | null = null
 
@@ -15,9 +15,8 @@ function getClient(): S3Client {
         secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
       },
       forcePathStyle: true,
-      requestHandler: new NodeHttpHandler({
-        connectionTimeout: 10000,
-        socketTimeout: 60000,
+      requestHandler: new FetchHttpHandler({
+        requestTimeout: 60000,
       }),
     })
   }
@@ -79,12 +78,11 @@ export async function createSignedUrl(key: string, expiresInSeconds = 86400): Pr
   }
 }
 
-export async function createUploadUrl(key: string, contentType: string, expiresInSeconds = 3600): Promise<string | null> {
+export async function createUploadUrl(key: string, expiresInSeconds = 3600): Promise<string | null> {
   try {
     const cmd = new PutObjectCommand({
       Bucket: BUCKET,
       Key: key,
-      ContentType: contentType,
     })
     return await getSignedUrl(getClient(), cmd, { expiresIn: expiresInSeconds })
   } catch {

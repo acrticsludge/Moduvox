@@ -32,7 +32,8 @@ export async function POST(
   await removeFile(r2Key)
 
   // Generate a presigned URL for direct browser-to-R2 upload
-  const presignedUrl = await createUploadUrl(r2Key, "application/vnd.openxmlformats-officedocument.presentationml.presentation")
+  // No ContentType restriction — browser may send application/octet-stream
+  const presignedUrl = await createUploadUrl(r2Key)
 
   if (!presignedUrl) {
     console.error("Presigned URL error")
