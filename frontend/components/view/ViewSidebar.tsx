@@ -1,8 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Calendar, Clock, Layers, Link, ExternalLink, Check } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Calendar, Clock, Layers, Link, ExternalLink, Check, Sparkles } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip"
 
 type ViewSidebarProps = {
@@ -56,15 +55,14 @@ export function ViewSidebar({ title, createdAt, slideCount, expiresAt, viewerFir
           {/* Link Info */}
           <div className="space-y-3">
             <h4 className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">Link</h4>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="outline" size="sm" onClick={handleCopyLink} className="w-full justify-start gap-2 text-xs">
-                  {copied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Link className="h-3.5 w-3.5" />}
-                  {copied ? "Copied!" : "Copy Link"}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="top">Copy share link to clipboard</TooltipContent>
-            </Tooltip>
+            <button
+              type="button"
+              onClick={handleCopyLink}
+              className="flex w-full items-center gap-2.5 rounded-md px-0 py-1 text-sm text-zinc-600 transition-colors hover:text-[#18181B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300"
+            >
+              {copied ? <Check className="h-4 w-4 text-green-500" /> : <Link className="h-4 w-4 text-zinc-400" />}
+              <span>{copied ? "Copied!" : "Copy Link"}</span>
+            </button>
             <InfoRow
               icon={<Clock className="h-4 w-4" />}
               label="Expires"
@@ -94,8 +92,9 @@ export function ViewSidebar({ title, createdAt, slideCount, expiresAt, viewerFir
             href="/"
             className="flex items-center gap-2 rounded-lg bg-zinc-50 px-3 py-2 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-800"
           >
-            ✨ Made with Moduvox
-            <ExternalLink className="ml-auto h-3 w-3 text-zinc-400" />
+            <Sparkles className="h-4 w-4 text-zinc-400" />
+            Made with Moduvox
+            <ExternalLink className="ml-auto h-3.5 w-3.5 text-zinc-400" />
           </a>
         </div>
 
