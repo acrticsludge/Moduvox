@@ -32,6 +32,16 @@ export function EmailSentScreen({
       })
       const json = await res.json()
 
+      if (json.data?.already_verified) {
+        // Email gate was disabled or viewer already verified — redirect to player
+        if (json.data?.session_token) {
+          window.location.href = `/view/${shareToken}?session=${json.data.session_token}`
+        } else {
+          window.location.href = `/view/${shareToken}`
+        }
+        return
+      }
+
       if (res.ok && json.data?.email_sent !== false) {
         setResent(true)
         setTimeout(() => setResent(false), 5000)

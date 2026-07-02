@@ -179,13 +179,18 @@ export default function ViewPresentationPage() {
         // Gate still required — check localStorage as cache hint
         const gateState = loadGateState(shareToken)
         if (gateState) {
-          setState({
-            type: "email_sent",
-            viewerId: gateState.viewerId,
-            viewerName: gateState.viewerName,
-            email: gateState.email,
-          })
-          return
+          // Only show email_sent if email gate is actually enabled
+          if (data.email_gate_enabled) {
+            setState({
+              type: "email_sent",
+              viewerId: gateState.viewerId,
+              viewerName: gateState.viewerName,
+              email: gateState.email,
+            })
+            return
+          }
+          // Email gate is disabled — clear stale state and show gate dialog
+          clearGateState(shareToken)
         }
         setState({ type: "gate", meta: data })
         return
@@ -266,7 +271,7 @@ export default function ViewPresentationPage() {
     })
   }
 
-  function handleGateSuccess(data: { viewer_id: string; viewer_name: string; email: string }) {
+  function handleGateSuccess(data: { viewer_id: string; viewer_name: string; email: string; session_token?: string; email_sent?: boolean }) {
     saveGateState(shareToken, {
       viewerId: data.viewer_id,
       viewerName: data.viewer_name,
@@ -278,6 +283,12 @@ export default function ViewPresentationPage() {
       const playerData = pendingPlayerData.current
       pendingPlayerData.current = null
       loadPlayerFromFullData(playerData)
+      return
+    }
+
+    // If no email was sent (gate disabled or already verified), load player
+    if (data.email_sent === false && data.session_token) {
+      validateAndLoad(data.session_token)
       return
     }
 

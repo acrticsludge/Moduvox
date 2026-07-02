@@ -23,7 +23,7 @@ export function CombinedGateDialog({
   title?: string
   hasPassword: boolean
   emailGateEnabled: boolean
-  onSuccess: (data: { viewer_id: string; viewer_name: string; email: string }) => void
+  onSuccess: (data: { viewer_id: string; viewer_name: string; email: string; session_token?: string; email_sent?: boolean }) => void
 }) {
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
@@ -111,18 +111,20 @@ export function CombinedGateDialog({
           viewer_id: json.data.viewer_id,
           viewer_name: json.data.viewer_name || name,
           email: json.data.viewer_email,
+          session_token: json.data.session_token,
+          email_sent: json.data.email_sent,
         })
         setLoading(false)
         return
       }
 
-      if (json.data?.email_sent === false) {
-        setError(json.data?.message || "We couldn't send the verification email. Please try again.")
-        setLoading(false)
-        return
-      }
-
-      onSuccess({ viewer_id: json.data.viewer_id, viewer_name: json.data.viewer_name || name, email })
+      onSuccess({
+        viewer_id: json.data.viewer_id,
+        viewer_name: json.data.viewer_name || name,
+        email,
+        session_token: json.data.session_token,
+        email_sent: json.data.email_sent,
+      })
     } catch {
       setError("Network error. Please try again.")
     } finally {

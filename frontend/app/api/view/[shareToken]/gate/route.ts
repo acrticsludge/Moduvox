@@ -126,6 +126,7 @@ export async function POST(
         viewer_id: viewer.id,
         viewer_name: viewer.viewer_name,
         viewer_email: viewer.viewer_email,
+        session_token: viewer.session_token,
         email_sent: false,
         already_verified: true,
       },
