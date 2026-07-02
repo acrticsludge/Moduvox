@@ -37,19 +37,19 @@ export async function GET(
   const { searchParams } = new URL(request.url)
   const sessionToken = searchParams.get("session")
   let sessionVerified = false
-  let viewer: { id: string; email_verified: boolean; created_at: string } | null = null
+  let viewerData: { id: string; email_verified: boolean; created_at: string; viewed_at: string | null } | null = null
 
   if (sessionToken) {
-    const { data: sessionViewer } = await supabase
+    const { data: viewer } = await supabase
       .from("viewers")
-      .select("id, email_verified, created_at")
+      .select("id, email_verified, created_at, viewed_at")
       .eq("session_token", sessionToken)
       .eq("presentation_id", presentation.id)
       .single()
-    viewer = sessionViewer
 
     if (viewer?.email_verified) {
       sessionVerified = true
+      viewerData = viewer
     }
   }
 
@@ -84,7 +84,7 @@ export async function GET(
       slide_count: presentation.slide_count || 0,
       expires_at: presentation.expires_at,
       total_duration_ms: totalDurationMs,
-      viewer_created_at: sessionVerified && viewer ? viewer.created_at : null,
+      viewer_created_at: viewerData ? (viewerData.viewed_at || viewerData.created_at) : null,
     },
   })
 }

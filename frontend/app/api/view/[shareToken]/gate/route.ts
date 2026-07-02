@@ -131,6 +131,7 @@ export async function POST(
         email_verified: true,
         session_token: newSessionToken,
         verification_sent_at: new Date().toISOString(),
+        viewed_at: new Date().toISOString(),
         ip_address: ipAddress,
         user_agent: userAgent,
       }, {
