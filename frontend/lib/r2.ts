@@ -25,7 +25,6 @@ function getClient(): S3Client {
         connectionTimeout: 15000,
         socketTimeout: 120000,
         httpsAgent: new HttpsAgent({
-          rejectUnauthorized: false,
           minVersion: "TLSv1.2",
         }),
       }),

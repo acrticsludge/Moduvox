@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { uploadFile } from "@/lib/r2"
+import { removeFile, createUploadUrl } from "@/lib/r2"
 
 export async function POST(
   request: Request,
@@ -26,21 +26,24 @@ export async function POST(
     return NextResponse.json({ error: "Presentation not found" }, { status: 404 })
   }
 
-  // Read file from request body
-  const formData = await request.formData()
-  const file = formData.get("file") as File | null
-  if (!file) {
-    return NextResponse.json({ error: "No file provided" }, { status: 400 })
-  }
-
-  // Upload to R2 via server (avoids browser CORS issues with direct upload)
   const r2Key = `pptx/${user.id}/${presentationId}.pptx`
-  const buffer = Buffer.from(await file.arrayBuffer())
-  await uploadFile(r2Key, buffer, file.type || "application/octet-stream")
+
+  // Remove any existing file at this path
+  await removeFile(r2Key)
+
+  // Generate presigned URL for direct browser-to-R2 upload (CORS-configured)
+  const presignedUrl = await createUploadUrl(r2Key)
+
+  if (!presignedUrl) {
+    console.error("Failed to create presigned upload URL")
+    return NextResponse.json({ error: "Failed to create upload URL" }, { status: 500 })
+  }
 
   return NextResponse.json({
     data: {
+      presignedUrl,
       path: r2Key,
+      token: "",
     },
   })
 }
