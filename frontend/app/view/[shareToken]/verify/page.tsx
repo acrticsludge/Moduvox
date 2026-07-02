@@ -52,22 +52,33 @@ export default async function VerifyPage({
     return <VerifyError shareToken={shareToken} />
   }
 
-  // Enforce 15-minute magic link expiry
+  // If already verified, skip magic link expiry — viewer was verified through
+  // another path (e.g. gate API when email gate is disabled)
+  if (viewer.email_verified) {
+    // Mark as viewed
+    await supabase
+      .from("viewers")
+      .update({ viewed_at: new Date().toISOString() })
+      .eq("id", viewer.id)
+
+    // Redirect to the player with session token
+    redirect(`/view/${shareToken}?session=${vt}`)
+  }
+
+  // Enforce 15-minute magic link expiry (only for unverified viewers)
   const fifteenMinAgo = new Date(Date.now() - 15 * 60 * 1000)
   if (viewer.created_at && new Date(viewer.created_at) < fifteenMinAgo) {
     return <VerifyError shareToken={shareToken} />
   }
 
-  if (!viewer.email_verified) {
-    // Mark as verified
-    await supabase
-      .from("viewers")
-      .update({
-        email_verified: true,
-        viewed_at: new Date().toISOString(),
-      })
-      .eq("id", viewer.id)
-  }
+  // Mark as verified
+  await supabase
+    .from("viewers")
+    .update({
+      email_verified: true,
+      viewed_at: new Date().toISOString(),
+    })
+    .eq("id", viewer.id)
 
   // Redirect to the player with session token
   redirect(`/view/${shareToken}?session=${vt}`)

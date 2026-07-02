@@ -42,14 +42,9 @@ export async function GET(
     return NextResponse.json({ error: "invalid_link", message: "This verification link has expired or is invalid." }, { status: 404 })
   }
 
-  // Enforce 15-minute magic link expiry
-  const fifteenMinAgo = new Date(Date.now() - 15 * 60 * 1000)
-  if (viewer.created_at && new Date(viewer.created_at) < fifteenMinAgo) {
-    return NextResponse.json({ error: "invalid_link", message: "This verification link has expired." }, { status: 410 })
-  }
-
+  // If already verified, skip magic link expiry — viewer was verified through
+  // another path (e.g. gate API created them verified when email gate is disabled)
   if (viewer.email_verified) {
-    // Already verified — return success with existing viewer info
     const origin = new URL(request.url).origin
     return NextResponse.json({
       data: {
@@ -58,6 +53,12 @@ export async function GET(
         redirect_url: `${origin}/view/${shareToken}?session=${vt}`,
       },
     })
+  }
+
+  // Enforce 15-minute magic link expiry (only for unverified viewers)
+  const fifteenMinAgo = new Date(Date.now() - 15 * 60 * 1000)
+  if (viewer.created_at && new Date(viewer.created_at) < fifteenMinAgo) {
+    return NextResponse.json({ error: "invalid_link", message: "This verification link has expired." }, { status: 410 })
   }
 
   // Mark as verified
