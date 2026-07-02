@@ -95,6 +95,30 @@ export async function POST(
 
   // Email gate disabled → create viewer as verified, skip email, return success
   if (!presentation.email_gate_enabled) {
+    // Check if a verified viewer already exists for this email
+    const { data: existingVerified } = await supabase
+      .from("viewers")
+      .select("id, session_token, viewer_email, viewer_name")
+      .eq("presentation_id", presentation.id)
+      .eq("viewer_email", parsed.data.viewer_email)
+      .eq("email_verified", true)
+      .maybeSingle()
+
+    if (existingVerified) {
+      // Reuse existing session_token so other devices stay connected
+      return NextResponse.json({
+        data: {
+          viewer_id: existingVerified.id,
+          viewer_name: parsed.data.viewer_name,
+          viewer_email: existingVerified.viewer_email,
+          session_token: existingVerified.session_token,
+          email_sent: false,
+          already_verified: true,
+        },
+      })
+    }
+
+    // No verified viewer exists — create a new one
     const newSessionToken = crypto.randomUUID()
 
     const { data: viewer, error: viewerError } = await supabase
