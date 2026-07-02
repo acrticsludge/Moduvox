@@ -10,14 +10,42 @@ export async function GET(
   try {
     const supabase = await createClient()
     const { id: presentationId } = await params
+    const { searchParams } = new URL(request.url)
 
     const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+
+    // Also allow access via ?session=<token> for public viewers
+    const sessionToken = searchParams.get("session")
+    let userId: string | null = user?.id ?? null
+    if (!user && sessionToken) {
+      const admin = createAdminClient()
+      const { data: viewer } = await admin
+        .from("viewers")
+        .select("id, email_verified")
+        .eq("session_token", sessionToken)
+        .eq("presentation_id", presentationId)
+        .single()
+
+      if (!viewer || !viewer.email_verified) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      }
+      // Viewer is valid — derive owner from presentation
+      const { data: presentation } = await admin
+        .from("presentations")
+        .select("user_id")
+        .eq("id", presentationId)
+        .single()
+
+      if (!presentation) {
+        return NextResponse.json({ error: "Presentation not found" }, { status: 404 })
+      }
+      userId = presentation.user_id
+    } else if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const admin = createAdminClient()
-    const slidesDir = `${user.id}/audio/${presentationId}/slides`
+    const slidesDir = `${userId}/audio/${presentationId}/slides`
 
     // List all per-slide WAV files
     const { data: files } = await admin.storage

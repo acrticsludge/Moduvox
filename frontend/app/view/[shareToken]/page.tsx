@@ -28,7 +28,7 @@ type PageState =
   | { type: "gate"; meta: PresentationMeta }
   | { type: "email_sent"; viewerId: string; viewerName: string; email: string }
   | { type: "verify_error" }
-  | { type: "verified"; viewerId: string }
+  | { type: "verified"; viewerId: string; sessionToken?: string }
 
 const GATE_KEY_PREFIX = "moduvox_gate_"
 const SESSION_KEY_PREFIX = "moduvox_session_"
@@ -76,7 +76,7 @@ export default function ViewPresentationPage() {
   const shareToken = params.shareToken
 
   const [state, setState] = useState<PageState>({ type: "loading" })
-  const viewDataRef = useRef<{ title: string; created_at?: string; slide_count?: number; expires_at?: string | null; total_duration_ms?: number; viewer_created_at?: string | null } | null>(null)
+  const viewDataRef = useRef<{ title: string; created_at?: string; slide_count?: number; expires_at?: string | null; total_duration_ms?: number; viewer_created_at?: string | null; presentation_id?: string; viewer_id?: string | null } | null>(null)
 
   useEffect(() => {
     const sessionFromUrl = searchParams.get("session")
@@ -237,6 +237,7 @@ export default function ViewPresentationPage() {
       setState({
         type: "verified",
         viewerId: verifyJson.data?.viewer_id || sessionToken,
+        sessionToken: sessionToken,
       })
     } catch {
       if (fromStorage) {
@@ -259,7 +260,7 @@ export default function ViewPresentationPage() {
     if (data.already_verified && data.session_token) {
       saveSession(shareToken, data.session_token)
       clearGateState(shareToken)
-      setState({ type: "verified", viewerId: data.viewer_id })
+      setState({ type: "verified", viewerId: data.viewer_id, sessionToken: data.session_token })
       return
     }
 
@@ -332,6 +333,7 @@ export default function ViewPresentationPage() {
       return <VerifyErrorScreen />
 
     case "verified":
+      const sessionToken = state.sessionToken || ""
       return (
         <div className="flex min-h-screen flex-col bg-[#F9FAFB]">
           <ViewNavbar />
@@ -346,7 +348,12 @@ export default function ViewPresentationPage() {
             />
             <main id="viewer-main-content" className="flex flex-1" />
           </div>
-          <ViewAudioBar />
+          <ViewAudioBar
+            shareToken={shareToken}
+            sessionToken={sessionToken}
+            viewerId={state.viewerId}
+            presentationId={viewDataRef.current?.presentation_id || ""}
+          />
           <ViewFooter />
         </div>
       )

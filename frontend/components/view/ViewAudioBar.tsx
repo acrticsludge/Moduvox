@@ -7,46 +7,159 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/comp
 
 const SPEEDS = [0.75, 1, 1.25, 1.5, 2] as const
 
-export function ViewAudioBar() {
+type ViewAudioBarProps = {
+  shareToken: string
+  sessionToken: string
+  viewerId: string
+  presentationId: string
+}
+
+export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationId }: ViewAudioBarProps) {
   const [playing, setPlaying] = useState(false)
-  const [currentTime, setCurrentTime] = useState(81)
-  const [duration] = useState(585)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [duration, setDuration] = useState(0)
   const [speedIndex, setSpeedIndex] = useState(1)
   const [volume, setVolume] = useState(80)
   const [muted, setMuted] = useState(false)
   const [showTimeRemaining, setShowTimeRemaining] = useState(false)
   const [showVolumeSlider, setShowVolumeSlider] = useState(false)
   const liveRef = useRef<HTMLDivElement>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
 
-  // Keyboard shortcuts
+  const audioUrl = `/api/presentations/${presentationId}/audio/combined?session=${sessionToken}`
+
+  useEffect(() => {
+    const audio = new Audio(audioUrl)
+    audio.preload = "auto"
+    audioRef.current = audio
+
+    const onTimeUpdate = () => setCurrentTime(Math.floor(audio.currentTime))
+    const onLoadedMeta = () => setDuration(Math.floor(audio.duration))
+    const onEnded = () => { setPlaying(false); sendTracking("completed", 100) }
+
+    audio.addEventListener("timeupdate", onTimeUpdate)
+    audio.addEventListener("loadedmetadata", onLoadedMeta)
+    audio.addEventListener("ended", onEnded)
+
+    return () => {
+      audio.removeEventListener("timeupdate", onTimeUpdate)
+      audio.removeEventListener("loadedmetadata", onLoadedMeta)
+      audio.removeEventListener("ended", onEnded)
+      audio.pause()
+      audio.src = ""
+    }
+  }, [audioUrl])
+
+  useEffect(() => {
+    sendTracking("opened")
+  }, [])
+
+  useEffect(() => {
+    function handleVisibility() {
+      if (document.visibilityState === "hidden") {
+        const body = JSON.stringify({ session_token: sessionToken, event_type: "closed" })
+        navigator.sendBeacon(`/api/view/${shareToken}/track`, body)
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibility)
+    return () => document.removeEventListener("visibilitychange", handleVisibility)
+  }, [shareToken, sessionToken])
+
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
       if ((e.target as HTMLElement)?.tagName === "INPUT") return
       switch (e.key) {
         case " ":
           e.preventDefault()
-          setPlaying((p) => !p)
+          togglePlay()
           break
         case "ArrowLeft":
-          setCurrentTime((t) => Math.max(0, t - 10))
+          skipBack(10)
           break
         case "ArrowRight":
-          setCurrentTime((t) => Math.min(duration, t + 10))
+          skipForward(10)
           break
       }
     }
     window.addEventListener("keydown", handleKey)
     return () => window.removeEventListener("keydown", handleKey)
-  }, [duration])
+  }, [playing])
 
-  // Announce play state changes
   useEffect(() => {
     if (liveRef.current) {
       liveRef.current.textContent = playing ? "Playing" : "Paused"
     }
   }, [playing])
 
+  async function sendTracking(eventType: string, progressPct?: number) {
+    try {
+      await fetch(`/api/view/${shareToken}/track`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session_token: sessionToken,
+          event_type: eventType,
+          progress_pct: progressPct,
+        }),
+      })
+    } catch { /* fire-and-forget */ }
+  }
+
+  function togglePlay() {
+    const audio = audioRef.current
+    if (!audio) return
+    if (playing) {
+      audio.pause()
+    } else {
+      audio.play().catch(() => {})
+    }
+    setPlaying(!playing)
+  }
+
+  function skipBack(seconds = 10) {
+    const audio = audioRef.current
+    if (!audio) return
+    audio.currentTime = Math.max(0, audio.currentTime - seconds)
+  }
+
+  function skipForward(seconds = 10) {
+    const audio = audioRef.current
+    if (!audio) return
+    audio.currentTime = Math.min(audio.duration || 0, audio.currentTime + seconds)
+  }
+
+  function handleSeek(value: number[]) {
+    const audio = audioRef.current
+    if (!audio) return
+    audio.currentTime = value[0]
+  }
+
+  function cycleSpeed() {
+    const audio = audioRef.current
+    if (!audio) return
+    const nextIndex = (speedIndex + 1) % SPEEDS.length
+    setSpeedIndex(nextIndex)
+    audio.playbackRate = SPEEDS[nextIndex]
+  }
+
+  function handleVolumeChange(value: number[]) {
+    const audio = audioRef.current
+    if (!audio) return
+    setVolume(value[0])
+    audio.volume = value[0] / 100
+    audio.muted = false
+    setMuted(false)
+  }
+
+  function toggleMute() {
+    const audio = audioRef.current
+    if (!audio) return
+    audio.muted = !audio.muted
+    setMuted(audio.muted)
+  }
+
   function formatTime(seconds: number): string {
+    if (!seconds || isNaN(seconds)) return "0:00"
     const m = Math.floor(seconds / 60)
     const s = Math.floor(seconds % 60)
     return `${m}:${s.toString().padStart(2, "0")}`
@@ -58,10 +171,6 @@ export function ViewAudioBar() {
 
   const currentSpeed = SPEEDS[speedIndex]
 
-  function cycleSpeed() {
-    setSpeedIndex((i) => (i + 1) % SPEEDS.length)
-  }
-
   return (
     <TooltipProvider delayDuration={300}>
       <div className="border-t border-zinc-200 bg-white">
@@ -72,6 +181,7 @@ export function ViewAudioBar() {
               <button
                 type="button"
                 aria-label="Skip back 10 seconds"
+                onClick={() => skipBack(10)}
                 className="flex h-8 w-8 items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300"
               >
                 <SkipBack className="h-4 w-4" />
@@ -86,7 +196,7 @@ export function ViewAudioBar() {
               <button
                 type="button"
                 aria-label={playing ? "Pause" : "Play"}
-                onClick={() => setPlaying((p) => !p)}
+                onClick={togglePlay}
                 className="flex h-9 w-9 items-center justify-center rounded-full bg-[#18181B] text-white transition-colors hover:bg-[#27272A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2"
               >
                 {playing ? <Pause className="h-4 w-4" /> : <Play className="ml-0.5 h-4 w-4" />}
@@ -101,6 +211,7 @@ export function ViewAudioBar() {
               <button
                 type="button"
                 aria-label="Skip forward 10 seconds"
+                onClick={() => skipForward(10)}
                 className="flex h-8 w-8 items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300"
               >
                 <SkipForward className="h-4 w-4" />
@@ -113,9 +224,9 @@ export function ViewAudioBar() {
           <div className="flex flex-1 items-center gap-3">
             <Slider
               value={[currentTime]}
-              max={duration}
+              max={duration || 1}
               step={1}
-              onValueChange={([v]) => setCurrentTime(v)}
+              onValueChange={handleSeek}
               aria-label="Presentation progress"
               className="cursor-pointer"
             />
@@ -157,7 +268,7 @@ export function ViewAudioBar() {
                   type="button"
                   aria-label={muted ? "Unmute" : "Mute"}
                   aria-pressed={muted}
-                  onClick={() => setMuted((m) => !m)}
+                  onClick={toggleMute}
                   className="flex h-8 w-8 items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300"
                 >
                   {muted || volume === 0 ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
@@ -171,7 +282,7 @@ export function ViewAudioBar() {
                   value={[muted ? 0 : volume]}
                   max={100}
                   step={1}
-                  onValueChange={([v]) => { setVolume(v); setMuted(false) }}
+                  onValueChange={handleVolumeChange}
                   aria-label="Volume"
                   className="h-20 cursor-pointer"
                   orientation="vertical"
