@@ -1,7 +1,16 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
 import { MailCheck, Loader2, AlertCircle } from "lucide-react"
+
+declare global {
+  interface Window {
+    grecaptcha?: {
+      ready: (cb: () => void) => void
+      execute: (siteKey: string, opts: { action: string }) => Promise<string>
+    }
+  }
+}
 
 export function EmailSentScreen({
   email,
@@ -15,10 +24,50 @@ export function EmailSentScreen({
   const [resending, setResending] = useState(false)
   const [resent, setResent] = useState(false)
   const [error, setError] = useState("")
+  const recaptchaLoaded = useRef(false)
+
+  // Load reCAPTCHA script on mount (once)
+  useEffect(() => {
+    if (!process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY) return
+    if (recaptchaLoaded.current) return
+    if (document.querySelector('script[src*="recaptcha/api.js"]')) return
+    recaptchaLoaded.current = true
+
+    const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY
+    const script = document.createElement("script")
+    script.src = `https://www.google.com/recaptcha/api.js?render=${siteKey}`
+    script.async = true
+    script.defer = true
+    document.head.appendChild(script)
+  }, [])
 
   async function handleResend() {
     setResending(true)
     setError("")
+
+    // Get reCAPTCHA v3 token
+    let recaptchaToken = ""
+    if (process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY && window.grecaptcha) {
+      try {
+        recaptchaToken = await new Promise<string>((resolve, reject) => {
+          window.grecaptcha!.ready(async () => {
+            try {
+              const token = await window.grecaptcha!.execute(
+                process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY!,
+                { action: "submit" },
+              )
+              resolve(token)
+            } catch (e) {
+              reject(e)
+            }
+          })
+        })
+      } catch {
+        setError("Security verification failed. Please try again.")
+        setResending(false)
+        return
+      }
+    }
 
     try {
       const res = await fetch(`/api/view/${shareToken}/gate`, {
@@ -28,6 +77,7 @@ export function EmailSentScreen({
           viewer_name: viewerName,
           viewer_email: email,
           consent_granted: true,
+          recaptcha_token: recaptchaToken,
         }),
       })
       const json = await res.json()

@@ -33,7 +33,7 @@ export async function GET(
   // Find the viewer by session_token
   const { data: viewer } = await supabase
     .from("viewers")
-    .select("id, email_verified, presentation_id, created_at")
+    .select("id, email_verified, presentation_id, verification_sent_at")
     .eq("session_token", vt)
     .eq("presentation_id", presentation.id)
     .single()
@@ -56,8 +56,9 @@ export async function GET(
   }
 
   // Enforce 15-minute magic link expiry (only for unverified viewers)
+  // Use verification_sent_at (updated on every upsert) instead of created_at
   const fifteenMinAgo = new Date(Date.now() - 15 * 60 * 1000)
-  if (viewer.created_at && new Date(viewer.created_at) < fifteenMinAgo) {
+  if (viewer.verification_sent_at && new Date(viewer.verification_sent_at) < fifteenMinAgo) {
     return NextResponse.json({ error: "invalid_link", message: "This verification link has expired." }, { status: 410 })
   }
 

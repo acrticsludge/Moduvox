@@ -125,9 +125,26 @@ export default function ViewPresentationPage() {
     function handleVisibilityChange() {
       if (document.visibilityState === "visible") {
         fetch(`/api/view/${shareToken}`)
-          .then((res) => res.json())
+          .then(async (res) => {
+            if (res.status === 410) {
+              const json = await res.json().catch(() => ({}))
+              clearGateState(shareToken)
+              if (json.error?.toLowerCase().includes("archived")) {
+                setState({ type: "archived" })
+              } else {
+                setState({ type: "expired" })
+              }
+              return null
+            }
+            if (!res.ok) {
+              clearGateState(shareToken)
+              setState({ type: "not_found" })
+              return null
+            }
+            return res.json()
+          })
           .then((json) => {
-            if (!json.data) return
+            if (!json) return
             if (!json.data.has_password && !json.data.email_gate_enabled) {
               if (pendingPlayerData.current) {
                 // Tracking-only mode — update stored data
@@ -283,7 +300,14 @@ export default function ViewPresentationPage() {
     if (pendingPlayerData.current) {
       const playerData = pendingPlayerData.current
       pendingPlayerData.current = null
-      loadPlayerFromFullData(playerData)
+      // Persist session so reload bypasses gate
+      if (data.session_token) saveSession(shareToken, data.session_token)
+      setState({
+        type: "player",
+        data: playerData as PlayerData,
+        viewerId: data.viewer_id,
+        sessionToken: data.session_token!, // Use real DB-backed session
+      })
       return
     }
 
