@@ -55,6 +55,10 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
     setPlaying(false)
     sendTracking("completed", 100)
   }
+  function onError() {
+    console.error("Audio failed to load, falling back to controls")
+    setReady(true) // Show controls even if audio fails
+  }
 
   // Track "opened" once
   useEffect(() => {
@@ -190,6 +194,7 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
           onLoadedMetadata={onLoadedMeta}
           onCanPlay={onCanPlay}
           onEnded={onEnded}
+          onError={onError}
         />
 
         <div className="mx-auto flex max-w-[1400px] items-center gap-1.5 px-4 py-2.5">
