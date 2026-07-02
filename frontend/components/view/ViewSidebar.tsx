@@ -6,11 +6,11 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/comp
 
 type ViewSidebarProps = {
   title: string
-  createdAt: string
+  createdAt?: string
   slideCount: number
   expiresAt: string | null
-  viewerFirstViewed?: string
   totalDurationMs?: number
+  viewerFirstViewed?: string
 }
 
 function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
@@ -56,9 +56,9 @@ export function ViewSidebar({ title, createdAt, slideCount, expiresAt, viewerFir
             <InfoRow
               icon={<Calendar className="h-4 w-4" />}
               label="Created"
-              value={new Date(createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+              value={createdAt ? new Date(createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}
             />
-            <InfoRow icon={<Clock className="h-4 w-4" />} label="Duration" value={totalDurationMs ? formatDuration(totalDurationMs) : "—"} />
+            <InfoRow icon={<Clock className="h-4 w-4" />} label="Duration" value={totalDurationMs !== undefined ? formatDuration(totalDurationMs) : "—"} />
             <InfoRow icon={<Layers className="h-4 w-4" />} label="Slides" value={String(slideCount)} />
           </div>
 

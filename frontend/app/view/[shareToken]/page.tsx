@@ -224,6 +224,16 @@ export default function ViewPresentationPage() {
       // Clear gate state and persist session — verification succeeded
       clearGateState(shareToken)
       saveSession(shareToken, sessionToken)
+
+      // Fetch presentation metadata for the sidebar (viewDataRef)
+      try {
+        const viewRes = await fetch(`/api/view/${shareToken}?session=${sessionToken}`)
+        if (viewRes.ok) {
+          const viewJson = await viewRes.json()
+          if (viewJson.data) viewDataRef.current = viewJson.data
+        }
+      } catch { /* ignore — sidebar will use fallback values */ }
+
       setState({
         type: "verified",
         viewerId: verifyJson.data?.viewer_id || sessionToken,
@@ -328,7 +338,7 @@ export default function ViewPresentationPage() {
           <div className="flex flex-1">
             <ViewSidebar
               title={viewDataRef.current?.title || "Untitled"}
-              createdAt={viewDataRef.current?.created_at || new Date().toISOString()}
+              createdAt={viewDataRef.current?.created_at}
               slideCount={viewDataRef.current?.slide_count || 0}
               expiresAt={viewDataRef.current?.expires_at || null}
               totalDurationMs={viewDataRef.current?.total_duration_ms}
