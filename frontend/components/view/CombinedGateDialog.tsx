@@ -23,7 +23,7 @@ export function CombinedGateDialog({
   title?: string
   hasPassword: boolean
   emailGateEnabled: boolean
-  onSuccess: (data: { viewer_id: string; viewer_name: string; email: string; session_token?: string; email_sent?: boolean }) => void
+  onSuccess: (data: { viewer_id: string; viewer_name: string; email: string; session_token?: string; email_sent?: boolean; already_verified?: boolean }) => void
 }) {
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
@@ -113,6 +113,7 @@ export function CombinedGateDialog({
           email: json.data.viewer_email,
           session_token: json.data.session_token,
           email_sent: json.data.email_sent,
+          already_verified: true,
         })
         setLoading(false)
         return

@@ -191,6 +191,9 @@ export default function ViewPresentationPage() {
       if (gateState) {
         // Already submitted tracking info — go to verified
         setState({ type: "verified", viewerId: gateState.viewerId })
+      } else if (loadSession(shareToken)) {
+        // Session exists but no gate state — must have been verified already
+        setState({ type: "verified", viewerId: "" })
       } else {
         clearGateState(shareToken)
         setState({ type: "gate", meta: data })
@@ -235,15 +238,24 @@ export default function ViewPresentationPage() {
     }
   }
 
-  function handleGateSuccess(data: { viewer_id: string; viewer_name: string; email: string; session_token?: string; email_sent?: boolean }) {
+  function handleGateSuccess(data: { viewer_id: string; viewer_name: string; email: string; session_token?: string; email_sent?: boolean; already_verified?: boolean }) {
     saveGateState(shareToken, {
       viewerId: data.viewer_id,
       viewerName: data.viewer_name,
       email: data.email,
     })
 
-    // If no email was sent (gate disabled or already verified), go straight to verified
+    // Gate API already confirmed verification — skip redundant verify API call
+    if (data.already_verified && data.session_token) {
+      saveSession(shareToken, data.session_token)
+      clearGateState(shareToken)
+      setState({ type: "verified", viewerId: data.viewer_id })
+      return
+    }
+
+    // If no email was sent but viewer needs verification, call verify API
     if (data.email_sent === false && data.session_token) {
+      saveSession(shareToken, data.session_token)
       validateAndLoad(data.session_token)
       return
     }
