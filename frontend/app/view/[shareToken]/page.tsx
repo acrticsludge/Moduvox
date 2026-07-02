@@ -6,6 +6,8 @@ import { Loader2 } from "lucide-react"
 import { CombinedGateDialog } from "@/components/view/CombinedGateDialog"
 import { EmailSentScreen } from "@/components/view/EmailSentScreen"
 import { VerifyErrorScreen } from "@/components/view/VerifyErrorScreen"
+import { ViewNavbar } from "@/components/view/ViewNavbar"
+import { ViewFooter } from "@/components/view/ViewFooter"
 
 type PresentationMeta = {
   id: string
@@ -309,7 +311,13 @@ export default function ViewPresentationPage() {
       return <VerifyErrorScreen shareToken={shareToken} onRetry={handleVerifyRetry} />
 
     case "verified":
-      return null
+      return (
+        <div className="flex min-h-screen flex-col bg-[#F9FAFB]">
+          <ViewNavbar />
+          <main className="flex-1" />
+          <ViewFooter />
+        </div>
+      )
 
     default:
       return null
