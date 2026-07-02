@@ -355,6 +355,9 @@ const [expireDate, setExpireDate] = useState<Date | undefined>(undefined)
           <Clock className="h-4 w-4 text-zinc-500" />
           <label className="text-sm font-medium text-[#18181B]">Expiration</label>
         </div>
+        {!settings.expires_at && (
+          <p className="text-xs text-zinc-400">If no date is set, the link will never expire.</p>
+        )}
         <div className="flex items-center gap-2">
           <Popover>
             <PopoverTrigger asChild>
