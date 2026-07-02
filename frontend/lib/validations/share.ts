@@ -27,6 +27,11 @@ export const magicLinkGateSchema = z.object({
   password: z.string().optional(),
 })
 
+export const passwordOnlyGateSchema = z.object({
+  password: z.string().min(1, "Password is required"),
+  presentation_id: z.string().uuid(),
+})
+
 export const trackEventSchema = z.object({
   session_token: z.string().uuid(),
   event_type: z.enum(["opened", "slide_viewed", "completed", "closed"]),

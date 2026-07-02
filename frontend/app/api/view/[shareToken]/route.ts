@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getAllSlideDurations } from "@/lib/wav-duration"
-import { fileExists, createSignedUrl } from "@/lib/r2"
 
 export async function GET(
   request: Request,
@@ -77,13 +76,14 @@ export async function GET(
     // non-critical
   }
 
-  // Generate signed URL for cached combined audio in R2
+  // Generate signed URL for cached combined audio in Supabase Storage
   let audioUrl: string | null = null
   try {
-    const r2Key = `audio/${presentation.user_id}/audio/${presentation.id}/combined.wav`
-    const exists = await fileExists(r2Key)
-    if (exists) {
-      audioUrl = await createSignedUrl(r2Key)
+    const audioPath = `${presentation.user_id}/audio/${presentation.id}/combined.wav`
+    const { data: files } = await supabase.storage.from("presentation-files").list(`${presentation.user_id}/audio/${presentation.id}/`)
+    if (files?.some((f) => f.name === "combined.wav")) {
+      const { data: urlData } = await supabase.storage.from("presentation-files").createSignedUrl(audioPath, 3600)
+      audioUrl = urlData?.signedUrl ?? null
     }
   } catch { /* combined.wav may not exist yet */ }
 

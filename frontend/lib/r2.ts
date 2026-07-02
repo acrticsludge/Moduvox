@@ -1,107 +1,56 @@
 /**
- * Cloudflare R2 utilities — S3-compatible storage.
- * All file operations use R2 directly with zero egress fees.
+ * Cloudflare R2 utilities.
+ * 
+ * IMPORTANT: getSignedUrl signs requests LOCALLY without network calls.
+ * Direct S3 API calls (upload, delete, list) are not used from
+ * serverless functions due to TLS compatibility issues with some
+ * Cloudflare edge nodes. Server-side storage ops use Supabase Storage.
+ * 
+ * R2 is used ONLY for generating signed URLs (zero egress fees for
+ * viewer-facing audio/video delivery).
  */
 
-import { S3Client, GetObjectCommand, PutObjectCommand, DeleteObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3"
+import { S3Client, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
-import { NodeHttpHandler } from "@smithy/node-http-handler"
-import { Agent as HttpsAgent } from "https"
 
-let client: S3Client | null = null
+const accountId = process.env.R2_ACCOUNT_ID || "529b6166b86e90326e0c098738df70da"
 
-function getClient(): S3Client {
-  if (!client) {
-    const accountId = process.env.R2_ACCOUNT_ID || "529b6166b86e90326e0c098738df70da"
-    client = new S3Client({
-      region: "auto",
-      endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
-      credentials: {
-        accessKeyId: process.env.R2_ACCESS_KEY_ID!,
-        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
-      },
-      forcePathStyle: true,
-      requestHandler: new NodeHttpHandler({
-        connectionTimeout: 15000,
-        socketTimeout: 120000,
-        httpsAgent: new HttpsAgent({
-          minVersion: "TLSv1.2",
-        }),
-      }),
-    })
-  }
-  return client
-}
+const client = new S3Client({
+  region: "auto",
+  endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
+  credentials: {
+    accessKeyId: process.env.R2_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
+  },
+  forcePathStyle: true,
+})
 
 const BUCKET = process.env.R2_BUCKET_NAME || "moduvox-audio"
 
-export async function fileExists(key: string): Promise<boolean> {
-  try {
-    const cmd = new ListObjectsV2Command({ Bucket: BUCKET, Prefix: key, MaxKeys: 1 })
-    const result = await getClient().send(cmd)
-    return (result.Contents || []).some((obj) => obj.Key === key)
-  } catch (err) {
-    console.error("R2 fileExists failed:", err)
-    return false
-  }
-}
-
-export async function uploadFile(key: string, data: Buffer, contentType: string): Promise<void> {
-  try {
-    const cmd = new PutObjectCommand({ Bucket: BUCKET, Key: key, Body: data, ContentType: contentType })
-    await getClient().send(cmd)
-  } catch (err) {
-    console.error("R2 uploadFile failed:", err)
-    throw err
-  }
-}
-
-export async function downloadFile(key: string): Promise<Buffer | null> {
-  try {
-    const cmd = new GetObjectCommand({ Bucket: BUCKET, Key: key })
-    const result = await getClient().send(cmd)
-    if (!result.Body) return null
-    return Buffer.from(await result.Body.transformToByteArray())
-  } catch (err) {
-    console.error("R2 downloadFile failed:", err)
-    return null
-  }
-}
-
-export async function listFiles(prefix: string): Promise<{ name: string }[]> {
-  try {
-    const cmd = new ListObjectsV2Command({ Bucket: BUCKET, Prefix: prefix })
-    const result = await getClient().send(cmd)
-    return (result.Contents || []).map((o) => ({ name: o.Key || "" })).filter((f) => f.name)
-  } catch (err) {
-    console.error("R2 listFiles failed:", err)
-    return []
-  }
-}
-
+/**
+ * Generate a signed GET URL for direct browser access via R2 CDN.
+ * This signs the request LOCALLY — no network call to R2.
+ */
 export async function createSignedUrl(key: string, expiresInSeconds = 86400): Promise<string | null> {
   try {
     const cmd = new GetObjectCommand({ Bucket: BUCKET, Key: key })
-    return await getSignedUrl(getClient(), cmd, { expiresIn: expiresInSeconds })
-  } catch { return null }
-}
-
-export async function createUploadUrl(key: string, expiresInSeconds = 3600): Promise<string | null> {
-  try {
-    const cmd = new PutObjectCommand({ Bucket: BUCKET, Key: key })
-    const url = await getSignedUrl(getClient(), cmd, { expiresIn: expiresInSeconds })
-    return url
+    return await getSignedUrl(client, cmd, { expiresIn: expiresInSeconds })
   } catch (err) {
-    console.error("R2 createUploadUrl failed:", err)
+    console.error("R2 createSignedUrl failed:", err)
     return null
   }
 }
 
-export async function removeFile(key: string): Promise<void> {
+/**
+ * Generate a signed PUT URL for direct browser upload to R2.
+ * No network call — signs locally.
+ */
+export async function createUploadUrl(key: string, expiresInSeconds = 3600): Promise<string | null> {
   try {
-    const cmd = new DeleteObjectCommand({ Bucket: BUCKET, Key: key })
-    await getClient().send(cmd)
+    const cmd = new PutObjectCommand({ Bucket: BUCKET, Key: key })
+    return await getSignedUrl(client, cmd, { expiresIn: expiresInSeconds })
   } catch (err) {
-    console.error("R2 removeFile failed:", err)
+    console.error("R2 createUploadUrl failed:", err)
+    return null
   }
 }

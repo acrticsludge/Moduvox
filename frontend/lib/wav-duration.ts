@@ -58,15 +58,16 @@ export async function getAllSlideDurations(
   presentationId: string,
   slideCount: number,
 ): Promise<{ slideNumber: number; durationMs: number }[]> {
-  const { downloadFile } = await import("@/lib/r2")
+  const { createAdminClient } = await import("@/lib/supabase/admin")
+  const admin = createAdminClient()
   const timings: { slideNumber: number; durationMs: number }[] = []
 
   for (let i = 1; i <= slideCount; i++) {
-    const key = `audio/${userId}/${presentationId}/slides/slide-${i}.wav`
+    const filePath = `${userId}/audio/${presentationId}/slides/slide-${i}.wav`
     try {
-      const data = await downloadFile(key)
+      const { data } = await admin.storage.from("presentation-files").download(filePath)
       if (data) {
-        const durationMs = getWavDuration(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer)
+        const durationMs = getWavDuration(await data.arrayBuffer())
         timings.push({ slideNumber: i, durationMs })
       }
     } catch {

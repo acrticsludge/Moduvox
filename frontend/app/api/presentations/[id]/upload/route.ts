@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { removeFile, createUploadUrl } from "@/lib/r2"
+import { createAdminClient } from "@/lib/supabase/admin"
 
 export async function POST(
   request: Request,
@@ -26,24 +26,25 @@ export async function POST(
     return NextResponse.json({ error: "Presentation not found" }, { status: 404 })
   }
 
-  const r2Key = `pptx/${user.id}/${presentationId}.pptx`
+  const admin = createAdminClient()
+  const filePath = `${user.id}/${presentationId}.pptx`
 
   // Remove any existing file at this path
-  await removeFile(r2Key)
+  await admin.storage.from("presentation-files").remove([filePath])
 
-  // Generate presigned URL for direct browser-to-R2 upload (CORS-configured)
-  const presignedUrl = await createUploadUrl(r2Key)
+  // Generate presigned URL for direct browser-to-Supabase upload
+  const { data: uploadData } = await admin.storage.from("presentation-files").createSignedUploadUrl(filePath)
 
-  if (!presignedUrl) {
+  if (!uploadData) {
     console.error("Failed to create presigned upload URL")
     return NextResponse.json({ error: "Failed to create upload URL" }, { status: 500 })
   }
 
   return NextResponse.json({
     data: {
-      presignedUrl,
-      path: r2Key,
-      token: "",
+      presignedUrl: uploadData.signedUrl,
+      path: filePath,
+      token: uploadData.token,
     },
   })
 }

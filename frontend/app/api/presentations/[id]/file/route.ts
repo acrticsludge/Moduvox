@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { removeFile } from "@/lib/r2"
+import { createAdminClient } from "@/lib/supabase/admin"
 
 export async function DELETE(
   _request: Request,
@@ -27,8 +27,9 @@ export async function DELETE(
   }
 
   // Remove PPTX from storage
-  const r2Key = `pptx/${user.id}/${presentationId}.pptx`
-  await removeFile(r2Key)
+  const admin = createAdminClient()
+  const filePath = `${user.id}/${presentationId}.pptx`
+  await admin.storage.from("presentation-files").remove([filePath])
 
   // Reset presentation: clear editor_state, reset status to draft
   const { error: updateError } = await supabase
