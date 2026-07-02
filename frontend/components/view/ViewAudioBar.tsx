@@ -49,7 +49,6 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
       },
       onloaderror: (_id: number, err: unknown) => {
         console.error("Howler load error:", err)
-        setReady(true)
       },
       onplay: () => {
         setPlaying(true)
@@ -70,7 +69,11 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
     })
     howlRef.current = howl
 
+    // Fallback: show controls after 12s even if audio never loaded
+    const fallbackTimer = setTimeout(() => setReady(true), 12000)
+
     return () => {
+      clearTimeout(fallbackTimer)
       stopPolling()
       howl.unload()
       howlRef.current = null
@@ -144,7 +147,7 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
 
   function togglePlay() {
     const howl = howlRef.current
-    if (!howl) return
+    if (!howl || howl.state() !== "loaded") return
     if (howl.playing()) {
       howl.pause()
     } else {
@@ -154,7 +157,7 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
 
   function skipSeconds(offset: number) {
     const howl = howlRef.current
-    if (!howl) return
+    if (!howl || howl.state() !== "loaded") return
     const cur = howl.seek() as number
     const dur = howl.duration() || 0
     const newTime = Math.max(0, Math.min(dur, cur + offset))
@@ -162,10 +165,13 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
     setCurrentTime(Math.floor(newTime))
   }
 
-  function handleSeek(value: number[]) { setCurrentTime(value[0]) }
+  function handleSeek(value: number[]) {
+    isSeeking.current = true
+    setCurrentTime(value[0])
+  }
   function handleSeekEnd(value: number[]) {
     const howl = howlRef.current
-    if (!howl) return
+    if (!howl || howl.state() !== "loaded") return
     howl.seek(value[0])
     setCurrentTime(value[0])
     isSeeking.current = false
@@ -173,7 +179,7 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
 
   function cycleSpeed() {
     const howl = howlRef.current
-    if (!howl) return
+    if (!howl || howl.state() !== "loaded") return
     const nextIndex = (speedIndex + 1) % SPEEDS.length
     setSpeedIndex(nextIndex)
     howl.rate(SPEEDS[nextIndex])
@@ -211,7 +217,7 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
     return (
       <div className="flex items-center justify-center gap-2 border-t border-zinc-200 bg-white px-4 py-3">
         <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />
-        <span className="text-xs text-zinc-400">Preparing audio…</span>
+        <span className="text-xs text-zinc-400">Loading audio…</span>
       </div>
     )
   }
@@ -259,8 +265,6 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
               value={[Math.min(currentTime, duration || 1)]}
               max={duration || 1}
               step={1}
-              onFocus={() => { isSeeking.current = true }}
-              onBlur={() => { isSeeking.current = false }}
               onValueChange={handleSeek}
               onValueCommit={handleSeekEnd}
               aria-label="Presentation progress"
