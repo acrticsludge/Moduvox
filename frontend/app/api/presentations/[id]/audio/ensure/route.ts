@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { concatWavBuffers, isValidWav } from "@/lib/wav-utils"
+import { fileExists, uploadFile, createSignedUrl } from "@/lib/r2"
 
 export async function GET(
   request: Request,
@@ -11,6 +12,7 @@ export async function GET(
     const { searchParams } = new URL(request.url)
     const admin = createAdminClient()
 
+    // Auth via ?session=<token> for public viewers
     const sessionToken = searchParams.get("session")
     let userId: string | null = null
 
@@ -37,23 +39,18 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const combinedPath = `${userId}/audio/${presentationId}/combined.wav`
+    const r2Key = `audio/${userId}/${presentationId}/combined.wav`
 
-    const { data: files } = await admin.storage
-      .from("presentation-files")
-      .list(`${userId}/audio/${presentationId}`, { limit: 100 })
-
-    const exists = files?.some((f) => f.name === "combined.wav")
-
+    // Check if combined.wav already exists in R2
+    const exists = await fileExists(r2Key)
     if (exists) {
-      const { data: signed } = await admin.storage
-        .from("presentation-files")
-        .createSignedUrl(combinedPath, 86400)
-      if (signed?.signedUrl) {
-        return NextResponse.json({ data: { audioUrl: signed.signedUrl } })
+      const url = await createSignedUrl(r2Key)
+      if (url) {
+        return NextResponse.json({ data: { audioUrl: url } })
       }
     }
 
+    // Generate combined.wav from per-slide WAVs in Supabase Storage
     const slidesDir = `${userId}/audio/${presentationId}/slides`
     const { data: slideFiles } = await admin.storage
       .from("presentation-files")
@@ -92,18 +89,13 @@ export async function GET(
 
     const combined = concatWavBuffers(wavBuffers)
 
-    await admin.storage
-      .from("presentation-files")
-      .upload(combinedPath, combined, { contentType: "audio/wav", upsert: true })
-      .catch(() => {})
+    // Upload to R2 instead of Supabase Storage
+    await uploadFile(r2Key, combined, "audio/wav")
 
-    const { data: signed } = await admin.storage
-      .from("presentation-files")
-      .createSignedUrl(combinedPath, 86400)
-
+    const url = await createSignedUrl(r2Key)
     return NextResponse.json({
       data: {
-        audioUrl: signed?.signedUrl || null,
+        audioUrl: url,
       },
     })
   } catch (err) {

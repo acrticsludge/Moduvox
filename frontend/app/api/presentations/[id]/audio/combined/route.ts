@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { concatWavBuffers, isValidWav } from "@/lib/wav-utils"
+import { fileExists, createSignedUrl } from "@/lib/r2"
 
 async function getUserId(
   request: Request,
@@ -86,25 +87,14 @@ export async function GET(
     const { userId, error } = await getUserId(request, presentationId)
     if (error) return error
 
-    const combinedPath = `${userId}/audio/${presentationId}/combined.wav`
+    // Check if cached combined.wav exists in R2
+    const r2Key = `audio/${userId}/audio/${presentationId}/combined.wav`
+    const cached = await fileExists(r2Key)
 
-    // Check if cached combined.wav exists
-    const { data: existing } = await admin.storage
-      .from("presentation-files")
-      .list(`${userId}/audio/${presentationId}`, { limit: 100 })
-
-    const hasCachedFile = existing?.some((f) => f.name === "combined.wav")
-
-    if (hasCachedFile) {
-      // Redirect to Supabase Storage CDN — instant Range requests,
-      // no serverless proxy overhead. Browser follows the redirect
-      // transparently, re-sending Range headers to the CDN.
-      const { data: signed } = await admin.storage
-        .from("presentation-files")
-        .createSignedUrl(combinedPath, 86400)
-
-      if (signed?.signedUrl) {
-        return NextResponse.redirect(signed.signedUrl)
+    if (cached) {
+      const url = await createSignedUrl(r2Key)
+      if (url) {
+        return NextResponse.redirect(url)
       }
     }
 
@@ -151,14 +141,10 @@ export async function GET(
 
     const combined = concatWavBuffers(wavBuffers)
 
-    // Store combined audio for future requests (blocking — ensures cache is ready)
-    await admin.storage
-      .from("presentation-files")
-      .upload(combinedPath, combined, {
-        contentType: "audio/wav",
-        upsert: true,
-      })
-      .catch(() => {}) // Non-critical — will regenerate next time if upload fails
+    // Store combined audio in R2 for future requests (fire-and-forget)
+    import("@/lib/r2").then(({ uploadFile }) => {
+      uploadFile(r2Key, combined, "audio/wav").catch(() => {})
+    })
 
     const rangeHeader = request.headers.get("range")
     return serveWav(combined, rangeHeader, new Date().toISOString())
