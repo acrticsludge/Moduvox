@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { Download, Eye, Loader2 } from "lucide-react"
 
 type Viewer = {
@@ -24,7 +24,8 @@ export function ViewerTable({
 }) {
   const [viewers, setViewers] = useState<Viewer[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState("")
+  const [stale, setStale] = useState(false)
+  const consecutiveErrors = useRef(0)
 
   const fetchViewers = useCallback(async () => {
     try {
@@ -32,9 +33,16 @@ export function ViewerTable({
       if (!res.ok) throw new Error("Failed to fetch")
       const json = await res.json()
       setViewers(json.data.viewers)
-      setError("")
+      setStale(false)
+      consecutiveErrors.current = 0
     } catch {
-      setError("Failed to load viewers")
+      consecutiveErrors.current++
+      setViewers((prev) => {
+        if (prev.length > 0) {
+          setStale(true)
+        }
+        return prev
+      })
     } finally {
       setLoading(false)
     }
@@ -44,9 +52,11 @@ export function ViewerTable({
     fetchViewers()
   }, [fetchViewers])
 
-  // Auto-refresh every 30s
+  // Auto-refresh every 30s, stop after 5 consecutive errors
   useEffect(() => {
-    const interval = setInterval(fetchViewers, 30000)
+    const interval = setInterval(() => {
+      if (consecutiveErrors.current < 5) fetchViewers()
+    }, 30000)
     return () => clearInterval(interval)
   }, [fetchViewers])
 
@@ -79,15 +89,7 @@ export function ViewerTable({
     )
   }
 
-  if (error) {
-    return (
-      <div className="rounded-xl border border-zinc-200 bg-white p-6">
-        <p className="text-sm text-red-600">{error}</p>
-      </div>
-    )
-  }
-
-  if (viewers.length === 0) {
+  if (viewers.length === 0 && !loading) {
     return (
       <div className="rounded-xl border border-zinc-200 bg-white p-6">
         <div className="flex flex-col items-center gap-3 py-8">
@@ -111,6 +113,12 @@ export function ViewerTable({
           <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-500">
             {viewers.length}
           </span>
+          {stale && (
+            <span className="flex items-center gap-1 text-xs text-amber-600">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+              Connection lost
+            </span>
+          )}
         </h3>
         <button
           type="button"
