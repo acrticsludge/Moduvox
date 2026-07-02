@@ -33,12 +33,24 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
   const [muted, setMuted] = useState(false)
   const [showTimeRemaining, setShowTimeRemaining] = useState(false)
   const [showVolumeSlider, setShowVolumeSlider] = useState(false)
+  const [resolvedUrl, setResolvedUrl] = useState<string | undefined>(audioUrl)
+
+  // If audioUrl wasn't provided (combined.wav doesn't exist yet), call ensure endpoint
+  useEffect(() => {
+    if (resolvedUrl) return
+    fetch(`/api/presentations/${presentationId}/audio/ensure?session=${sessionToken}`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.data?.audioUrl) setResolvedUrl(json.data.audioUrl)
+      })
+      .catch(() => {})
+  }, [resolvedUrl, presentationId, sessionToken])
 
   // Howler initialization
   useEffect(() => {
-    if (!audioUrl) return
+    if (!resolvedUrl) return
     const howl = new Howl({
-      src: [audioUrl],
+      src: [resolvedUrl],
       format: ["wav"],
       html5: true,
       preload: true,
@@ -78,7 +90,7 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
       howl.unload()
       howlRef.current = null
     }
-  }, [audioUrl, totalDurationMs])
+  }, [resolvedUrl, totalDurationMs])
 
   // RAF polling (replaces onTimeUpdate)
   function startPolling() {
