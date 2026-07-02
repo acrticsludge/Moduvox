@@ -76,7 +76,7 @@ export default function ViewPresentationPage() {
   const shareToken = params.shareToken
 
   const [state, setState] = useState<PageState>({ type: "loading" })
-  const viewDataRef = useRef<{ title: string; created_at?: string; slide_count?: number; expires_at?: string | null } | null>(null)
+  const viewDataRef = useRef<{ title: string; created_at?: string; slide_count?: number; expires_at?: string | null; total_duration_ms?: number; viewer_created_at?: string | null } | null>(null)
 
   useEffect(() => {
     const sessionFromUrl = searchParams.get("session")
@@ -331,6 +331,8 @@ export default function ViewPresentationPage() {
               createdAt={viewDataRef.current?.created_at || new Date().toISOString()}
               slideCount={viewDataRef.current?.slide_count || 0}
               expiresAt={viewDataRef.current?.expires_at || null}
+              totalDurationMs={viewDataRef.current?.total_duration_ms}
+              viewerFirstViewed={viewDataRef.current?.viewer_created_at || undefined}
             />
             <main id="viewer-main-content" className="flex flex-1" />
           </div>

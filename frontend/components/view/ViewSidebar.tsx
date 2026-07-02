@@ -10,6 +10,7 @@ type ViewSidebarProps = {
   slideCount: number
   expiresAt: string | null
   viewerFirstViewed?: string
+  totalDurationMs?: number
 }
 
 function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
@@ -24,7 +25,18 @@ function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string;
   )
 }
 
-export function ViewSidebar({ title, createdAt, slideCount, expiresAt, viewerFirstViewed }: ViewSidebarProps) {
+function formatDuration(ms: number): string {
+  const totalSeconds = Math.floor(ms / 1000)
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+  if (hours > 0) {
+    return `${hours}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
+  }
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`
+}
+
+export function ViewSidebar({ title, createdAt, slideCount, expiresAt, viewerFirstViewed, totalDurationMs }: ViewSidebarProps) {
   const [copied, setCopied] = useState(false)
 
   function handleCopyLink() {
@@ -46,7 +58,7 @@ export function ViewSidebar({ title, createdAt, slideCount, expiresAt, viewerFir
               label="Created"
               value={new Date(createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
             />
-            <InfoRow icon={<Clock className="h-4 w-4" />} label="Duration" value="9:45" />
+            <InfoRow icon={<Clock className="h-4 w-4" />} label="Duration" value={totalDurationMs ? formatDuration(totalDurationMs) : "—"} />
             <InfoRow icon={<Layers className="h-4 w-4" />} label="Slides" value={String(slideCount)} />
           </div>
 

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { getAllSlideDurations } from "@/lib/wav-duration"
 
 export async function GET(
   request: Request,
@@ -36,14 +37,16 @@ export async function GET(
   const { searchParams } = new URL(request.url)
   const sessionToken = searchParams.get("session")
   let sessionVerified = false
+  let viewer: { id: string; email_verified: boolean; created_at: string } | null = null
 
   if (sessionToken) {
-    const { data: viewer } = await supabase
+    const { data: sessionViewer } = await supabase
       .from("viewers")
-      .select("id, email_verified")
+      .select("id, email_verified, created_at")
       .eq("session_token", sessionToken)
       .eq("presentation_id", presentation.id)
       .single()
+    viewer = sessionViewer
 
     if (viewer?.email_verified) {
       sessionVerified = true
@@ -65,6 +68,14 @@ export async function GET(
   }
 
   // No gate (or session verified) — return minimal verified response
+  let totalDurationMs = 0
+  try {
+    const timings = await getAllSlideDurations(presentation.user_id, presentation.id, presentation.slide_count || 0)
+    totalDurationMs = timings.reduce((sum, t) => sum + t.durationMs, 0)
+  } catch {
+    // non-critical
+  }
+
   return NextResponse.json({
     data: {
       verified: true,
@@ -72,6 +83,8 @@ export async function GET(
       created_at: presentation.created_at,
       slide_count: presentation.slide_count || 0,
       expires_at: presentation.expires_at,
+      total_duration_ms: totalDurationMs,
+      viewer_created_at: sessionVerified && viewer ? viewer.created_at : null,
     },
   })
 }
