@@ -39,6 +39,7 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
   useEffect(() => {
     const howl = new Howl({
       src: [audioUrl],
+      format: ["wav"],
       html5: true,
       preload: true,
       onload: () => {
