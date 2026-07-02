@@ -8,6 +8,7 @@ import { EmailSentScreen } from "@/components/view/EmailSentScreen"
 import { VerifyErrorScreen } from "@/components/view/VerifyErrorScreen"
 import { ViewNavbar } from "@/components/view/ViewNavbar"
 import { ViewFooter } from "@/components/view/ViewFooter"
+import { ViewAudioBar } from "@/components/view/ViewAudioBar"
 
 type PresentationMeta = {
   id: string
@@ -314,7 +315,11 @@ export default function ViewPresentationPage() {
       return (
         <div className="flex min-h-screen flex-col bg-[#F9FAFB]">
           <ViewNavbar />
-          <main className="flex-1" />
+          <div className="flex flex-1">
+            <aside className="hidden w-64 border-r border-zinc-200 bg-white md:block" />
+            <main className="flex-1" />
+          </div>
+          <ViewAudioBar />
           <ViewFooter />
         </div>
       )
