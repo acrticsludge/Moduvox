@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Loader2 } from "lucide-react"
 import { Slider } from "@/components/ui/slider"
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip"
@@ -16,68 +16,54 @@ type ViewAudioBarProps = {
 }
 
 export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationId, totalDurationMs }: ViewAudioBarProps) {
+  const audioRef = useRef<HTMLAudioElement>(null)
+  const liveRef = useRef<HTMLDivElement>(null)
+  const isSeeking = useRef(false)
+  const trackedOpened = useRef(false)
+
+  const [ready, setReady] = useState(false)
   const [playing, setPlaying] = useState(false)
-  const [displayTime, setDisplayTime] = useState(0)
+  const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(totalDurationMs ? Math.floor(totalDurationMs / 1000) : 0)
   const [speedIndex, setSpeedIndex] = useState(1)
   const [volume, setVolume] = useState(80)
   const [muted, setMuted] = useState(false)
   const [showTimeRemaining, setShowTimeRemaining] = useState(false)
   const [showVolumeSlider, setShowVolumeSlider] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const liveRef = useRef<HTMLDivElement>(null)
-  const audioRef = useRef<HTMLAudioElement | null>(null)
-  const rafRef = useRef<number>(0)
-  const isSeeking = useRef(false)
 
   const audioUrl = `/api/presentations/${presentationId}/audio/combined?session=${sessionToken}`
 
-  // Sync display time with audio using requestAnimationFrame (throttled)
-  // Skipped while user is dragging the slider
-  const updateDisplay = useCallback(() => {
-    const audio = audioRef.current
-    if (!audio || audio.paused || isSeeking.current) return
-    setDisplayTime(Math.floor(audio.currentTime))
-    rafRef.current = requestAnimationFrame(updateDisplay)
+  // Native audio event handlers
+  function onPlay() { setPlaying(true) }
+  function onPause() { setPlaying(false) }
+  function onTimeUpdate() {
+    if (isSeeking.current) return
+    const a = audioRef.current
+    if (a) setCurrentTime(Math.floor(a.currentTime))
+  }
+  function onLoadedMeta() {
+    const a = audioRef.current
+    if (!a) return
+    const d = totalDurationMs ? Math.floor(totalDurationMs / 1000) : Math.floor(a.duration)
+    setDuration(d)
+    setReady(true)
+  }
+  function onCanPlay() {
+    setReady(true)
+  }
+  function onEnded() {
+    setPlaying(false)
+    sendTracking("completed", 100)
+  }
+
+  // Track "opened" once
+  useEffect(() => {
+    if (trackedOpened.current) return
+    trackedOpened.current = true
+    sendTracking("opened")
   }, [])
 
-  useEffect(() => {
-    const audio = new Audio(audioUrl)
-    audio.preload = "auto"
-    audioRef.current = audio
-
-    const onLoadedMeta = () => {
-      const d = totalDurationMs ? Math.floor(totalDurationMs / 1000) : Math.floor(audio.duration)
-      setDuration(d)
-    }
-    const onCanPlay = () => {
-      setLoading(false)
-      setDuration(totalDurationMs ? Math.floor(totalDurationMs / 1000) : Math.floor(audio.duration))
-    }
-    const onEnded = () => { setPlaying(false); sendTracking("completed", 100) }
-    const onError = () => setLoading(false)
-
-    audio.addEventListener("loadedmetadata", onLoadedMeta)
-    audio.addEventListener("canplay", onCanPlay)
-    audio.addEventListener("ended", onEnded)
-    audio.addEventListener("error", onError)
-
-    return () => {
-      audio.removeEventListener("loadedmetadata", onLoadedMeta)
-      audio.removeEventListener("canplay", onCanPlay)
-      audio.removeEventListener("ended", onEnded)
-      audio.removeEventListener("error", onError)
-      cancelAnimationFrame(rafRef.current)
-      audio.pause()
-      audio.src = ""
-      audioRef.current = null
-    }
-  }, [audioUrl, totalDurationMs])
-
-  // Track opened on mount
-  useEffect(() => { sendTracking("opened") }, [])
-
-  // Track closed on tab close
+  // Track "closed" on tab close
   useEffect(() => {
     function handleVisibility() {
       if (document.visibilityState === "hidden") {
@@ -95,13 +81,13 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
       if ((e.target as HTMLElement)?.tagName === "INPUT") return
       switch (e.key) {
         case " ": e.preventDefault(); togglePlay(); break
-        case "ArrowLeft": skipBack(10); break
-        case "ArrowRight": skipForward(10); break
+        case "ArrowLeft": skipSeconds(-10); break
+        case "ArrowRight": skipSeconds(10); break
       }
     }
     window.addEventListener("keydown", handleKey)
     return () => window.removeEventListener("keydown", handleKey)
-  }, [playing])
+  })
 
   // ARIA live region
   useEffect(() => {
@@ -119,79 +105,55 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
   }
 
   function togglePlay() {
-    const audio = audioRef.current
-    if (!audio) return
-    if (audio.paused) {
-      audio.play().catch(() => {})
-      setPlaying(true)
-      rafRef.current = requestAnimationFrame(updateDisplay)
+    const a = audioRef.current
+    if (!a) return
+    if (a.paused) {
+      a.play().catch(() => {})
     } else {
-      audio.pause()
-      setPlaying(false)
-      cancelAnimationFrame(rafRef.current)
+      a.pause()
     }
   }
 
-  const skipTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  function skipBack(seconds = 10) {
-    const audio = audioRef.current
-    if (!audio) return
-    // Debounce rapid skips — ignore if last skip was <100ms ago
-    if (skipTimer.current) return
-    skipTimer.current = setTimeout(() => { skipTimer.current = null }, 100)
-    audio.currentTime = Math.max(0, audio.currentTime - seconds)
-    setDisplayTime(Math.floor(audio.currentTime))
+  function skipSeconds(offset: number) {
+    const a = audioRef.current
+    if (!a) return
+    const newTime = Math.max(0, Math.min(a.duration || 0, a.currentTime + offset))
+    a.currentTime = newTime
+    setCurrentTime(Math.floor(newTime))
   }
 
-  function skipForward(seconds = 10) {
-    const audio = audioRef.current
-    if (!audio) return
-    if (skipTimer.current) return
-    skipTimer.current = setTimeout(() => { skipTimer.current = null }, 100)
-    audio.currentTime = Math.min(duration, audio.currentTime + seconds)
-    setDisplayTime(Math.floor(audio.currentTime))
-  }
-
-  function handleSeekStart() {
-    isSeeking.current = true
-  }
-
-  function handleSeek(value: number[]) {
-    // Update display during drag (responsive visual feedback)
-    setDisplayTime(value[0])
-  }
-
+  function handleSeekStart() { isSeeking.current = true }
+  function handleSeek(value: number[]) { setCurrentTime(value[0]) }
   function handleSeekEnd(value: number[]) {
-    const audio = audioRef.current
-    if (!audio) return
-    audio.currentTime = value[0]
-    setDisplayTime(value[0])
+    const a = audioRef.current
+    if (!a) return
+    a.currentTime = value[0]
+    setCurrentTime(value[0])
     isSeeking.current = false
   }
 
   function cycleSpeed() {
-    const audio = audioRef.current
-    if (!audio) return
+    const a = audioRef.current
+    if (!a) return
     const nextIndex = (speedIndex + 1) % SPEEDS.length
     setSpeedIndex(nextIndex)
-    audio.playbackRate = SPEEDS[nextIndex]
+    a.playbackRate = SPEEDS[nextIndex]
   }
 
-  function handleVolumeChange(value: number[]) {
-    const audio = audioRef.current
-    if (!audio) return
+  function handleVolume(value: number[]) {
+    const a = audioRef.current
+    if (!a) return
     setVolume(value[0])
-    audio.volume = value[0] / 100
-    audio.muted = false
+    a.volume = value[0] / 100
+    a.muted = false
     setMuted(false)
   }
 
   function toggleMute() {
-    const audio = audioRef.current
-    if (!audio) return
-    audio.muted = !audio.muted
-    setMuted(audio.muted)
+    const a = audioRef.current
+    if (!a) return
+    a.muted = !a.muted
+    setMuted(a.muted)
   }
 
   function formatTime(seconds: number): string {
@@ -202,12 +164,11 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
   }
 
   const timeLabel = showTimeRemaining
-    ? `-${formatTime(duration - displayTime)} / ${formatTime(duration)}`
-    : `${formatTime(displayTime)} / ${formatTime(duration)}`
-
+    ? `-${formatTime(duration - currentTime)} / ${formatTime(duration)}`
+    : `${formatTime(currentTime)} / ${formatTime(duration)}`
   const currentSpeed = SPEEDS[speedIndex]
 
-  if (loading) {
+  if (!ready) {
     return (
       <div className="flex items-center justify-center gap-2 border-t border-zinc-200 bg-white px-4 py-3">
         <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />
@@ -219,11 +180,23 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
   return (
     <TooltipProvider delayDuration={300}>
       <div className="border-t border-zinc-200 bg-white">
+        <audio
+          ref={audioRef}
+          src={audioUrl}
+          preload="auto"
+          onPlay={onPlay}
+          onPause={onPause}
+          onTimeUpdate={onTimeUpdate}
+          onLoadedMetadata={onLoadedMeta}
+          onCanPlay={onCanPlay}
+          onEnded={onEnded}
+        />
+
         <div className="mx-auto flex max-w-[1400px] items-center gap-1.5 px-4 py-2.5">
           {/* Skip back 10s */}
           <Tooltip>
             <TooltipTrigger asChild>
-              <button type="button" aria-label="Skip back 10 seconds" onClick={() => skipBack(10)}
+              <button type="button" aria-label="Skip back 10 seconds" onClick={() => skipSeconds(-10)}
                 className="flex h-8 w-8 items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300">
                 <SkipBack className="h-4 w-4" />
               </button>
@@ -245,7 +218,7 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
           {/* Skip forward 10s */}
           <Tooltip>
             <TooltipTrigger asChild>
-              <button type="button" aria-label="Skip forward 10 seconds" onClick={() => skipForward(10)}
+              <button type="button" aria-label="Skip forward 10 seconds" onClick={() => skipSeconds(10)}
                 className="flex h-8 w-8 items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300">
                 <SkipForward className="h-4 w-4" />
               </button>
@@ -256,10 +229,13 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
           {/* Progress slider */}
           <div className="flex flex-1 items-center gap-3">
             <Slider
-              value={[Math.min(displayTime, duration)]}
+              value={[Math.min(currentTime, duration || 1)]}
               max={duration || 1}
               step={1}
-              onValueCommit={handleSeek}
+              onFocus={handleSeekStart}
+              onBlur={() => { isSeeking.current = false }}
+              onValueChange={handleSeek}
+              onValueCommit={handleSeekEnd}
               aria-label="Presentation progress"
             />
             {/* Time display */}
@@ -291,7 +267,7 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
             </button>
             {showVolumeSlider && (
               <div className="w-20">
-                <Slider value={[muted ? 0 : volume]} max={100} step={1} onValueChange={handleVolumeChange} aria-label="Volume" />
+                <Slider value={[muted ? 0 : volume]} max={100} step={1} onValueChange={handleVolume} aria-label="Volume" />
               </div>
             )}
           </div>

@@ -1,4 +1,29 @@
-const HEADER_SIZE = 44
+/**
+ * Walk a WAV buffer to find the byte offset where the "data" chunk starts.
+ * Standard WAVs have `fmt ` at 12 and `data` at 36, but some tools insert
+ * extra chunks (fact, list, cue, etc.) between fmt and data.
+ */
+function findDataOffset(buf: Buffer): number {
+  // Start looking after the fmt chunk (which ends at offset 12 + 8 + chunkSize)
+  // fmt chunk ID is at 12, chunk size at 16 (4 bytes)
+  let offset = 12
+  while (offset + 8 < buf.length) {
+    const chunkId = buf.toString("ascii", offset, offset + 4)
+    const chunkSize = buf.readUInt32LE(offset + 4)
+    if (chunkId === "data") {
+      return offset + 8 // data starts after the 8-byte chunk header
+    }
+    offset += 8 + chunkSize
+    // Pad to even boundary (RIFF chunks are WORD-aligned)
+    if (chunkSize % 2 !== 0) offset += 1
+  }
+  return -1
+}
+
+function getDataSize(buf: Buffer, dataOffset: number): number {
+  // The data chunk size is the 4 bytes BEFORE the data payload
+  return buf.readUInt32LE(dataOffset - 4)
+}
 
 /** Detect what format a buffer actually is, based on magic bytes. */
 export function detectFormat(buf: Buffer): string {
@@ -19,7 +44,7 @@ export function detectFormat(buf: Buffer): string {
 }
 
 export function isValidWav(buf: Buffer): boolean {
-  if (buf.length < HEADER_SIZE) return false
+  if (buf.length < 44) return false
   if (buf.toString("ascii", 0, 4) !== "RIFF") return false
   if (buf.toString("ascii", 8, 12) !== "WAVE") return false
   const fmt = buf.readUInt16LE(20)
@@ -55,11 +80,18 @@ export function concatWavBuffers(buffers: Buffer[]): Buffer {
     }
   }
 
-  const pcmChunks = valid.map((buf) => buf.subarray(HEADER_SIZE))
+  // Extract PCM data using proper chunk walking instead of hardcoded offset
+  const pcmChunks = valid.map((buf) => {
+    const dataOff = findDataOffset(buf)
+    if (dataOff === -1) throw new Error("No data chunk found in WAV buffer")
+    return buf.subarray(dataOff)
+  })
+
   const totalDataSize = pcmChunks.reduce((sum, chunk) => sum + chunk.length, 0)
   const combined = Buffer.concat(pcmChunks, totalDataSize)
 
-  const header = Buffer.alloc(HEADER_SIZE)
+  const headerLen = 44
+  const header = Buffer.alloc(headerLen)
   header.write("RIFF", 0, "ascii")
   header.writeUInt32LE(36 + totalDataSize, 4)
   header.write("WAVE", 8, "ascii")
@@ -74,5 +106,5 @@ export function concatWavBuffers(buffers: Buffer[]): Buffer {
   header.write("data", 36, "ascii")
   header.writeUInt32LE(totalDataSize, 40)
 
-  return Buffer.concat([header, combined], HEADER_SIZE + totalDataSize)
+  return Buffer.concat([header, combined], headerLen + totalDataSize)
 }
