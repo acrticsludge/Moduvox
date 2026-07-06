@@ -1,52 +1,91 @@
 // frontend/lib/voxcpm.ts
-import { Client, FileData } from "@gradio/client"
+// Uses raw fetch to Gradio API — bypasses @gradio/client which hangs on Vercel
 
 const DEFAULT_SPACE_ID = process.env.VOXCPM2_SPACE_ID || "openbmb/VoxCPM-Demo"
 
 export type VoxCPMInput = {
-  /** The narration text to synthesize */
   targetText: string
-  /** Reference audio file (null for preset/voice-design mode) */
   referenceAudio?: File | null
-  /** For Standard mode: tone/style instructions passed as control_instruction */
   toneInstructions?: string
-  /** Ultimate cloning mode — preserves every nuance, disables toneInstructions */
   ultimateMode?: boolean
-  /** Transcript of reference audio (auto-filled by ASR in ultimate mode) */
   promptText?: string
-  /** CFG guidance scale 1.0–3.0 (default 2.0). Higher = closer to reference. */
   cfgValue?: number
-  /** Apply text normalization (default true) */
   normalize?: boolean
-  /** Denoise reference audio before cloning (default false) */
   refDenoise?: boolean
 }
 
 export type VoxCPMResult = {
-  /** URL to the generated audio file (hosted on HF Space, temporary) */
   audioUrl: string
-  /** The raw FileData from Gradio response */
-  fileData: FileData
+  fileData: Record<string, unknown>
 }
 
-/**
- * Generate audio using VoxCPM2 via the HuggingFace Gradio Space.
- *
- * Three modes based on inputs:
- * 1. Voice Design (preset) — no referenceAudio, uses toneInstructions as voice description
- * 2. Controllable Cloning (Standard) — referenceAudio + optional toneInstructions
- * 3. Ultimate Cloning — referenceAudio + ultimateMode=true (toneInstructions ignored)
- */
-/**
- * Connect to Gradio with a 30-second timeout.
- * HF Spaces can cold-start for 30-60s — timeout fast so the caller can
- * return a user-friendly error instead of hanging for 5 minutes.
- */
-async function connectWithTimeout(spaceId: string, timeoutMs = 30_000) {
-  const timeout = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error(`Gradio connection timed out after ${timeoutMs}ms`)), timeoutMs)
-  )
-  return Promise.race([Client.connect(spaceId), timeout])
+/** Upload files to Gradio and return file references. */
+async function uploadFiles(
+  spaceUrl: string,
+  apiPrefix: string,
+  files: Blob[],
+  timeoutMs = 30_000,
+): Promise<Record<string, unknown>[]> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    const formData = new FormData()
+    for (const file of files) {
+      // FormData in Node.js 22 accepts Blob
+      formData.append("files", file)
+    }
+
+    const res = await fetch(`${spaceUrl}${apiPrefix}/upload`, {
+      method: "POST",
+      body: formData,
+      signal: controller.signal,
+    })
+    if (!res.ok) {
+      const text = await res.text()
+      throw new Error(`Upload failed (${res.status}): ${text.slice(0, 200)}`)
+    }
+    return await res.json()
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/** Poll the Gradio SSE endpoint until complete or timeout. */
+async function pollResult(
+  pollUrl: string,
+  timeoutMs = 120_000,
+): Promise<{ data: unknown[] }> {
+  const deadline = Date.now() + timeoutMs
+
+  while (Date.now() < deadline) {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 30_000)
+
+    try {
+      const res = await fetch(pollUrl, { signal: controller.signal })
+      const text = await res.text()
+      const lines = text.split("\n")
+
+      for (const line of lines) {
+        if (line.startsWith("data: ")) {
+          const payload = JSON.parse(line.slice(6))
+          if (payload.type === "complete" || payload.type === "data") {
+            return { data: payload.data || [] }
+          }
+          if (payload.type === "error") {
+            throw new Error(`Gradio error: ${payload.error || "Unknown error"}`)
+          }
+        }
+      }
+    } finally {
+      clearTimeout(timer)
+    }
+
+    await new Promise((r) => setTimeout(r, 500))
+  }
+
+  throw new Error(`Gradio prediction timed out after ${timeoutMs}ms`)
 }
 
 export async function generateAudio(input: VoxCPMInput): Promise<VoxCPMResult> {
@@ -61,93 +100,92 @@ export async function generateAudio(input: VoxCPMInput): Promise<VoxCPMResult> {
     refDenoise = false,
   } = input
 
-  const client = await connectWithTimeout(DEFAULT_SPACE_ID)
+  const spaceUrl = `https://${DEFAULT_SPACE_ID.replace("/", "-")}.hf.space`
+  const apiPrefix = "/gradio_api"
 
-  // Gradio API expects positional args as an array, not keyword arguments
-  // Order: target_text, control_instruction, reference_audio,
-  //        ultimate_cloning_mode, prompt_text, cfg_value, normalize, ref_denoise
-  const predictTimeout = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error("Gradio prediction timed out after 120s")), 120_000)
-  )
-  const result = await Promise.race([
-    client.predict("/generate", [
+  // Upload reference audio if provided
+  let refAudioRefs: Record<string, unknown>[] = []
+  if (referenceAudio) {
+    const refBuffer = await referenceAudio.arrayBuffer()
+    const blob = new Blob([refBuffer], { type: referenceAudio.type || "audio/wav" })
+    refAudioRefs = await uploadFiles(spaceUrl, apiPrefix, [blob])
+  }
+
+  // Start prediction
+  const body: { data: unknown[] } = {
+    data: [
       targetText,
       ultimateMode ? "" : toneInstructions,
-      referenceAudio,
+      refAudioRefs.length > 0 ? refAudioRefs : null,
       ultimateMode,
       promptText,
       cfgValue,
       normalize,
       refDenoise,
-    ]),
-    predictTimeout,
-  ])
-
-  // Gradio Audio components return FileData with: { url, path, orig_name, mime_type }
-  // The URL points to a temporary file on the HF Space.
-  const data = result.data as FileData[]
-  const fileData = data[0] as FileData & { mime_type?: string; orig_name?: string }
-
-  // Use url if available, otherwise construct from path
-  const audioUrl = fileData.url
-    || (fileData.path ? `https://${DEFAULT_SPACE_ID.replace("/", "-")}.hf.space/file=${fileData.path}` : "")
-    || ""
-
-  return {
-    audioUrl,
-    fileData,
+    ],
   }
+
+  const startController = new AbortController()
+  const startTimer = setTimeout(() => startController.abort(), 30_000)
+  let eventId: string
+
+  try {
+    const startRes = await fetch(`${spaceUrl}${apiPrefix}/call/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: startController.signal,
+    })
+    if (!startRes.ok) {
+      const text = await startRes.text()
+      throw new Error(`Gradio API error (${startRes.status}): ${text.slice(0, 200)}`)
+    }
+    const startJson = await startRes.json()
+    eventId = startJson.event_id
+    if (!eventId) throw new Error("Gradio API did not return an event_id")
+  } finally {
+    clearTimeout(startTimer)
+  }
+
+  // Poll for result
+  const pollUrl = `${spaceUrl}${apiPrefix}/call/generate/${eventId}`
+  const result = await pollResult(pollUrl)
+
+  const data = result.data as Record<string, unknown>[]
+  const fileData = data[0] as Record<string, unknown> & { url?: string; path?: string }
+
+  const audioUrl =
+    fileData.url ||
+    (fileData.path
+      ? `${spaceUrl}/file=${fileData.path}`
+      : "") ||
+    ""
+
+  return { audioUrl, fileData }
 }
 
-/**
- * Generate audio using a preset voice description (Voice Design mode).
- * No reference audio needed — VoxCPM2 creates a voice from the description.
- */
 export async function generateWithPreset(
   targetText: string,
   voiceDescription: string,
   cfgValue = 2.0,
 ): Promise<VoxCPMResult> {
-  return generateAudio({
-    targetText,
-    toneInstructions: voiceDescription,
-    cfgValue,
-  })
+  return generateAudio({ targetText, toneInstructions: voiceDescription, cfgValue })
 }
 
-/**
- * Generate audio with a cloned voice + optional tone instructions (Standard mode).
- */
 export async function generateWithClone(
   targetText: string,
   referenceAudio: File,
   toneInstructions = "",
   cfgValue = 2.0,
 ): Promise<VoxCPMResult> {
-  return generateAudio({
-    targetText,
-    referenceAudio,
-    toneInstructions,
-    cfgValue,
-    ultimateMode: false,
-  })
+  return generateAudio({ targetText, referenceAudio, toneInstructions, cfgValue, ultimateMode: false })
 }
 
-/**
- * Generate audio in Ultimate Cloning mode.
- * Preserves every nuance of the reference. toneInstructions are ignored by VoxCPM2.
- */
 export async function generateUltimateClone(
   targetText: string,
   referenceAudio: File,
   promptText = "",
   cfgValue = 2.0,
 ): Promise<VoxCPMResult> {
-  return generateAudio({
-    targetText,
-    referenceAudio,
-    ultimateMode: true,
-    promptText,
-    cfgValue,
-  })
+  return generateAudio({ targetText, referenceAudio, ultimateMode: true, promptText, cfgValue })
 }

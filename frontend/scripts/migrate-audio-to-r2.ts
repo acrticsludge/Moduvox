@@ -10,7 +10,6 @@
  */
 
 import { createClient } from "@supabase/supabase-js"
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3"
 import * as fs from "fs"
 import * as path from "path"
 
@@ -44,7 +43,8 @@ async function main() {
     auth: { autoRefreshToken: false, persistSession: false },
   })
 
-  const r2 = new S3Client({
+  const { S3Client: R2Client, PutObjectCommand: PutCmd } = await import("@aws-sdk/client-s3")
+  const r2 = new R2Client({
     region: "auto",
     endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
     credentials: { accessKeyId: R2_ACCESS_KEY, secretAccessKey: R2_SECRET },
@@ -84,7 +84,7 @@ async function main() {
     // Upload to R2
     try {
       await r2.send(
-        new PutObjectCommand({
+        new PutCmd({
           Bucket: R2_BUCKET,
           Key: key,
           Body: buffer,
