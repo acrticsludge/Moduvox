@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import { generateWithPreset, generateWithClone } from "@/lib/voxcpm"
-import { createDownloadUrl, downloadFileAsBuffer, uploadFile } from "@/lib/r2"
+import { createDownloadUrl, downloadFileAsBuffer, uploadFile, fileExists } from "@/lib/r2"
 
 const testVoiceSchema = z.object({
   voice_id: z.string().uuid("Invalid voice ID"),
@@ -59,13 +59,17 @@ export async function POST(request: Request) {
 
   // ── Check for cached preview ───────────────────────
   if (voice.preview_audio_path) {
-    console.log("[TestVoice] Cached preview exists, generating signed URL...")
-    const audioUrl = await createDownloadUrl(voice.preview_audio_path, 3600)
-    if (audioUrl) {
-      console.log("[TestVoice] Returning cached preview:", audioUrl.slice(0, 80))
-      return NextResponse.json({ data: { audioUrl } })
+    console.log("[TestVoice] Cached preview path exists, checking R2...")
+    const exists = await fileExists(voice.preview_audio_path)
+    if (exists.success && exists.data) {
+      console.log("[TestVoice] File exists on R2, generating signed URL...")
+      const audioUrl = await createDownloadUrl(voice.preview_audio_path, 3600)
+      if (audioUrl) {
+        console.log("[TestVoice] Returning cached preview:", audioUrl.slice(0, 80))
+        return NextResponse.json({ data: { audioUrl } })
+      }
     }
-    console.log("[TestVoice] Signed URL failed, will regenerate")
+    console.log("[TestVoice] File not found on R2 (old Supabase path?), will regenerate")
   }
 
   // ── Generate new preview ────────────────────────────
