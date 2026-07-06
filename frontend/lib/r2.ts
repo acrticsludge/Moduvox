@@ -121,12 +121,21 @@ function handleAwsError(err: unknown): R2Error {
   return { success: false, error: String(err) }
 }
 
-async function readableToBuffer(stream: Readable): Promise<Buffer> {
+async function readableToBuffer(stream: Readable, timeoutMs = 30_000): Promise<Buffer> {
   const chunks: Buffer[] = []
-  for await (const chunk of stream) {
-    chunks.push(Buffer.from(chunk))
-  }
-  return Buffer.concat(chunks)
+
+  const reader = (async () => {
+    for await (const chunk of stream) {
+      chunks.push(Buffer.from(chunk))
+    }
+    return Buffer.concat(chunks)
+  })()
+
+  const timer = new Promise<Buffer>((_, reject) =>
+    setTimeout(() => reject(new Error(`Stream read timed out after ${timeoutMs}ms`)), timeoutMs),
+  )
+
+  return Promise.race([reader, timer])
 }
 
 // ── Direct S3 Operations (lazy SDK) ────────────────────────
