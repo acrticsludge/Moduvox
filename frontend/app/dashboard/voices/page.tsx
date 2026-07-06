@@ -271,28 +271,54 @@ function AddVoiceModal({
     setError(null)
 
     try {
-      const formData = new FormData()
-      formData.append("file", file)
-      formData.append("name", voiceName.trim())
-
-      const res = await fetch("/api/voices/upload", {
+      // Step 1: Get presigned upload URL
+      const fileExt = file.name.split(".").pop()?.toLowerCase() ?? "wav"
+      const metaRes = await fetch("/api/voices/upload", {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: voiceName.trim(),
+          file_ext: fileExt,
+          file_type: file.type,
+        }),
       })
-      const json = await res.json()
-      if (res.status === 429 && json.limitKey) {
+      const metaJson = await metaRes.json()
+      if (metaRes.status === 429 && metaJson.limitKey) {
         setQuotaResult({
           allowed: false,
-          limit: json.limit,
-          current: json.current,
-          limitKey: json.limitKey,
-          message: json.error,
+          limit: metaJson.limit,
+          current: metaJson.current,
+          limitKey: metaJson.limitKey,
+          message: metaJson.error,
         })
         setUploading(false)
         return
       }
-      if (!res.ok) throw new Error(typeof json.error === "string" ? json.error : "Failed to upload voice")
-      onCreated(json.data)
+      if (!metaRes.ok) throw new Error(typeof metaJson.error === "string" ? metaJson.error : "Failed to initiate upload")
+
+      const { presignedUrl, path } = metaJson.data
+
+      // Step 2: Upload file directly to R2
+      const uploadRes = await fetch(presignedUrl, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": file.type },
+      })
+      if (!uploadRes.ok) throw new Error("Failed to upload audio file")
+
+      // Step 3: Confirm upload and create voice record
+      const confirmRes = await fetch("/api/voices/upload/confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          path,
+          name: voiceName.trim(),
+        }),
+      })
+      const confirmJson = await confirmRes.json()
+      if (!confirmRes.ok) throw new Error(typeof confirmJson.error === "string" ? confirmJson.error : "Failed to save voice")
+
+      onCreated(confirmJson.data)
       onClose()
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong")
