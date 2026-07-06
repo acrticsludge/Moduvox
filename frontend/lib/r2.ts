@@ -11,14 +11,12 @@
 import type { Readable } from "stream"
 
 // ── Lazy SDK loader ────────────────────────────────────────
-// Dynamic imports prevent Turbopack from bundling the AWS SDK
-// during build-time prerendering of static pages (_global-error, _not-found).
+// Dynamic imports only — no static type imports from AWS SDK.
+// This prevents Turbopack from resolving the SDK during build-time
+// prerendering of static pages (_global-error, _not-found).
 
-type S3Client = InstanceType<typeof import("@aws-sdk/client-s3")["S3Client"]>
-type _Object = import("@aws-sdk/client-s3")._Object
-
-let s3Module: Promise<typeof import("@aws-sdk/client-s3")> | null = null
-let presignerModule: Promise<typeof import("@aws-sdk/s3-request-presigner")> | null = null
+let s3Module: Promise<any> | null = null
+let presignerModule: Promise<any> | null = null
 
 function loadAwsSdk() {
   if (!s3Module) s3Module = import("@aws-sdk/client-s3")
@@ -29,6 +27,8 @@ function loadPresigner() {
   if (!presignerModule) presignerModule = import("@aws-sdk/s3-request-presigner")
   return presignerModule
 }
+
+type S3Client = any // resolved at runtime via loadAwsSdk().S3Client
 
 // ── Configuration ──────────────────────────────────────────
 
@@ -207,7 +207,7 @@ export async function deleteFile(key: string): Promise<R2Response<{ key: string 
 /**
  * List files in the R2 bucket, optionally filtered by prefix.
  */
-export async function listFiles(prefix?: string): Promise<R2Response<_Object[]>> {
+export async function listFiles(prefix?: string): Promise<R2Response<any[]>> {
   const [{ ListObjectsV2Command }, client] = await Promise.all([loadAwsSdk(), createR2Client()])
   try {
     const cmd = new ListObjectsV2Command({
