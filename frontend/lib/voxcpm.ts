@@ -1,5 +1,6 @@
 // frontend/lib/voxcpm.ts
 // Uses raw fetch to Gradio API — bypasses @gradio/client which hangs on Vercel
+// Uses Promise.race for timeouts (AbortController/Signal don't reliably abort on Vercel)
 
 const DEFAULT_SPACE_ID = process.env.VOXCPM2_SPACE_ID || "openbmb/VoxCPM-Demo"
 
@@ -19,6 +20,16 @@ export type VoxCPMResult = {
   fileData: Record<string, unknown>
 }
 
+/** Race a promise against a timeout — doesn't rely on AbortSignal working */
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms),
+    ),
+  ])
+}
+
 /** Upload files to Gradio and return file references. */
 async function uploadFiles(
   spaceUrl: string,
@@ -26,29 +37,21 @@ async function uploadFiles(
   files: Blob[],
   timeoutMs = 30_000,
 ): Promise<Record<string, unknown>[]> {
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), timeoutMs)
-
-  try {
-    const formData = new FormData()
-    for (const file of files) {
-      // FormData in Node.js 22 accepts Blob
-      formData.append("files", file)
-    }
-
-    const res = await fetch(`${spaceUrl}${apiPrefix}/upload`, {
-      method: "POST",
-      body: formData,
-      signal: controller.signal,
-    })
-    if (!res.ok) {
-      const text = await res.text()
-      throw new Error(`Upload failed (${res.status}): ${text.slice(0, 200)}`)
-    }
-    return await res.json()
-  } finally {
-    clearTimeout(timer)
+  const formData = new FormData()
+  for (const file of files) {
+    formData.append("files", file)
   }
+
+  const res = await withTimeout(
+    fetch(`${spaceUrl}${apiPrefix}/upload`, { method: "POST", body: formData }),
+    timeoutMs,
+    "Upload",
+  )
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`Upload failed (${res.status}): ${text.slice(0, 200)}`)
+  }
+  return await res.json()
 }
 
 /** Poll the Gradio SSE endpoint until complete or timeout. */
@@ -59,27 +62,24 @@ async function pollResult(
   const deadline = Date.now() + timeoutMs
 
   while (Date.now() < deadline) {
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), 30_000)
+    const res = await withTimeout(
+      fetch(pollUrl),
+      30_000,
+      "Poll",
+    )
+    const text = await res.text()
+    const lines = text.split("\n")
 
-    try {
-      const res = await fetch(pollUrl, { signal: controller.signal })
-      const text = await res.text()
-      const lines = text.split("\n")
-
-      for (const line of lines) {
-        if (line.startsWith("data: ")) {
-          const payload = JSON.parse(line.slice(6))
-          if (payload.type === "complete" || payload.type === "data") {
-            return { data: payload.data || [] }
-          }
-          if (payload.type === "error") {
-            throw new Error(`Gradio error: ${payload.error || "Unknown error"}`)
-          }
+    for (const line of lines) {
+      if (line.startsWith("data: ")) {
+        const payload = JSON.parse(line.slice(6))
+        if (payload.type === "complete" || payload.type === "data") {
+          return { data: payload.data || [] }
+        }
+        if (payload.type === "error") {
+          throw new Error(`Gradio error: ${payload.error || "Unknown error"}`)
         }
       }
-    } finally {
-      clearTimeout(timer)
     }
 
     await new Promise((r) => setTimeout(r, 500))
@@ -125,27 +125,22 @@ export async function generateAudio(input: VoxCPMInput): Promise<VoxCPMResult> {
     ],
   }
 
-  const startController = new AbortController()
-  const startTimer = setTimeout(() => startController.abort(), 30_000)
-  let eventId: string
-
-  try {
-    const startRes = await fetch(`${spaceUrl}${apiPrefix}/call/generate`, {
+  const startRes = await withTimeout(
+    fetch(`${spaceUrl}${apiPrefix}/call/generate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
-      signal: startController.signal,
-    })
-    if (!startRes.ok) {
-      const text = await startRes.text()
-      throw new Error(`Gradio API error (${startRes.status}): ${text.slice(0, 200)}`)
-    }
-    const startJson = await startRes.json()
-    eventId = startJson.event_id
-    if (!eventId) throw new Error("Gradio API did not return an event_id")
-  } finally {
-    clearTimeout(startTimer)
+    }),
+    30_000,
+    "Predict start",
+  )
+  if (!startRes.ok) {
+    const text = await startRes.text()
+    throw new Error(`Gradio API error (${startRes.status}): ${text.slice(0, 200)}`)
   }
+  const startJson = await startRes.json()
+  const eventId = startJson.event_id
+  if (!eventId) throw new Error("Gradio API did not return an event_id")
 
   // Poll for result
   const pollUrl = `${spaceUrl}${apiPrefix}/call/generate/${eventId}`
