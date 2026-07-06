@@ -20,6 +20,11 @@ export type VoxCPMResult = {
   fileData: Record<string, unknown>
 }
 
+function log(tag: string, msg: string, data?: unknown) {
+  const extra = data ? ` | ${JSON.stringify(data).slice(0, 200)}` : ""
+  console.log(`[VoxCPM] ${tag}: ${msg}${extra}`)
+}
+
 /** Race a promise against a timeout — doesn't rely on AbortSignal working */
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   return Promise.race([
@@ -37,21 +42,28 @@ async function uploadFiles(
   files: Blob[],
   timeoutMs = 30_000,
 ): Promise<Record<string, unknown>[]> {
+  log("UPLOAD", `Starting upload of ${files.length} files (${files[0]?.size ?? 0} bytes)`)
+
   const formData = new FormData()
   for (const file of files) {
     formData.append("files", file, "audio.wav")
   }
 
+  const t0 = Date.now()
   const res = await withTimeout(
     fetch(`${spaceUrl}${apiPrefix}/upload`, { method: "POST", body: formData }),
     timeoutMs,
     "Upload",
   )
+  log("UPLOAD", `Response ${res.status} in ${Date.now() - t0}ms`)
+
   if (!res.ok) {
     const text = await res.text()
     throw new Error(`Upload failed (${res.status}): ${text.slice(0, 200)}`)
   }
-  return await res.json()
+  const json = await res.json()
+  log("UPLOAD", `Result: ${JSON.stringify(json).slice(0, 100)}`)
+  return json
 }
 
 /** Poll the Gradio SSE endpoint until complete or timeout. */
@@ -60,16 +72,20 @@ async function pollResult(
   timeoutMs = 120_000,
 ): Promise<{ data: unknown[] }> {
   const deadline = Date.now() + timeoutMs
+  let attempts = 0
 
   while (Date.now() < deadline) {
-    const res = await withTimeout(
-      fetch(pollUrl),
-      30_000,
-      "Poll",
-    )
+    attempts++
+    const t0 = Date.now()
+    const res = await withTimeout(fetch(pollUrl), 30_000, "Poll")
     const text = await res.text()
-    const lines = text.split("\n")
+    log("POLL", `Attempt ${attempts} — status ${res.status}, ${text.length} chars, took ${Date.now() - t0}ms`)
 
+    if (text.length > 10) {
+      log("POLL_RAW", text.slice(0, 300))
+    }
+
+    const lines = text.split("\n")
     let eventType = ""
     let dataJson = ""
 
@@ -81,12 +97,14 @@ async function pollResult(
       }
     }
 
-    if (eventType === "complete" || dataJson) {
+    if (eventType === "complete" && dataJson) {
       try {
         const data = JSON.parse(dataJson)
+        log("POLL", `Complete! Data has ${Array.isArray(data) ? data.length : "?"} items`)
         return { data: Array.isArray(data) ? data : data.data || [] }
-      } catch {
-        // data may not be valid JSON yet, keep polling
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e)
+        log("POLL", `JSON parse error: ${msg}`)
       }
     }
 
@@ -94,10 +112,22 @@ async function pollResult(
       throw new Error(`Gradio error: ${dataJson || "Unknown error"}`)
     }
 
+    // If we have data but no event type, it might be a different format
+    if (dataJson && !eventType) {
+      try {
+        const parsed = JSON.parse(dataJson)
+        const data = Array.isArray(parsed) ? parsed : parsed.data || []
+        if (data.length > 0) {
+          log("POLL", `Data found (no event type), returning ${data.length} items`)
+          return { data }
+        }
+      } catch { /* keep polling */ }
+    }
+
     await new Promise((r) => setTimeout(r, 500))
   }
 
-  throw new Error(`Gradio prediction timed out after ${timeoutMs}ms`)
+  throw new Error(`Gradio prediction timed out after ${timeoutMs}ms (${attempts} poll attempts)`)
 }
 
 export async function generateAudio(input: VoxCPMInput): Promise<VoxCPMResult> {
@@ -112,6 +142,8 @@ export async function generateAudio(input: VoxCPMInput): Promise<VoxCPMResult> {
     refDenoise = false,
   } = input
 
+  log("START", `targetText="${targetText.slice(0, 50)}..." refAudio=${referenceAudio ? "yes" : "no"} cfg=${cfgValue}`)
+
   const spaceUrl = `https://${DEFAULT_SPACE_ID.replace("/", "-")}.hf.space`
   const apiPrefix = "/gradio_api"
 
@@ -119,11 +151,14 @@ export async function generateAudio(input: VoxCPMInput): Promise<VoxCPMResult> {
   let refAudioRefs: Record<string, unknown>[] = []
   if (referenceAudio) {
     const refBuffer = await referenceAudio.arrayBuffer()
+    log("REF", `Reference audio: ${(refBuffer?.byteLength ?? 0)} bytes`)
     if (!refBuffer || refBuffer.byteLength === 0) {
       throw new Error("Reference audio is empty")
     }
     const blob = new Blob([refBuffer], { type: referenceAudio.type || "audio/wav" })
     refAudioRefs = await uploadFiles(spaceUrl, apiPrefix, [blob])
+  } else {
+    log("REF", "No reference audio (preset mode)")
   }
 
   // Start prediction
@@ -140,6 +175,9 @@ export async function generateAudio(input: VoxCPMInput): Promise<VoxCPMResult> {
     ],
   }
 
+  log("PREDICT", `Body: ${JSON.stringify(body).slice(0, 300)}`)
+
+  const t0 = Date.now()
   const startRes = await withTimeout(
     fetch(`${spaceUrl}${apiPrefix}/call/generate`, {
       method: "POST",
@@ -149,12 +187,15 @@ export async function generateAudio(input: VoxCPMInput): Promise<VoxCPMResult> {
     30_000,
     "Predict start",
   )
+  log("PREDICT", `Response ${startRes.status} in ${Date.now() - t0}ms`)
+
   if (!startRes.ok) {
     const text = await startRes.text()
     throw new Error(`Gradio API error (${startRes.status}): ${text.slice(0, 200)}`)
   }
   const startJson = await startRes.json()
   const eventId = startJson.event_id
+  log("PREDICT", `Event ID: ${eventId}`)
   if (!eventId) throw new Error("Gradio API did not return an event_id")
 
   // Poll for result
@@ -162,7 +203,10 @@ export async function generateAudio(input: VoxCPMInput): Promise<VoxCPMResult> {
   const result = await pollResult(pollUrl)
 
   const data = result.data as Record<string, unknown>[]
+  log("RESULT", `Result data items: ${data.length}, raw: ${JSON.stringify(data).slice(0, 200)}`)
+
   const fileData = data[0] as Record<string, unknown> & { url?: string; path?: string }
+  log("RESULT", `FileData: url=${fileData?.url ? "present" : "MISSING"}, path=${fileData?.path ? "present" : "MISSING"}`)
 
   const audioUrl =
     fileData.url ||
@@ -170,6 +214,8 @@ export async function generateAudio(input: VoxCPMInput): Promise<VoxCPMResult> {
       ? `${spaceUrl}/file=${fileData.path}`
       : "") ||
     ""
+
+  log("RESULT", `Audio URL: ${audioUrl ? "generated (" + audioUrl.slice(0, 80) + ")" : "EMPTY!"}`)
 
   return { audioUrl, fileData }
 }
