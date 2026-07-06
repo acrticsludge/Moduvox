@@ -97,9 +97,8 @@ export async function POST(request: Request) {
       }
 
       console.log("[TestVoice] R2 download OK:", sampleResult.data.length, "bytes")
-      const file = new File([new Uint8Array(sampleResult.data)], "sample.wav", { type: "audio/wav" })
-      console.log("[TestVoice] Generated clone audio via VoxCPM...")
-      result = await generateWithClone(EXAMPLE_TEXT, file)
+      console.log("[TestVoice] Generating clone audio via VoxCPM...")
+      result = await generateWithClone(EXAMPLE_TEXT, sampleResult.data)
     }
 
     console.log("[TestVoice] VoxCPM result audioUrl:", result.audioUrl ? result.audioUrl.slice(0, 80) : "EMPTY!")

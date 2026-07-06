@@ -6,7 +6,7 @@ const DEFAULT_SPACE_ID = process.env.VOXCPM2_SPACE_ID || "openbmb/VoxCPM-Demo"
 
 export type VoxCPMInput = {
   targetText: string
-  referenceAudio?: File | null
+  referenceAudio?: File | Buffer | null
   toneInstructions?: string
   ultimateMode?: boolean
   promptText?: string
@@ -150,12 +150,26 @@ export async function generateAudio(input: VoxCPMInput): Promise<VoxCPMResult> {
   // Upload reference audio if provided
   let refAudioRefs: Record<string, unknown>[] = []
   if (referenceAudio) {
-    const refBuffer = await referenceAudio.arrayBuffer()
-    log("REF", `Reference audio: ${(refBuffer?.byteLength ?? 0)} bytes`)
+    let refBuffer: ArrayBuffer
+    let mimeType: string
+
+    if (referenceAudio instanceof Buffer) {
+      refBuffer = referenceAudio.buffer.slice(
+        referenceAudio.byteOffset,
+        referenceAudio.byteOffset + referenceAudio.byteLength,
+      ) as ArrayBuffer
+      mimeType = "audio/wav"
+      log("REF", `Reference audio from Buffer: ${referenceAudio.length} bytes`)
+    } else {
+      refBuffer = await (referenceAudio as File).arrayBuffer()
+      mimeType = (referenceAudio as File).type || "audio/wav"
+      log("REF", `Reference audio from File: ${refBuffer.byteLength} bytes`)
+    }
+
     if (!refBuffer || refBuffer.byteLength === 0) {
       throw new Error("Reference audio is empty")
     }
-    const blob = new Blob([refBuffer], { type: referenceAudio.type || "audio/wav" })
+    const blob = new Blob([refBuffer], { type: mimeType })
     refAudioRefs = await uploadFiles(spaceUrl, apiPrefix, [blob])
   } else {
     log("REF", "No reference audio (preset mode)")
@@ -230,7 +244,7 @@ export async function generateWithPreset(
 
 export async function generateWithClone(
   targetText: string,
-  referenceAudio: File,
+  referenceAudio: File | Buffer,
   toneInstructions = "",
   cfgValue = 2.0,
 ): Promise<VoxCPMResult> {
@@ -239,7 +253,7 @@ export async function generateWithClone(
 
 export async function generateUltimateClone(
   targetText: string,
-  referenceAudio: File,
+  referenceAudio: File | Buffer,
   promptText = "",
   cfgValue = 2.0,
 ): Promise<VoxCPMResult> {
