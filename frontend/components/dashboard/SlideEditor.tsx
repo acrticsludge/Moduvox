@@ -708,26 +708,29 @@ export function SlideEditor({
           if (json.data?.presignedUrl) {
             // Always save the path so state persists (upload may fail locally but works on Vercel)
             onStoragePathChange?.(json.data.path)
-            // Try upload in background
-            fetch(json.data.presignedUrl, {
-              method: "PUT",
-              body: pendingFile,
-              headers: { "Content-Type": "application/vnd.openxmlformats-officedocument.presentationml.presentation" },
-            }).then(async (uploadRes) => {
-              if (uploadRes.ok) {
-                const confirmRes = await fetch(`/api/presentations/${presentationId}/upload/confirm`, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ path: json.data.path }),
+            // Try upload in background (non-blocking)
+            void (async () => {
+              try {
+                const uploadRes = await fetch(json.data.presignedUrl, {
+                  method: "PUT",
+                  body: pendingFile,
+                  headers: { "Content-Type": "application/vnd.openxmlformats-officedocument.presentationml.presentation" },
                 })
-                const confirmJson = await confirmRes.json()
-                if (confirmJson.data?.viewerUrl) {
-                  const encodedUrl = encodeURIComponent(confirmJson.data.viewerUrl)
-                  setBaseViewerUrl(encodedUrl)
-                  setViewerUrl(`https://view.officeapps.live.com/op/embed.aspx?src=${encodedUrl}&wdSlideIndex=1`)
+                if (uploadRes.ok) {
+                  const confirmRes = await fetch(`/api/presentations/${presentationId}/upload/confirm`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ path: json.data.path }),
+                  })
+                  const confirmJson = await confirmRes.json()
+                  if (confirmJson.data?.viewerUrl) {
+                    const encodedUrl = encodeURIComponent(confirmJson.data.viewerUrl)
+                    setBaseViewerUrl(encodedUrl)
+                    setViewerUrl(`https://view.officeapps.live.com/op/embed.aspx?src=${encodedUrl}&wdSlideIndex=1`)
+                  }
                 }
-              }
-            })
+              } catch { /* background upload error — non-critical */ }
+            })()
         } catch {
           toast.error("Re-upload failed. Please try again.")
         }
