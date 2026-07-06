@@ -307,6 +307,4 @@ export async function createSignedUrl(key: string, expiresInSeconds = 86400): Pr
   return createDownloadUrl(key, expiresInSeconds)
 }
 
-// ── Init logging ───────────────────────────────────────────
-
-logEndpoint()
+// Note: no module-level side effects — they break Next.js 16 Turbopack prerendering.
