@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
+import { deleteFile } from "@/lib/r2"
 import { updatePresentationSchema } from "@/lib/validations/presentation"
 
 export async function PATCH(
@@ -120,16 +120,9 @@ export async function DELETE(
     return NextResponse.json({ error: "Presentation not found" }, { status: 404 })
   }
 
-  // Clean up PPTX from storage if it exists
+  // Clean up PPTX from R2 if it exists
   const filePath = `${user.id}/${presentationId}.pptx`
-  const admin = createAdminClient()
-  const { error: storageError } = await admin.storage
-    .from("presentation-files")
-    .remove([filePath])
-
-  if (storageError) {
-    console.warn("Failed to remove storage file (may not exist):", storageError.message)
-  }
+  await deleteFile(filePath)
 
   // Delete the DB record
   const { error } = await supabase

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { deleteFile } from "@/lib/r2"
 
 export async function DELETE() {
   const supabase = await createClient()
@@ -12,16 +13,16 @@ export async function DELETE() {
   const admin = createAdminClient()
 
   try {
-    // 1. Delete voice samples from storage
+    // 1. Delete voice samples from R2
     const { data: voices } = await supabase
       .from("voices")
       .select("sample_path, preview_audio_path")
       .eq("user_id", user.id)
 
     if (voices && voices.length > 0) {
-      const paths = voices.flatMap((v) => [v.sample_path, v.preview_audio_path].filter(Boolean))
-      if (paths.length > 0) {
-        await admin.storage.from("voice-samples").remove(paths as string[])
+      for (const voice of voices) {
+        if (voice.sample_path) await deleteFile(voice.sample_path)
+        if (voice.preview_audio_path) await deleteFile(voice.preview_audio_path)
       }
     }
 

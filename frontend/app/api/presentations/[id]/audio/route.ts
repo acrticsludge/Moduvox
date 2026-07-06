@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
+import { createDownloadUrl } from "@/lib/r2"
 
 export async function GET(
   _request: Request,
@@ -32,12 +32,9 @@ export async function GET(
     return NextResponse.json({ data: { audioUrl: null } })
   }
 
-  const admin = createAdminClient()
-  const { data: signed } = await admin.storage
-    .from("presentation-files")
-    .createSignedUrl(storagePath, 604800) // 7 days
+  const audioUrl = await createDownloadUrl(storagePath, 604800) // 7 days
 
   return NextResponse.json({
-    data: { audioUrl: signed?.signedUrl ?? null },
+    data: { audioUrl },
   })
 }

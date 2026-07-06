@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState, useRef } from "react"
-import { createClient } from "@/lib/supabase/client"
 import { Plus, Mic, Trash2, Music, Loader2, Volume2, Play } from "lucide-react"
 import toast from "react-hot-toast"
 import { DeleteVoiceDialog } from "@/components/dashboard/DeleteVoiceDialog"
@@ -78,19 +77,18 @@ function VoiceRow({
       return
     }
 
-    // Load signed URL then play
+    // Load signed URL from server then play
     setLoadingSample(true)
-    const supabase = createClient()
     try {
-      const { data } = await supabase.storage
-        .from("voice-samples")
-        .createSignedUrl(voice.sample_path, 300)
-      if (!data) {
+      const res = await fetch(`/api/voices/signed-url?path=${encodeURIComponent(voice.sample_path!)}`)
+      const json = await res.json()
+      if (!json.data?.audioUrl) {
         toast.error("Failed to load voice sample")
         return
       }
-      setPreviewUrl(data.signedUrl)
-      const audio = new Audio(data.signedUrl)
+      const signedUrl = json.data.audioUrl
+      setPreviewUrl(signedUrl)
+      const audio = new Audio(signedUrl)
       audioRef.current = audio
       audio.addEventListener("timeupdate", () => {
         setProgress(audio.currentTime / audio.duration)

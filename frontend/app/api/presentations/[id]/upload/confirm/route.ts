@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
+import { createDownloadUrl } from "@/lib/r2"
 
 export async function POST(
   request: Request,
@@ -28,16 +28,13 @@ export async function POST(
     .eq("id", presentationId)
 
   // Generate a signed URL for the Office viewer (1 hour)
-  const admin = createAdminClient()
-  const { data } = await admin.storage.from("presentation-files").createSignedUrl(filePath, 3600)
+  const viewerUrl = await createDownloadUrl(filePath, 3600)
 
-  if (!data) {
+  if (!viewerUrl) {
     return NextResponse.json({ error: "Failed to generate viewer URL" }, { status: 500 })
   }
 
   return NextResponse.json({
-    data: {
-      viewerUrl: data.signedUrl,
-    },
+    data: { viewerUrl },
   })
 }

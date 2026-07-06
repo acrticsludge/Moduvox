@@ -3,7 +3,7 @@
  * WAV format: RIFF header (12 bytes) + fmt chunk + data chunk.
  * Duration = dataSize / (sampleRate * numChannels * bitsPerSample/8)
  */
-export function getWavDuration(buffer: ArrayBuffer): number {
+export function getWavDuration(buffer: ArrayBufferLike): number {
   const view = new DataView(buffer)
 
   // Check RIFF header
@@ -58,16 +58,15 @@ export async function getAllSlideDurations(
   presentationId: string,
   slideCount: number,
 ): Promise<{ slideNumber: number; durationMs: number }[]> {
-  const { createAdminClient } = await import("@/lib/supabase/admin")
-  const admin = createAdminClient()
   const timings: { slideNumber: number; durationMs: number }[] = []
 
   for (let i = 1; i <= slideCount; i++) {
-    const filePath = `${userId}/audio/${presentationId}/slides/slide-${i}.wav`
+    const key = `${userId}/audio/${presentationId}/slides/slide-${i}.wav`
     try {
-      const { data } = await admin.storage.from("presentation-files").download(filePath)
-      if (data) {
-        const durationMs = getWavDuration(await data.arrayBuffer())
+      const { downloadFileAsBuffer } = await import("@/lib/r2")
+      const result = await downloadFileAsBuffer(key)
+      if (result.success) {
+        const durationMs = getWavDuration(result.data.buffer)
         timings.push({ slideNumber: i, durationMs })
       }
     } catch {

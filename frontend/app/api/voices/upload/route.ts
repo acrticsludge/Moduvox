@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
 import { checkVoiceCloneQuota, quotaBlockResponse } from "@/lib/quota"
+import { uploadFile, deleteFile } from "@/lib/r2"
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 const ALLOWED_TYPES = ["audio/wav", "audio/mpeg", "audio/mp4", "audio/x-m4a", "audio/webm", "audio/ogg"]
@@ -42,21 +42,14 @@ export async function POST(request: Request) {
     return quotaBlockResponse(cloneCheck)
   }
 
-  // Upload file to Supabase Storage using admin client
-  const admin = createAdminClient()
+  // Upload file to R2
   const fileExt = file.name.split(".").pop() ?? "wav"
   const filePath = `${user.id}/${crypto.randomUUID()}.${fileExt}`
   const arrayBuffer = await file.arrayBuffer()
   const buffer = new Uint8Array(arrayBuffer)
 
-  const { data: uploadData, error: uploadError } = await admin.storage
-    .from("voice-samples")
-    .upload(filePath, buffer, {
-      contentType: file.type,
-      upsert: false,
-    })
-
-  if (uploadError) {
+  const uploadResult = await uploadFile(filePath, Buffer.from(buffer), file.type)
+  if (!uploadResult.success) {
     return NextResponse.json({ error: "Failed to upload file" }, { status: 500 })
   }
 
@@ -77,7 +70,7 @@ export async function POST(request: Request) {
   if (dbError) {
     console.error("POST /api/voices/upload:", dbError.message)
     // Clean up uploaded file if DB insert fails
-    await admin.storage.from("voice-samples").remove([filePath])
+    await deleteFile(filePath)
     return NextResponse.json({ error: "Failed to save voice" }, { status: 500 })
   }
 

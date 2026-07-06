@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { concatWavBuffers, isValidWav } from "@/lib/wav-utils"
+import { listFiles, downloadFileAsBuffer, uploadFile, createDownloadUrl } from "@/lib/r2"
 
 export async function GET(
   request: Request,
@@ -38,30 +39,33 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const storageKey = `${userId}/audio/${presentationId}/combined.wav`
+    const audioPrefix = `${userId}/audio/${presentationId}/`
+    const combinedKey = `${audioPrefix}combined.wav`
 
-    // Check if combined.wav already exists in Supabase Storage
-    const { data: existingFiles } = await admin.storage.from("presentation-files").list(`${userId}/audio/${presentationId}/`)
-    const exists = existingFiles?.some((f) => f.name === "combined.wav")
+    // Check if combined.wav already exists in R2
+    const existingFiles = await listFiles(audioPrefix)
+    const exists = existingFiles.success && existingFiles.data.some((f) => f.Key === combinedKey)
     if (exists) {
-      const { data: urlData } = await admin.storage.from("presentation-files").createSignedUrl(storageKey, 3600)
-      if (urlData) {
-        return NextResponse.json({ data: { audioUrl: urlData.signedUrl } })
+      const audioUrl = await createDownloadUrl(combinedKey, 3600)
+      if (audioUrl) {
+        return NextResponse.json({ data: { audioUrl } })
       }
     }
 
-    // Generate combined.wav from per-slide WAVs in Supabase Storage
-    const slidesDir = `${userId}/audio/${presentationId}/slides/`
-    const { data: allFiles, error: listError } = await admin.storage.from("presentation-files").list(slidesDir)
+    // Generate combined.wav from per-slide WAVs in R2
+    const slidesPrefix = `${audioPrefix}slides/`
+    const allFiles = await listFiles(slidesPrefix)
 
-    if (listError || !allFiles || allFiles.length === 0) {
+    if (!allFiles.success || allFiles.data.length === 0) {
       return NextResponse.json({ error: "No audio found" }, { status: 404 })
     }
 
-    const matched = allFiles
+    const matched = allFiles.data
       .map((f) => {
-        const m = f.name.match(/^slide-(\d+)\.wav$/)
-        return m ? { number: parseInt(m[1], 10), name: f.name } : null
+        const key = f.Key ?? ""
+        const name = key.replace(slidesPrefix, "")
+        const m = name.match(/^slide-(\d+)\.wav$/)
+        return m ? { number: parseInt(m[1], 10), key } : null
       })
       .filter(Boolean)
       .sort((a, b) => a!.number - b!.number)
@@ -72,10 +76,9 @@ export async function GET(
 
     const wavBuffers: Buffer[] = []
     for (const sf of matched) {
-      const { data } = await admin.storage.from("presentation-files").download(`${slidesDir}${sf!.name}`)
-      if (data) {
-        const buffer = Buffer.from(await data.arrayBuffer())
-        if (isValidWav(buffer)) wavBuffers.push(buffer)
+      const result = await downloadFileAsBuffer(sf!.key)
+      if (result.success && isValidWav(result.data)) {
+        wavBuffers.push(result.data)
       }
     }
 
@@ -85,16 +88,13 @@ export async function GET(
 
     const combined = concatWavBuffers(wavBuffers)
 
-    // Upload combined.wav to Supabase Storage
-    await admin.storage.from("presentation-files").upload(storageKey, combined, {
-      contentType: "audio/wav",
-      upsert: true,
-    })
+    // Upload combined.wav to R2
+    await uploadFile(combinedKey, combined, "audio/wav")
 
-    const { data: urlData } = await admin.storage.from("presentation-files").createSignedUrl(storageKey, 3600)
+    const audioUrl = await createDownloadUrl(combinedKey, 3600)
     return NextResponse.json({
       data: {
-        audioUrl: urlData?.signedUrl ?? null,
+        audioUrl: audioUrl ?? null,
       },
     })
   } catch (err) {

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
+import { deleteFile } from "@/lib/r2"
 
 export async function DELETE(
   _request: Request,
@@ -29,17 +29,9 @@ export async function DELETE(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
-  // If it has a sample file, delete it from Storage
+  // If it has a sample file, delete it from R2
   if (voice.sample_path) {
-    const admin = createAdminClient()
-    const { error: storageError } = await admin.storage
-      .from("voice-samples")
-      .remove([voice.sample_path])
-
-    if (storageError) {
-      console.error("Failed to delete storage file:", storageError)
-      // Continue anyway — don't block voice deletion on storage failure
-    }
+    await deleteFile(voice.sample_path)
   }
 
   const { error: deleteError } = await supabase

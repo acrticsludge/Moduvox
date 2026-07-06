@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
 import { generateWithPreset, generateWithClone } from "@/lib/voxcpm"
 import { isValidWav, detectFormat } from "@/lib/wav-utils"
 import { toWav } from "@/lib/audio-convert"
+import { downloadFileAsBuffer, deleteFile, uploadFile } from "@/lib/r2"
 
 const slideSchema = z.object({
   slide_number: z.number().int().min(1),
@@ -36,7 +36,6 @@ export async function POST(request: Request) {
 
   const { slide_number, text, voice_description, cfg_value, presentation_id, voice_id } = parsed.data
   const cfgValue = cfg_value ?? 2.0
-  const admin = createAdminClient()
 
   try {
     let result
@@ -51,13 +50,10 @@ export async function POST(request: Request) {
         .single()
 
       if (voice?.type === "cloned" && voice.sample_path) {
-        // Download reference audio from storage
-        const { data: refBlob } = await admin.storage
-          .from("voice-samples")
-          .download(voice.sample_path)
-
-        if (refBlob) {
-          const refFile = new File([await refBlob.arrayBuffer()], "sample.wav", { type: "audio/wav" })
+        // Download reference audio from R2
+        const refResult = await downloadFileAsBuffer(voice.sample_path)
+        if (refResult.success) {
+          const refFile = new File([new Uint8Array(refResult.data)], "sample.wav", { type: "audio/wav" })
           result = await generateWithClone(text, refFile, voice_description || "", cfgValue)
         } else {
           throw new Error(`Cloned voice reference audio not found. Please re-upload your voice sample.`)
@@ -94,14 +90,11 @@ export async function POST(request: Request) {
       }
     }
 
-    // Save to storage
+    // Save to R2
     const storagePath = `${user.id}/audio/${presentation_id}/slides/slide-${slide_number}.wav`
-    await admin.storage.from("presentation-files").remove([storagePath]).catch(() => {})
-    const { error: uploadError } = await admin.storage
-      .from("presentation-files")
-      .upload(storagePath, audioBuffer, { contentType: "audio/wav", upsert: true })
-
-    if (uploadError) throw new Error(`Failed to save audio: ${uploadError.message}`)
+    await deleteFile(storagePath)
+    const uploadResult = await uploadFile(storagePath, audioBuffer, "audio/wav")
+    if (!uploadResult.success) throw new Error(`Failed to save audio: ${uploadResult.error}`)
 
     return NextResponse.json({ data: { slide_number } })
   } catch (err) {

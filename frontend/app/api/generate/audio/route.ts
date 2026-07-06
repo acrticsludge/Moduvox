@@ -2,8 +2,8 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
 import { generateAudio, generateWithPreset } from "@/lib/voxcpm"
+import { deleteFile, uploadFile, createDownloadUrl } from "@/lib/r2"
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 const ALLOWED_TYPES = ["audio/wav", "audio/mpeg", "audio/mp4", "audio/x-m4a", "audio/webm", "audio/ogg"]
@@ -20,13 +20,12 @@ const slidesAudioSchema = z.object({
   presentation_id: z.string().uuid(),
 }).strict()
 
-/** Generate, download, and upload per-slide audio to storage. Returns the signed URL. */
+/** Generate, download, and upload per-slide audio to R2. Returns the signed URL. */
 async function generateSlideAudio(
   text: string,
   voiceDescription: string,
   cfgValue: number,
   storagePath: string,
-  admin: ReturnType<typeof createAdminClient>,
 ): Promise<string> {
   const result = await generateWithPreset(text, voiceDescription, cfgValue)
 
@@ -35,20 +34,14 @@ async function generateSlideAudio(
   if (!response.ok) throw new Error("Failed to download generated audio")
   const audioBuffer = Buffer.from(await response.arrayBuffer())
 
-  // Upload to storage
-  await admin.storage.from("presentation-files").remove([storagePath]).catch(() => {})
-  const { error } = await admin.storage
-    .from("presentation-files")
-    .upload(storagePath, audioBuffer, { contentType: "audio/wav", upsert: true })
-
-  if (error) throw new Error(`Failed to save audio: ${error.message}`)
+  // Upload to R2
+  await deleteFile(storagePath)
+  const uploadResult = await uploadFile(storagePath, audioBuffer, "audio/wav")
+  if (!uploadResult.success) throw new Error(`Failed to save audio: ${uploadResult.error}`)
 
   // Generate signed URL
-  const { data: signed } = await admin.storage
-    .from("presentation-files")
-    .createSignedUrl(storagePath, 604800)
-
-  return signed?.signedUrl ?? ""
+  const signedUrl = await createDownloadUrl(storagePath, 604800)
+  return signedUrl ?? ""
 }
 
 export async function POST(request: Request) {
@@ -117,8 +110,6 @@ export async function POST(request: Request) {
 
     const { slides, voice_description, cfg_value, presentation_id } = parsed.data
     const cfgValue = cfg_value ?? 2.0
-    const admin = createAdminClient()
-
     try {
       // Generate per-slide audio in parallel
       const slidePaths = slides.map((s) => ({
@@ -128,7 +119,7 @@ export async function POST(request: Request) {
 
       await Promise.all(
         slides.map((s, i) =>
-          generateSlideAudio(s.text, voice_description, cfgValue, slidePaths[i].storagePath, admin),
+          generateSlideAudio(s.text, voice_description, cfgValue, slidePaths[i].storagePath),
         ),
       )
 

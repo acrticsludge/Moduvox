@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
 import { generateWithPreset, generateWithClone } from "@/lib/voxcpm"
+import { createDownloadUrl, downloadFileAsBuffer, uploadFile } from "@/lib/r2"
 
 const testVoiceSchema = z.object({
   voice_id: z.string().uuid("Invalid voice ID"),
@@ -57,20 +57,14 @@ export async function POST(request: Request) {
 
   // ── Check for cached preview ───────────────────────
   if (voice.preview_audio_path) {
-    const admin = createAdminClient()
-    const { data: signedData } = await admin.storage
-      .from("voice-samples")
-      .createSignedUrl(voice.preview_audio_path, 3600)
-
-    if (signedData) {
-      return NextResponse.json({ data: { audioUrl: signedData.signedUrl } })
+    const audioUrl = await createDownloadUrl(voice.preview_audio_path, 3600)
+    if (audioUrl) {
+      return NextResponse.json({ data: { audioUrl } })
     }
     // Signed URL failed — fall through to regenerate
   }
 
   // ── Generate new preview ────────────────────────────
-  const admin = createAdminClient()
-
   try {
     let result: Awaited<ReturnType<typeof generateWithPreset>>
 
@@ -86,15 +80,12 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Voice sample not found" }, { status: 400 })
       }
 
-      const { data: blob } = await admin.storage
-        .from("voice-samples")
-        .download(voice.sample_path)
-
-      if (!blob) {
+      const sampleResult = await downloadFileAsBuffer(voice.sample_path)
+      if (!sampleResult.success) {
         return NextResponse.json({ error: "Voice sample file not found" }, { status: 400 })
       }
 
-      const file = new File([await blob.arrayBuffer()], "sample.wav", { type: "audio/wav" })
+      const file = new File([new Uint8Array(sampleResult.data)], "sample.wav", { type: "audio/wav" })
       result = await generateWithClone(EXAMPLE_TEXT, file)
     }
 
@@ -106,16 +97,11 @@ export async function POST(request: Request) {
 
     const audioBuffer = await audioRes.arrayBuffer()
 
-    // Save to Supabase Storage for future use
+    // Save to R2 for future use
     const previewPath = `${user.id}/previews/${voice_id}.wav`
-    const { error: uploadError } = await admin.storage
-      .from("voice-samples")
-      .upload(previewPath, audioBuffer, {
-        contentType: "audio/wav",
-        upsert: true,
-      })
+    const uploadResult = await uploadFile(previewPath, Buffer.from(audioBuffer), "audio/wav")
 
-    if (!uploadError) {
+    if (uploadResult.success) {
       // Update the voice record with the preview path
       await supabase
         .from("voices")
@@ -123,12 +109,9 @@ export async function POST(request: Request) {
         .eq("id", voice_id)
 
       // Return a signed URL for the saved audio
-      const { data: signedData } = await admin.storage
-        .from("voice-samples")
-        .createSignedUrl(previewPath, 3600)
-
-      if (signedData) {
-        return NextResponse.json({ data: { audioUrl: signedData.signedUrl } })
+      const audioUrl = await createDownloadUrl(previewPath, 3600)
+      if (audioUrl) {
+        return NextResponse.json({ data: { audioUrl } })
       }
     }
 
