@@ -34,19 +34,12 @@
     "mpg123-decoder": "^1.0.3",
     "next": "16.2.9",
     "react": "19.2.4",
-    "react-day-picker": "^8.10.1",
+    "react-day-picker": "^9.0.0",
     "react-dom": "19.2.4",
     "react-hot-toast": "^2.6.0",
     "tailwind-merge": "^3.6.0",
     "tailwindcss-animate": "^1.0.7",
     "zod": "^4.4.3"
-  },
-  "overrides": {
-    "react-day-picker": {
-      "peerDependencies": {
-        "react": "^18.0.0 || ^19.0.0"
-      }
-    }
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

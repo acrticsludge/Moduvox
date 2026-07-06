@@ -392,7 +392,6 @@ const [expireDate, setExpireDate] = useState<Date | undefined>(undefined)
                 mode="single"
                 selected={expireDate}
                 onSelect={setExpireDate}
-                initialFocus
                 disabled={(date) => date < new Date()}
               />
               <div className="flex items-center gap-2 border-t border-zinc-200 p-3">
