@@ -49,13 +49,21 @@ function getConfig() {
 
 function createR2Client(): Promise<S3Client> {
   const { accountId, accessKeyId, secretAccessKey } = getConfig()
-  return loadAwsSdk().then(({ S3Client }) => new S3Client({
-    region: "auto",
-    endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
-    credentials: { accessKeyId, secretAccessKey },
-    forcePathStyle: true,
-    maxAttempts: 1,
-  }))
+  return loadAwsSdk().then(async ({ S3Client }) => {
+    // Load NodeHttpHandler with timeouts — prevents hanging on TLS failures
+    const { NodeHttpHandler } = await import("@smithy/node-http-handler")
+    return new S3Client({
+      region: "auto",
+      endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
+      credentials: { accessKeyId, secretAccessKey },
+      forcePathStyle: true,
+      maxAttempts: 1,
+      requestHandler: new NodeHttpHandler({
+        requestTimeout: 10_000,
+        connectionTimeout: 5_000,
+      }),
+    })
+  })
 }
 
 function bucketName(): string {
