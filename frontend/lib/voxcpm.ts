@@ -37,6 +37,18 @@ export type VoxCPMResult = {
  * 2. Controllable Cloning (Standard) — referenceAudio + optional toneInstructions
  * 3. Ultimate Cloning — referenceAudio + ultimateMode=true (toneInstructions ignored)
  */
+/**
+ * Connect to Gradio with a 30-second timeout.
+ * HF Spaces can cold-start for 30-60s — timeout fast so the caller can
+ * return a user-friendly error instead of hanging for 5 minutes.
+ */
+async function connectWithTimeout(spaceId: string, timeoutMs = 30_000) {
+  const timeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error(`Gradio connection timed out after ${timeoutMs}ms`)), timeoutMs)
+  )
+  return Promise.race([Client.connect(spaceId), timeout])
+}
+
 export async function generateAudio(input: VoxCPMInput): Promise<VoxCPMResult> {
   const {
     targetText,
@@ -49,20 +61,26 @@ export async function generateAudio(input: VoxCPMInput): Promise<VoxCPMResult> {
     refDenoise = false,
   } = input
 
-  const client = await Client.connect(DEFAULT_SPACE_ID)
+  const client = await connectWithTimeout(DEFAULT_SPACE_ID)
 
   // Gradio API expects positional args as an array, not keyword arguments
   // Order: target_text, control_instruction, reference_audio,
   //        ultimate_cloning_mode, prompt_text, cfg_value, normalize, ref_denoise
-  const result = await client.predict("/generate", [
-    targetText,
-    ultimateMode ? "" : toneInstructions,
-    referenceAudio,
-    ultimateMode,
-    promptText,
-    cfgValue,
-    normalize,
-    refDenoise,
+  const predictTimeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error("Gradio prediction timed out after 120s")), 120_000)
+  )
+  const result = await Promise.race([
+    client.predict("/generate", [
+      targetText,
+      ultimateMode ? "" : toneInstructions,
+      referenceAudio,
+      ultimateMode,
+      promptText,
+      cfgValue,
+      normalize,
+      refDenoise,
+    ]),
+    predictTimeout,
   ])
 
   // Gradio Audio components return FileData with: { url, path, orig_name, mime_type }

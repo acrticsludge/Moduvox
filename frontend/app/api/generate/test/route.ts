@@ -90,7 +90,14 @@ export async function POST(request: Request) {
     }
 
     // Download the generated audio from VoxCPM2's temporary URL
-    const audioRes = await fetch(result.audioUrl)
+    const dlController = new AbortController()
+    const dlTimeout = setTimeout(() => dlController.abort(), 30_000)
+    let audioRes: Response
+    try {
+      audioRes = await fetch(result.audioUrl, { signal: dlController.signal })
+    } finally {
+      clearTimeout(dlTimeout)
+    }
     if (!audioRes.ok) {
       return NextResponse.json({ data: { audioUrl: result.audioUrl } })
     }
@@ -118,7 +125,8 @@ export async function POST(request: Request) {
     // Fallback: return the temporary VoxCPM2 URL
     return NextResponse.json({ data: { audioUrl: result.audioUrl } })
   } catch (err) {
-    console.error("POST /api/generate/test:", err)
-    return NextResponse.json({ error: "Voice preview generation failed" }, { status: 502 })
+    const msg = err instanceof Error ? err.message : "Voice preview generation failed"
+    console.error("POST /api/generate/test:", msg)
+    return NextResponse.json({ error: msg }, { status: 502 })
   }
 }
