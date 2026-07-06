@@ -731,6 +731,7 @@ export function SlideEditor({
                 }
               } catch { /* background upload error — non-critical */ }
             })()
+          }
         } catch {
           toast.error("Re-upload failed. Please try again.")
         }
