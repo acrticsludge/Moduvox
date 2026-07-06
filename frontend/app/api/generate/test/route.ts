@@ -89,15 +89,13 @@ export async function POST(request: Request) {
       result = await generateWithClone(EXAMPLE_TEXT, file)
     }
 
-    // Download the generated audio from VoxCPM2's temporary URL
-    const dlController = new AbortController()
-    const dlTimeout = setTimeout(() => dlController.abort(), 30_000)
-    let audioRes: Response
-    try {
-      audioRes = await fetch(result.audioUrl, { signal: dlController.signal })
-    } finally {
-      clearTimeout(dlTimeout)
-    }
+    // Download the generated audio from VoxCPM2's temporary URL (30s timeout)
+    const audioRes = await Promise.race([
+      fetch(result.audioUrl),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Download timed out after 30s")), 30_000),
+      ),
+    ])
     if (!audioRes.ok) {
       return NextResponse.json({ data: { audioUrl: result.audioUrl } })
     }

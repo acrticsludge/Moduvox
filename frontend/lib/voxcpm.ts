@@ -39,7 +39,7 @@ async function uploadFiles(
 ): Promise<Record<string, unknown>[]> {
   const formData = new FormData()
   for (const file of files) {
-    formData.append("files", file)
+    formData.append("files", file, "audio.wav")
   }
 
   const res = await withTimeout(
@@ -70,16 +70,28 @@ async function pollResult(
     const text = await res.text()
     const lines = text.split("\n")
 
+    let eventType = ""
+    let dataJson = ""
+
     for (const line of lines) {
-      if (line.startsWith("data: ")) {
-        const payload = JSON.parse(line.slice(6))
-        if (payload.type === "complete" || payload.type === "data") {
-          return { data: payload.data || [] }
-        }
-        if (payload.type === "error") {
-          throw new Error(`Gradio error: ${payload.error || "Unknown error"}`)
-        }
+      if (line.startsWith("event: ")) {
+        eventType = line.slice(7).trim()
+      } else if (line.startsWith("data: ")) {
+        dataJson = line.slice(6)
       }
+    }
+
+    if (eventType === "complete" || dataJson) {
+      try {
+        const data = JSON.parse(dataJson)
+        return { data: Array.isArray(data) ? data : data.data || [] }
+      } catch {
+        // data may not be valid JSON yet, keep polling
+      }
+    }
+
+    if (eventType === "error") {
+      throw new Error(`Gradio error: ${dataJson || "Unknown error"}`)
     }
 
     await new Promise((r) => setTimeout(r, 500))
@@ -107,6 +119,9 @@ export async function generateAudio(input: VoxCPMInput): Promise<VoxCPMResult> {
   let refAudioRefs: Record<string, unknown>[] = []
   if (referenceAudio) {
     const refBuffer = await referenceAudio.arrayBuffer()
+    if (!refBuffer || refBuffer.byteLength === 0) {
+      throw new Error("Reference audio is empty")
+    }
     const blob = new Blob([refBuffer], { type: referenceAudio.type || "audio/wav" })
     refAudioRefs = await uploadFiles(spaceUrl, apiPrefix, [blob])
   }
