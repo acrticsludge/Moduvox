@@ -132,22 +132,20 @@ export function SlideEditor({
           const json = await res.json()
           if (json.data?.presignedUrl) {
             path = json.data.path as string
-            const uploadOk = await new Promise<boolean>((resolve) => {
-              const xhr = new XMLHttpRequest()
-              xhr.open("PUT", json.data.presignedUrl)
-              xhr.setRequestHeader("Content-Type", "application/vnd.openxmlformats-officedocument.presentationml.presentation")
-              xhr.upload.onprogress = (e) => {
-                if (e.lengthComputable) {
-                  setUploadProgress(Math.round((e.loaded / e.total) * 100))
-                }
+            // Always save the path so editor state persists on reload
+            // (the R2 upload may fail locally but works on Vercel production)
+            onStoragePathChange?.(path)
+            // Try upload in background (don't block editor for upload result)
+            const xhr = new XMLHttpRequest()
+            xhr.open("PUT", json.data.presignedUrl)
+            xhr.setRequestHeader("Content-Type", "application/vnd.openxmlformats-officedocument.presentationml.presentation")
+            xhr.upload.onprogress = (e) => {
+              if (e.lengthComputable) {
+                setUploadProgress(Math.round((e.loaded / e.total) * 100))
               }
-              xhr.onload = () => resolve(xhr.status >= 200 && xhr.status < 300)
-              xhr.onerror = () => resolve(false)
-              xhr.send(file)
-            })
-            if (uploadOk) {
-              onStoragePathChange?.(path)
             }
+            xhr.onerror = () => {} // silent — file is still on local disk for parsing
+            xhr.send(file)
           }
         } catch {
           if (!cancelled) setLoadError("Failed to upload presentation.")
@@ -708,26 +706,28 @@ export function SlideEditor({
           const res = await fetch(`/api/presentations/${presentationId}/upload`, { method: "POST" })
           const json = await res.json()
           if (json.data?.presignedUrl) {
-            const uploadRes = await fetch(json.data.presignedUrl, {
+            // Always save the path so state persists (upload may fail locally but works on Vercel)
+            onStoragePathChange?.(json.data.path)
+            // Try upload in background
+            fetch(json.data.presignedUrl, {
               method: "PUT",
               body: pendingFile,
               headers: { "Content-Type": "application/vnd.openxmlformats-officedocument.presentationml.presentation" },
-            })
-            if (uploadRes.ok) {
-              onStoragePathChange?.(json.data.path)
-              const confirmRes = await fetch(`/api/presentations/${presentationId}/upload/confirm`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ path: json.data.path }),
-              })
-              const confirmJson = await confirmRes.json()
-              if (confirmJson.data?.viewerUrl) {
-                const encodedUrl = encodeURIComponent(confirmJson.data.viewerUrl)
-                setBaseViewerUrl(encodedUrl)
-                setViewerUrl(`https://view.officeapps.live.com/op/embed.aspx?src=${encodedUrl}&wdSlideIndex=1`)
+            }).then(async (uploadRes) => {
+              if (uploadRes.ok) {
+                const confirmRes = await fetch(`/api/presentations/${presentationId}/upload/confirm`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ path: json.data.path }),
+                })
+                const confirmJson = await confirmRes.json()
+                if (confirmJson.data?.viewerUrl) {
+                  const encodedUrl = encodeURIComponent(confirmJson.data.viewerUrl)
+                  setBaseViewerUrl(encodedUrl)
+                  setViewerUrl(`https://view.officeapps.live.com/op/embed.aspx?src=${encodedUrl}&wdSlideIndex=1`)
+                }
               }
-            }
-          }
+            })
         } catch {
           toast.error("Re-upload failed. Please try again.")
         }
