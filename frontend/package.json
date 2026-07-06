@@ -32,7 +32,7 @@
     "jszip": "^3.10.1",
     "lucide-react": "^1.21.0",
     "mpg123-decoder": "^1.0.3",
-    "next": "16.2.9",
+    "next": "^16.2.10",
     "react": "^19.2.4",
     "react-day-picker": "^9.0.0",
     "react-dom": "^19.2.4",
@@ -48,7 +48,7 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "eslint": "^9",
-    "eslint-config-next": "16.2.9",
+    "eslint-config-next": "^16.2.10",
     "shadcn": "^4.12.0",
     "tailwindcss": "^4",
     "typescript": "^5"
