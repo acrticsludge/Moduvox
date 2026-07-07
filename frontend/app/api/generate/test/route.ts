@@ -172,10 +172,13 @@ export async function POST(request: Request) {
     console.log("[TestVoice] Falling back to Gradio temp URL")
     return NextResponse.json({ data: { audioUrl: result.audioUrl } })
   } catch (err) {
-    // Log the FULL error details — Gradio client may throw objects, not Error instances
-    console.error("[TestVoice] ERROR TYPE:", typeof err, err === null ? "null" : err === undefined ? "undefined" : "")
-    console.error("[TestVoice] ERROR VALUE:", err instanceof Error ? err.message : JSON.stringify(err, Object.getOwnPropertyNames(err)))
-    if (err instanceof Error && err.stack) console.error("[TestVoice] STACK:", err.stack)
-    return NextResponse.json({ error: "Voice preview generation failed" }, { status: 502 })
+    // Check if the Gradio space is busy (public HF demo limitation)
+    const errObj = err && typeof err === "object" ? err as Record<string, unknown> : {}
+    const isBusy = typeof errObj.message === "string" && errObj.message.includes("currently busy")
+    const message = isBusy
+      ? "Voice generation is temporarily unavailable. The HuggingFace Space is busy. Try again in a few minutes."
+      : "Voice preview generation failed"
+    console.error("[TestVoice] ERROR:", message, err instanceof Error ? err.message : JSON.stringify(errObj))
+    return NextResponse.json({ error: message }, { status: 503 })
   }
 }
