@@ -72,11 +72,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     key={item.label}
                     href={item.href}
                     onClick={() => setSidebarOpen(false)}
-                    className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors duration-150 ${
-                      active
-                        ? "bg-zinc-100 text-[#18181B]"
-                        : "text-[#71717A] hover:bg-zinc-50 hover:text-[#18181B]"
-                    }`}
+className={`touch-target gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors duration-150 ${
+                       active
+                         ? "bg-zinc-100 text-[#18181B]"
+                         : "text-[#71717A] hover:bg-zinc-50 hover:text-[#18181B]"
+                     }`}
                   >
                     <item.icon className="h-4 w-4" />
                     {item.label}
@@ -95,7 +95,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <button
                 type="button"
                 onClick={() => setSidebarOpen(true)}
-                className="fixed left-3 top-20 z-20 inline-flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-200 bg-white shadow-sm text-[#71717A] transition-colors hover:text-[#18181B] md:hidden"
+                className="fixed left-3 top-20 z-20 inline-flex min-h-[48px] min-w-[48px] items-center justify-center rounded-lg border border-zinc-200 bg-white shadow-sm text-[#71717A] transition-colors hover:text-[#18181B] md:hidden"
                 aria-label="Open sidebar"
               >
                 <Menu className="h-4 w-4" />

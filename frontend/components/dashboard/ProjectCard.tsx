@@ -102,7 +102,7 @@ export function ProjectCard({ project }: { project: Project }) {
                   e.stopPropagation()
                   setMenuOpen((v) => !v)
                 }}
-                className="rounded-lg p-1.5 text-zinc-400 opacity-0 transition hover:bg-zinc-100 group-hover:opacity-100"
+                className="rounded-lg touch-target-sm text-zinc-400 max-md:opacity-100 md:opacity-0 transition hover:bg-zinc-100 md:group-hover:opacity-100"
               >
                 <MoreHorizontal className="h-4 w-4" />
               </button>

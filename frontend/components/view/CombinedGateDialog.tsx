@@ -188,12 +188,12 @@ export function CombinedGateDialog({
             />
           </div>
 
-          <label className="flex items-start gap-3 rounded-lg bg-zinc-50 px-3 py-2.5">
+          <label className="touch-target cursor-pointer gap-2">
             <input
               type="checkbox"
               checked={consent}
               onChange={(e) => setConsent(e.target.checked)}
-              className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-[#18181B] focus:ring-zinc-500"
+              className="h-4 w-4 rounded border-zinc-300 text-[#18181B] focus:ring-zinc-500"
             />
             <span className="text-sm leading-relaxed text-zinc-600">
               I confirm I am watching this myself and not on behalf of another person.
@@ -219,7 +219,7 @@ export function CombinedGateDialog({
           <button
             type="submit"
             disabled={loading || !name || !email || !consent || (hasPassword && !password)}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#18181B] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#27272A] disabled:opacity-50"
+            className="touch-target w-full gap-2 rounded-lg bg-[#18181B] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#27272A] disabled:opacity-50"
           >
             {loading ? (
               <>

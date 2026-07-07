@@ -111,7 +111,7 @@ export function Navbar() {
         <button
           type="button"
           onClick={() => setDrawerOpen(true)}
-          className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-[#71717A] transition-colors hover:bg-[rgba(0,0,0,0.04)] hover:text-[#18181B] md:hidden"
+          className="inline-flex h-11 w-11 min-h-[48px] min-w-[48px] items-center justify-center rounded-lg text-[#71717A] transition-colors hover:bg-[rgba(0,0,0,0.04)] hover:text-[#18181B] md:hidden"
           aria-label="Open menu"
           aria-expanded={drawerOpen}
         >
@@ -141,7 +141,7 @@ export function Navbar() {
           <button
             type="button"
             onClick={() => setDrawerOpen(false)}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-[#71717A] transition-colors hover:bg-[rgba(0,0,0,0.04)] hover:text-[#18181B]"
+            className="inline-flex h-11 w-11 min-h-[48px] min-w-[48px] items-center justify-center rounded-lg text-[#71717A] transition-colors hover:bg-[rgba(0,0,0,0.04)] hover:text-[#18181B]"
             aria-label="Close menu"
           >
             <X className="h-6 w-6" />
@@ -154,7 +154,7 @@ export function Navbar() {
               <a
                 href={link.href}
                 onClick={() => setDrawerOpen(false)}
-                className="block rounded-lg px-3 py-2.5 text-base font-medium text-[#71717A] no-underline transition-colors duration-200 hover:bg-[rgba(0,0,0,0.04)] hover:text-[#18181B]"
+                className="touch-target rounded-lg px-3 py-2.5 text-base font-medium text-[#71717A] no-underline transition-colors duration-200 hover:bg-[rgba(0,0,0,0.04)] hover:text-[#18181B]"
               >
                 {link.label}
               </a>
@@ -167,7 +167,7 @@ export function Navbar() {
             <a
               href="/dashboard"
               onClick={() => setDrawerOpen(false)}
-              className="block rounded-lg border border-[#18181B]/70 bg-[#18181B] px-4 py-2.5 text-center text-sm font-medium text-white transition-transform duration-200 hover:scale-[1.02] hover:border-[#18181B] hover:bg-[#27272A] active:scale-[0.98]"
+              className="touch-target rounded-lg border border-[#18181B]/70 bg-[#18181B] px-4 py-2.5 text-center text-sm font-medium text-white transition-transform duration-200 hover:scale-[1.02] hover:border-[#18181B] hover:bg-[#27272A] active:scale-[0.98]"
             >
               Dashboard
             </a>
@@ -176,7 +176,7 @@ export function Navbar() {
               <a
                 href="/login"
                 onClick={() => setDrawerOpen(false)}
-                className="block rounded-lg px-3 py-2.5 text-base font-medium text-[#71717A] no-underline transition-colors duration-200 hover:bg-[rgba(0,0,0,0.04)] hover:text-[#18181B]"
+                className="touch-target rounded-lg px-3 py-2.5 text-base font-medium text-[#71717A] no-underline transition-colors duration-200 hover:bg-[rgba(0,0,0,0.04)] hover:text-[#18181B]"
               >
                 Log in
               </a>
@@ -184,7 +184,7 @@ export function Navbar() {
                 href="/signup"
                 onClick={() => setDrawerOpen(false)}
                 style={{ transitionTimingFunction: SPRING }}
-                className="block rounded-lg border border-zinc-300 bg-transparent px-4 py-2.5 text-center text-sm font-medium text-[#18181B] transition-all duration-200 hover:bg-[#F9FAFB] hover:scale-[1.02] active:scale-[0.98]"
+                className="touch-target rounded-lg border border-zinc-300 bg-transparent px-4 py-2.5 text-center text-sm font-medium text-[#18181B] transition-all duration-200 hover:bg-[#F9FAFB] hover:scale-[1.02] active:scale-[0.98]"
               >
                 Start free
               </a>
