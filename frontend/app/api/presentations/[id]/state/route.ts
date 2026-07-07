@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { saveStateSchema } from "@/lib/validations/state"
 
 export async function PATCH(
   request: Request,
@@ -27,8 +28,16 @@ export async function PATCH(
 
   const body = await request.json()
 
-  // Update slide_count if provided (separate DB column)
-  const { slideCount, ...editorState } = body
+  // Validate with Zod
+  const parsed = saveStateSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Validation failed", details: parsed.error.flatten().fieldErrors },
+      { status: 422 },
+    )
+  }
+
+  const { slideCount, ...editorState } = parsed.data
   const updateData: Record<string, unknown> = { editor_state: editorState }
   if (typeof slideCount === "number") {
     updateData.slide_count = slideCount
