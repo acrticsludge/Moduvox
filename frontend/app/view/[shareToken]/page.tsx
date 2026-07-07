@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import { useParams, useSearchParams } from "next/navigation"
 import dynamic from "next/dynamic"
-import { Loader2 } from "lucide-react"
+
 import { EmailSentScreen } from "@/components/view/EmailSentScreen"
 import { VerifyErrorScreen } from "@/components/view/VerifyErrorScreen"
 import { ViewNavbar } from "@/components/view/ViewNavbar"
@@ -279,10 +279,27 @@ export default function ViewPresentationPage() {
   switch (state.type) {
     case "loading":
       return (
-        <div className="flex min-h-screen items-center justify-center bg-[#F9FAFB]">
-          <div className="flex flex-col items-center gap-3">
-            <Loader2 className="h-8 w-8 animate-spin text-zinc-400" />
-            <p className="text-sm text-zinc-500">Loading presentation...</p>
+        <div className="flex min-h-screen flex-col bg-[#F9FAFB]">
+          <div className="animate-pulse border-b border-zinc-200 px-6 py-3">
+            <div className="h-8 w-32 rounded bg-zinc-100" />
+          </div>
+          <div className="flex flex-1">
+            <div className="hidden w-64 animate-pulse border-r border-zinc-200 p-6 lg:block">
+              <div className="space-y-4">
+                <div className="h-5 w-40 rounded bg-zinc-100" />
+                <div className="h-4 w-32 rounded bg-zinc-100" />
+                <div className="h-4 w-24 rounded bg-zinc-100" />
+              </div>
+            </div>
+            <main className="flex flex-1 items-start p-6">
+              <div className="w-full space-y-6">
+                <div className="h-6 w-48 animate-pulse rounded bg-zinc-100" />
+                <div className="h-[400px] w-full animate-pulse rounded-xl bg-zinc-100" />
+              </div>
+            </main>
+          </div>
+          <div className="animate-pulse border-t border-zinc-200 px-6 py-4">
+            <div className="h-16 w-full rounded-xl bg-zinc-100" />
           </div>
         </div>
       )

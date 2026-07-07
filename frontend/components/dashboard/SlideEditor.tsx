@@ -1043,12 +1043,20 @@ export function SlideEditor({
           <label className="text-sm font-semibold text-[#18181B]">
             Narration Script
           </label>
-          <Textarea
-            value={narrations[current.number] ?? ""}
-            onChange={(e) => updateNarration(e.target.value)}
-            placeholder={generatingNarrations ? "Generating AI narration..." : "AI-generated narration will appear here..."}
-            className="min-h-[120px] resize-none text-sm"
-          />
+          {generatingNarrations && !narrations[current.number] ? (
+            <div className="min-h-[120px] animate-pulse rounded-lg bg-zinc-100" />
+          ) : (
+            <Textarea
+              value={narrations[current.number] ?? ""}
+              onChange={(e) => updateNarration(e.target.value)}
+              placeholder={
+                generatingNarrations
+                  ? "Generating AI narration..."
+                  : "AI-generated narration will appear here..."
+              }
+              className="min-h-[120px] resize-none text-sm"
+            />
+          )}
           {narrations[current.number] && (
             <p className="text-xs text-zinc-400 text-right">
               {narrations[current.number].split(/\s+/).filter(Boolean).length} words · {narrations[current.number].length} characters

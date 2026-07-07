@@ -64,8 +64,28 @@ export default function ArchivedPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-1 items-center justify-center px-6">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-600" />
+      <div className="flex flex-1 flex-col px-6 py-6">
+        <div className="mx-auto w-full max-w-3xl">
+          <div className="mb-6 flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-zinc-100 animate-pulse" />
+            <div className="space-y-2">
+              <div className="h-5 w-24 rounded bg-zinc-100 animate-pulse" />
+              <div className="h-4 w-36 rounded bg-zinc-100 animate-pulse" />
+            </div>
+          </div>
+          <div className="space-y-2">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="flex items-center gap-4 rounded-xl border border-zinc-200 bg-white px-4 py-3">
+                <div className="h-10 w-10 rounded-lg bg-zinc-100 animate-pulse" />
+                <div className="min-w-0 flex-1 space-y-2">
+                  <div className="h-4 w-48 rounded bg-zinc-100 animate-pulse" />
+                  <div className="h-3 w-32 rounded bg-zinc-100 animate-pulse" />
+                </div>
+                <div className="h-8 w-20 rounded-lg bg-zinc-100 animate-pulse" />
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     )
   }

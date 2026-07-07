@@ -1,4 +1,6 @@
-import { useState } from "react"
+"use client"
+
+import { useState, useEffect } from "react"
 import { Loader2, Pencil } from "lucide-react"
 import type { Presentation } from "@/lib/validations/presentation"
 
@@ -11,6 +13,10 @@ export function RenamePresentationDialog({
   onClose: () => void
   onSaved: (updated: Presentation) => void
 }) {
+  useEffect(() => {
+    document.body.style.overflow = "hidden"
+    return () => { document.body.style.overflow = "" }
+  }, [])
   const [title, setTitle] = useState(presentation.title)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)

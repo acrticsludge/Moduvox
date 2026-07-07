@@ -1,5 +1,11 @@
+import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
+
+export const metadata: Metadata = {
+  title: "Verify access — Moduvox",
+  robots: "noindex",
+}
 
 export default async function VerifyPage({
   params,

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { X, Loader2, Check } from "lucide-react"
 import { COLOR_PALETTE, ICON_SET, type Project, type ProjectColor, type ProjectIcon } from "@/lib/validations/project"
 
@@ -29,6 +29,10 @@ export function RenameProjectModal({
   onClose: () => void
   onSaved: () => void
 }) {
+  useEffect(() => {
+    document.body.style.overflow = "hidden"
+    return () => { document.body.style.overflow = "" }
+  }, [])
   const [name, setName] = useState(project.name)
   const [description, setDescription] = useState(project.description)
   const [color, setColor] = useState<ProjectColor | null>(project.color as ProjectColor)

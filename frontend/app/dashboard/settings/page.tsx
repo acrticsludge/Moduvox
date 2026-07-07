@@ -142,8 +142,19 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-1 items-center justify-center">
-        <Loader2 className="h-5 w-5 animate-spin text-[#71717A]" />
+      <div className="flex flex-1 px-6 py-8">
+        <div className="mx-auto w-full max-w-lg space-y-5">
+          <div>
+            <div className="mb-1.5 h-4 w-10 rounded bg-zinc-100 animate-pulse" />
+            <div className="h-10 w-full rounded-lg bg-zinc-100 animate-pulse" />
+          </div>
+          <div>
+            <div className="mb-1.5 h-4 w-12 rounded bg-zinc-100 animate-pulse" />
+            <div className="h-10 w-full rounded-lg bg-zinc-50 animate-pulse" />
+            <div className="mt-1 h-3 w-32 rounded bg-zinc-100 animate-pulse" />
+          </div>
+          <div className="h-10 w-28 rounded-lg bg-zinc-100 animate-pulse" />
+        </div>
       </div>
     )
   }

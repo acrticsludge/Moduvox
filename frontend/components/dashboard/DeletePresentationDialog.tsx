@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Loader2, TriangleAlert } from "lucide-react"
 import type { Presentation } from "@/lib/validations/presentation"
 
@@ -13,6 +13,10 @@ export function DeletePresentationDialog({
   onClose: () => void
   onDeleted: () => void
 }) {
+  useEffect(() => {
+    document.body.style.overflow = "hidden"
+    return () => { document.body.style.overflow = "" }
+  }, [])
   const [confirmText, setConfirmText] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)

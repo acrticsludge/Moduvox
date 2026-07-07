@@ -43,8 +43,27 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-1 items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
+      <div className="flex-1 px-6 py-6">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="rounded-xl border border-zinc-200 bg-white">
+              <div className="h-1 rounded-t-xl bg-zinc-100" />
+              <div className="p-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-lg bg-zinc-100 animate-pulse" />
+                    <div className="space-y-2">
+                      <div className="h-4 w-28 rounded bg-zinc-100 animate-pulse" />
+                      <div className="h-3 w-20 rounded bg-zinc-100 animate-pulse" />
+                    </div>
+                  </div>
+                  <div className="h-8 w-8 rounded-lg bg-zinc-100 animate-pulse" />
+                </div>
+                <div className="mt-3 h-4 w-24 rounded bg-zinc-100 animate-pulse" />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     )
   }

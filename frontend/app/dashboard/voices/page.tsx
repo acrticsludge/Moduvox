@@ -755,8 +755,23 @@ export default function VoicesPage() {
       {/* Content */}
       <div className="flex flex-1 px-6 py-8">
         {loading ? (
-          <div className="flex w-full items-center justify-center">
-            <Loader2 className="h-5 w-5 animate-spin text-[#71717A]" />
+          <div className="w-full space-y-2">
+            <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="flex items-center gap-3 px-4 py-2.5">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-zinc-100 animate-pulse" />
+                  <div className="flex min-w-0 flex-1 items-center gap-2">
+                    <div className="h-4 w-32 rounded bg-zinc-100 animate-pulse" />
+                    <div className="hidden h-3 w-48 rounded bg-zinc-100 animate-pulse md:block" />
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <div className="h-5 w-14 rounded-md bg-zinc-100 animate-pulse" />
+                    <div className="hidden h-3 w-16 rounded bg-zinc-100 animate-pulse sm:block" />
+                    <div className="h-7 w-7 rounded-lg bg-zinc-100 animate-pulse" />
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         ) : voices.length > 0 ? (
           <div className="w-full overflow-hidden rounded-xl border border-zinc-200 bg-white">

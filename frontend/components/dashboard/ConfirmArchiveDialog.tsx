@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Archive, Loader2, X } from "lucide-react"
 import type { Presentation } from "@/lib/validations/presentation"
 
@@ -13,6 +13,10 @@ export function ConfirmArchiveDialog({
   onClose: () => void
   onArchive: () => void
 }) {
+  useEffect(() => {
+    document.body.style.overflow = "hidden"
+    return () => { document.body.style.overflow = "" }
+  }, [])
   const [archiving, setArchiving] = useState(false)
 
   async function handleArchive() {
