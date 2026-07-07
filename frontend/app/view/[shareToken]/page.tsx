@@ -77,6 +77,7 @@ export default function ViewPresentationPage() {
   const searchParams = useSearchParams()
   const shareToken = params.shareToken
 
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [state, setState] = useState<PageState>({ type: "loading" })
   const viewDataRef = useRef<{ title: string; created_at?: string; slide_count?: number; expires_at?: string | null; total_duration_ms?: number; audio_url?: string | null; viewer_created_at?: string | null; presentation_id?: string; viewer_id?: string | null } | null>(null)
 
@@ -357,6 +358,17 @@ export default function ViewPresentationPage() {
         <div className="flex min-h-screen flex-col bg-[#F9FAFB]">
           <ViewNavbar />
           <div className="flex flex-1">
+            {/* Mobile sidebar toggle */}
+            {!sidebarOpen && (
+              <button
+                type="button"
+                onClick={() => setSidebarOpen(true)}
+                className="fixed left-3 top-4 z-20 inline-flex min-h-[48px] min-w-[48px] items-center justify-center rounded-lg border border-zinc-200 bg-white shadow-sm text-zinc-500 transition-colors hover:text-zinc-800 md:hidden"
+                aria-label="Show info"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+              </button>
+            )}
             <ViewSidebar
               title={viewDataRef.current?.title || "Untitled"}
               createdAt={viewDataRef.current?.created_at}
@@ -364,6 +376,8 @@ export default function ViewPresentationPage() {
               expiresAt={viewDataRef.current?.expires_at || null}
               totalDurationMs={viewDataRef.current?.total_duration_ms}
               viewerFirstViewed={viewDataRef.current?.viewer_created_at || undefined}
+              isOpen={sidebarOpen}
+              onClose={() => setSidebarOpen(false)}
             />
             <main id="viewer-main-content" className="flex flex-1" />
           </div>
