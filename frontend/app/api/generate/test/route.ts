@@ -172,9 +172,10 @@ export async function POST(request: Request) {
     console.log("[TestVoice] Falling back to Gradio temp URL")
     return NextResponse.json({ data: { audioUrl: result.audioUrl } })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    console.error("[TestVoice] ERROR:", msg)
+    // Log the FULL error details — Gradio client may throw objects, not Error instances
+    console.error("[TestVoice] ERROR TYPE:", typeof err, err === null ? "null" : err === undefined ? "undefined" : "")
+    console.error("[TestVoice] ERROR VALUE:", err instanceof Error ? err.message : JSON.stringify(err, Object.getOwnPropertyNames(err)))
     if (err instanceof Error && err.stack) console.error("[TestVoice] STACK:", err.stack)
-    return NextResponse.json({ error: msg || "Voice preview generation failed" }, { status: 502 })
+    return NextResponse.json({ error: "Voice preview generation failed" }, { status: 502 })
   }
 }
