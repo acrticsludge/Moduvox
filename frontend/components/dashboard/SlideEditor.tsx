@@ -95,6 +95,7 @@ export function SlideEditor({
   const [audioGenProgress, setAudioGenProgress] = useState<{ current: number; total: number; slideTitle?: string } | null>(null)
   const [audioGenError, setAudioGenError] = useState<string | null>(null)
   const [audioGenFailed, setAudioGenFailed] = useState(false)
+  const [showMobilePanel, setShowMobilePanel] = useState(false)
   const originalNarrationsRef = useRef<Record<number, string>>({})
   const generatedWithVoiceRef = useRef<{ voiceId: string | null; description: string; ultimateMode: boolean } | null>(null)
   const snapshotInitialized = useRef(false)
@@ -906,7 +907,7 @@ export function SlideEditor({
       </div>
       </div>{/* end wrapper */}
 
-      {/* Right — Controls panel (absolute sidebar relative to <main>, doesn't affect PPT) */}
+      {/* Desktop right panel */}
       <div className="absolute bottom-0 right-0 top-0 z-20 hidden w-[380px] flex-col gap-5 overflow-y-auto border-l border-[var(--color-border-faint)] bg-white p-6 lg:flex hide-scrollbar">
         {/* Slide info + jump input */}
         <div className="flex items-center justify-between gap-2">
@@ -1187,6 +1188,319 @@ export function SlideEditor({
           </>
         )}
       </div>
+
+      {/* Mobile toggle button — shown on < lg screens when panel is closed */}
+      {!showMobilePanel && (
+        <button
+          type="button"
+          onClick={() => setShowMobilePanel(true)}
+          className="fixed right-3 bottom-20 z-30 inline-flex min-h-[48px] min-w-[48px] items-center justify-center rounded-full border border-zinc-200 bg-white shadow-lg text-zinc-600 transition-colors hover:text-zinc-900 lg:hidden"
+          aria-label="Open controls panel"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </button>
+      )}
+
+      {/* Mobile drawer — overlay + slide-in panel */}
+      {showMobilePanel && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          {/* Overlay */}
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowMobilePanel(false)} />
+          {/* Panel */}
+          <div className="absolute bottom-0 right-0 left-0 z-10 max-h-[75vh] flex-col gap-4 overflow-y-auto rounded-t-2xl border-t border-zinc-200 bg-white p-5 shadow-xl animate-slide-up">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-semibold text-zinc-500">Controls</span>
+              <button
+                type="button"
+                onClick={() => setShowMobilePanel(false)}
+                className="touch-target-sm rounded-lg text-zinc-400 hover:text-zinc-600"
+                aria-label="Close panel"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Slide info + jump input */}
+            <div className="flex items-center justify-between gap-2">
+              <form onSubmit={handleSlideJump} className="flex items-center gap-1.5">
+                <span className="text-sm text-[#71717A]">Slide</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={total}
+                  value={slideInput || current.number}
+                  onChange={(e) => setSlideInput(e.target.value)}
+                  onBlur={() => setSlideInput(String(current.number))}
+                  className="w-12 rounded border border-zinc-200 px-1.5 py-0.5 text-center text-sm font-medium text-[#18181B] focus:border-zinc-400 focus:outline-none"
+                />
+                <span className="text-sm text-[#71717A]">of {total}</span>
+              </form>
+              <div className="flex gap-1" title="← → arrow keys to navigate">
+                <button
+                  type="button"
+                  onClick={() => jumpToSlide(current.number - 1)}
+                  disabled={currentIndex === 0}
+                  className="flex h-7 w-7 items-center justify-center rounded text-xs text-[#71717A] transition-colors hover:bg-zinc-100 hover:text-[#18181B] disabled:opacity-30"
+                >
+                  ←
+                </button>
+                <button
+                  type="button"
+                  onClick={() => jumpToSlide(current.number + 1)}
+                  disabled={currentIndex === total - 1}
+                  className="flex h-7 w-7 items-center justify-center rounded text-xs text-[#71717A] transition-colors hover:bg-zinc-100 hover:text-[#18181B] disabled:opacity-30"
+                >
+                  →
+                </button>
+              </div>
+            </div>
+
+            {/* Slide info button + modal */}
+            <div>
+              <button
+                type="button"
+                onClick={() => setShowSlideInfo(true)}
+                className="flex w-full items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-left text-sm text-[#71717A] transition-colors hover:border-zinc-300 hover:text-[#18181B]"
+              >
+                <FileText className="h-4 w-4 flex-shrink-0" />
+                <span className="flex-1">View parsed information from current slide</span>
+                <ChevronRight className="h-3.5 w-3.5 flex-shrink-0 text-zinc-300" />
+              </button>
+            </div>
+
+            {/* Modified slides banner */}
+            {changedSlides.length > 0 && (
+              <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+                <span className="h-2 w-2 flex-shrink-0 rounded-full bg-amber-500" />
+                <span>{changedSlides.length} slide(s) modified since re-upload</span>
+              </div>
+            )}
+
+            {/* Slide info modal */}
+            {showSlideInfo && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#18181B]/40 p-4">
+                <div className="w-full max-w-lg rounded-xl border border-zinc-200 bg-white shadow-xl">
+                  {/* Header */}
+                  <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-4">
+                    <div className="flex items-center gap-3">
+                      <span className="inline-flex items-center rounded-md bg-zinc-100 px-2 py-0.5 text-[11px] font-semibold tracking-wider text-zinc-500 uppercase">
+                        Slide {current.number}
+                      </span>
+                      {changedSlides.includes(current.number) && (
+                        <span className="inline-flex items-center rounded-md bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                          Modified
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowSlideInfo(false)}
+                      className="rounded-md p-1 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+
+                  {/* Title */}
+                  <div className="px-5 pt-4 pb-2">
+                    <h2 className="text-lg font-semibold leading-snug text-[#18181B]">
+                      {current.title}
+                    </h2>
+                  </div>
+
+                  {/* Content */}
+                  <div className="max-h-[50vh] overflow-y-auto px-5 pb-4 hide-scrollbar">
+                    {current.bullets.length > 0 ? (
+                      <div className="space-y-1.5">
+                        {current.bullets.map((b, i) => (
+                          <div
+                            key={i}
+                            className="group flex gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-zinc-50"
+                          >
+                            <div className="mt-0.5 w-0.5 flex-shrink-0 rounded-full bg-zinc-200 group-hover:bg-zinc-400" />
+                            <p className="text-sm leading-relaxed text-zinc-600 group-hover:text-zinc-800">
+                              {b}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center rounded-lg border border-dashed border-zinc-200 py-8">
+                        <p className="text-sm text-zinc-400">No additional content extracted</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Footer */}
+                  <div className="flex items-center justify-between border-t border-zinc-100 px-5 py-3">
+                    <span className="text-[11px] text-zinc-400">
+                      {current.bullets.length > 0
+                        ? `${current.bullets.length} item${current.bullets.length === 1 ? "" : "s"}`
+                        : "Empty slide"}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowSlideInfo(false)}
+                      className="inline-flex items-center justify-center rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-zinc-900"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Narration textarea */}
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-[#18181B]">
+                Narration Script
+              </label>
+              {generatingNarrations && !narrations[current.number] ? (
+                <div className="min-h-[120px] animate-pulse rounded-lg bg-zinc-100" />
+              ) : (
+                <Textarea
+                  value={narrations[current.number] ?? ""}
+                  onChange={(e) => updateNarration(e.target.value)}
+                  placeholder={
+                    generatingNarrations
+                      ? "Generating AI narration..."
+                      : "AI-generated narration will appear here..."
+                  }
+                  className="min-h-[120px] resize-none text-sm"
+                />
+              )}
+              {narrations[current.number] && (
+                <p className="text-xs text-zinc-400 text-right">
+                  {narrations[current.number].split(/\s+/).filter(Boolean).length} words · {narrations[current.number].length} characters
+                </p>
+              )}
+            </div>
+
+            {/* Try Again — shown when auto-gen narration failed (no narrations) */}
+            {generationFailed && (
+              <Button
+                onClick={async () => {
+                  setGenerationFailed(false)
+                  const ok = await generateNarrations(slides, true)
+                  if (!ok) setGenerationFailed(true)
+                }}
+                disabled={generating || generatingNarrations}
+                variant="outline"
+                className="w-full"
+              >
+                {generating || generatingNarrations ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Trying again…
+                  </>
+                ) : (
+                  "Try again"
+                )}
+              </Button>
+            )}
+
+            {/* Generate Audio — shown when narration exists but TTS not done */}
+            {Object.keys(narrations).length > 0 && !audioGenerated && !generationFailed && !audioGenFailed && (
+              <Button
+                onClick={runAudioGeneration}
+                disabled={generatingNarrations || generatingAudio}
+                className="w-full"
+              >
+                {generatingAudio ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Generating Audio…
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-4 w-4" />
+                    Generate Audio
+                  </>
+                )}
+              </Button>
+            )}
+
+            {/* Retry after audio generation failure */}
+            {audioGenFailed && (
+              <Button
+                onClick={async () => {
+                  setAudioGenFailed(false)
+                  setAudioGenError(null)
+                  // Trigger generation immediately after clearing error
+                  await runAudioGeneration()
+                }}
+                variant="outline"
+                className="w-full"
+              >
+                Retry
+              </Button>
+            )}
+
+            {/* Audio section — shown after TTS has been done */}
+            {audioGenerated && (
+              <>
+                {changedSlides.length === 0 && (
+                  <div
+                    className={
+                      lastRegenCount > 0
+                        ? "rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700"
+                        : "rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700"
+                    }
+                  >
+                    {lastRegenCount > 0
+                      ? `Audio regenerated for ${lastRegenCount} slide(s)`
+                      : `Audio generated for all ${total} slides`}
+                  </div>
+                )}
+
+                {/* Voice changed banner */}
+                {voiceChangedSinceAudio && (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+                    Voice settings changed. Regenerate audio to apply the new voice.
+                  </div>
+                )}
+
+                {/* Global regenerate button */}
+                <Button
+                  onClick={() => setShowRegenModal(true)}
+                  variant="outline"
+                  className="w-full"
+                >
+                  Regenerate Audio
+                </Button>
+
+                {/* Audio player */}
+                {audioUrl && (
+                  <AudioPlayer
+                    audioUrl={audioUrl}
+                    presentationId={presentationId}
+                    slideNumber={currentIndex + 1}
+                    onError={() => {
+                      setInternalAudioGenerated(false)
+                      onAudioGeneratedChange?.(false)
+                      setInternalAudioUrl(null)
+                      onAudioUrlChange?.(null)
+                      onAudioStoragePathChange?.(null)
+                    }}
+                  />
+                )}
+
+                {/* Share & Track button */}
+                {audioGenerated && (
+                  <Button
+                    onClick={() => setShowShareModal(true)}
+                    variant="outline"
+                    className="w-full"
+                  >
+                    <Share2 className="h-4 w-4" />
+                    Share & Track Viewers
+                  </Button>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Re-upload modal overlay */}
       {showReUpload && pendingDiff && (
