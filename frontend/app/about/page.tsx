@@ -1,5 +1,11 @@
+import type { Metadata } from "next"
 import { Navbar } from "@/components/ui/Navbar";
 import { Footer } from "@/components/landing/footer";
+
+export const metadata: Metadata = {
+  title: "About — Moduvox",
+  description: "Learn about Moduvox — the platform that turns your PPTX slides into AI-narrated presentations.",
+}
 
 export default function AboutPage() {
   return (

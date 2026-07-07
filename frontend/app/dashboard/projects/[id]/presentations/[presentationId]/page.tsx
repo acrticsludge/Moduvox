@@ -9,10 +9,12 @@ import type { Presentation as PresentationType } from "@/lib/validations/present
 import { CreatePageSidebar } from "@/components/dashboard/CreatePageSidebar"
 import { PptxUploadZone } from "@/components/dashboard/PptxUploadZone"
 import { SlideEditor } from "@/components/dashboard/SlideEditor"
+import dynamic from "next/dynamic"
 import { ErrorBoundary } from "@/components/dashboard/ErrorBoundary"
-import { DeletePresentationDialog } from "@/components/dashboard/DeletePresentationDialog"
-import { RenamePresentationDialog } from "@/components/dashboard/RenamePresentationDialog"
-import { ConfirmArchiveDialog } from "@/components/dashboard/ConfirmArchiveDialog"
+
+const DeletePresentationDialog = dynamic(() => import("@/components/dashboard/DeletePresentationDialog").then(mod => mod.DeletePresentationDialog), { ssr: false })
+const RenamePresentationDialog = dynamic(() => import("@/components/dashboard/RenamePresentationDialog").then(mod => mod.RenamePresentationDialog), { ssr: false })
+const ConfirmArchiveDialog = dynamic(() => import("@/components/dashboard/ConfirmArchiveDialog").then(mod => mod.ConfirmArchiveDialog), { ssr: false })
 
 type EditorState = {
   selectedVoiceId?: string

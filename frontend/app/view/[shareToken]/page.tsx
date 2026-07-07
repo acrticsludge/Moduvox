@@ -2,14 +2,16 @@
 
 import { useState, useEffect, useRef } from "react"
 import { useParams, useSearchParams } from "next/navigation"
+import dynamic from "next/dynamic"
 import { Loader2 } from "lucide-react"
-import { CombinedGateDialog } from "@/components/view/CombinedGateDialog"
 import { EmailSentScreen } from "@/components/view/EmailSentScreen"
 import { VerifyErrorScreen } from "@/components/view/VerifyErrorScreen"
 import { ViewNavbar } from "@/components/view/ViewNavbar"
 import { ViewFooter } from "@/components/view/ViewFooter"
-import { ViewAudioBar } from "@/components/view/ViewAudioBar"
 import { ViewSidebar } from "@/components/view/ViewSidebar"
+
+const CombinedGateDialog = dynamic(() => import("@/components/view/CombinedGateDialog").then(mod => mod.CombinedGateDialog), { ssr: false })
+const ViewAudioBar = dynamic(() => import("@/components/view/ViewAudioBar").then(mod => mod.ViewAudioBar), { ssr: false })
 
 type PresentationMeta = {
   id: string

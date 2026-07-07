@@ -4,8 +4,10 @@ import { useEffect, useState } from "react"
 import { Plus, FolderKanban, Loader2 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import type { Project } from "@/lib/validations/project"
+import dynamic from "next/dynamic"
 import { ProjectCard } from "@/components/dashboard/ProjectCard"
-import { CreateProjectModal } from "@/components/dashboard/CreateProjectModal"
+
+const CreateProjectModal = dynamic(() => import("@/components/dashboard/CreateProjectModal").then(mod => mod.CreateProjectModal), { ssr: false })
 
 export default function DashboardPage() {
   const [projects, setProjects] = useState<Project[]>([])

@@ -3,8 +3,10 @@
 import { useEffect, useState, useRef } from "react"
 import { Plus, Mic, Trash2, Music, Loader2, Volume2, Play } from "lucide-react"
 import toast from "react-hot-toast"
-import { DeleteVoiceDialog } from "@/components/dashboard/DeleteVoiceDialog"
-import { WaitlistDialog } from "@/components/dashboard/WaitlistDialog"
+import dynamic from "next/dynamic"
+
+const DeleteVoiceDialog = dynamic(() => import("@/components/dashboard/DeleteVoiceDialog").then(mod => mod.DeleteVoiceDialog), { ssr: false })
+const WaitlistDialog = dynamic(() => import("@/components/dashboard/WaitlistDialog").then(mod => mod.WaitlistDialog), { ssr: false })
 import type { QuotaResult } from "@/lib/quota"
 
 // ── Types ────────────────────────────────────────────

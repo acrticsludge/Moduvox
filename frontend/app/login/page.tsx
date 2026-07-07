@@ -1,11 +1,15 @@
 "use client";
 
+import { useEffect } from "react";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 export default function LoginPage() {
+  useEffect(() => {
+    document.title = "Log in — Moduvox";
+  }, []);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
