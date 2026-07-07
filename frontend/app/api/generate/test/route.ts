@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
-import { generateWithPreset, generateWithClone } from "@/lib/voxcpm"
+import { generateWithPreset, generateUltimateClone } from "@/lib/voxcpm"
 import { createDownloadUrl, downloadFileAsBuffer, uploadFile, fileExists } from "@/lib/r2"
 
 const testVoiceSchema = z.object({
@@ -97,10 +97,9 @@ export async function POST(request: Request) {
       }
 
       console.log("[TestVoice] R2 download OK:", sampleResult.data.length, "bytes")
-      console.log("[TestVoice] Generating clone audio via VoxCPM...")
-      // Pass a default control instruction — empty string may cause Gradio 6 errors
-      const controlDesc = voice.control_instruction || "Natural, clear, professional speaking voice"
-      result = await generateWithClone(EXAMPLE_TEXT, sampleResult.data, controlDesc)
+      console.log("[TestVoice] Generating clone audio via VoxCPM (ultimate mode)...")
+      // Ultimate clone mode — doesn't need control_instruction, avoids Gradio 6 API error
+      result = await generateUltimateClone(EXAMPLE_TEXT, sampleResult.data)
     }
 
     console.log("[TestVoice] VoxCPM result audioUrl:", result.audioUrl ? result.audioUrl.slice(0, 80) : "EMPTY!")
