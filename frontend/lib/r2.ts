@@ -8,8 +8,6 @@
  * @see docs/r2-ssl-handshake-diagnosis.md
  */
 
-import type { Readable } from "stream"
-
 // ── Lazy SDK loader ────────────────────────────────────────
 // Dynamic imports only — no static type imports from AWS SDK.
 // This prevents Turbopack from resolving the SDK during build-time
@@ -121,23 +119,6 @@ function handleAwsError(err: unknown): R2Error {
   return { success: false, error: String(err) }
 }
 
-async function readableToBuffer(stream: Readable, timeoutMs = 30_000): Promise<Buffer> {
-  const chunks: Buffer[] = []
-
-  const reader = (async () => {
-    for await (const chunk of stream) {
-      chunks.push(Buffer.from(chunk))
-    }
-    return Buffer.concat(chunks)
-  })()
-
-  const timer = new Promise<Buffer>((_, reject) =>
-    setTimeout(() => reject(new Error(`Stream read timed out after ${timeoutMs}ms`)), timeoutMs),
-  )
-
-  return Promise.race([reader, timer])
-}
-
 // ── Direct S3 Operations (lazy SDK) ────────────────────────
 
 /**
@@ -145,7 +126,7 @@ async function readableToBuffer(stream: Readable, timeoutMs = 30_000): Promise<B
  */
 export async function uploadFile(
   key: string,
-  body: Buffer | Readable | Blob | string,
+  body: Buffer | Blob | string,
   contentType: string
 ): Promise<R2Response<{ key: string; etag?: string }>> {
   const [{ PutObjectCommand }, client] = await Promise.all([loadAwsSdk(), createR2Client()])
@@ -167,38 +148,31 @@ export async function uploadFile(
 }
 
 /**
- * Download a file from R2 as a Readable stream.
- */
-export async function downloadFile(key: string): Promise<R2Response<{ body: Readable; contentType?: string; contentLength?: number }>> {
-  const [{ GetObjectCommand }, client] = await Promise.all([loadAwsSdk(), createR2Client()])
-  try {
-    const cmd = new GetObjectCommand({ Bucket: bucketName(), Key: key })
-    const result = await client.send(cmd)
-    console.log(`[R2] Downloaded: ${key} (${result.ContentLength ?? "?"} bytes)`)
-    return {
-      success: true,
-      data: {
-        body: result.Body as Readable,
-        contentType: result.ContentType,
-        contentLength: result.ContentLength,
-      },
-    }
-  } catch (err) {
-    return handleAwsError(err)
-  } finally {
-    client.destroy()
-  }
-}
-
-/**
- * Download a file from R2 as a Buffer.
+ * Download a file from R2 as a Buffer using a presigned URL + fetch.
+ * Presigned URLs are signed locally (no network call) and fetch handles
+ * the body stream reliably, unlike the SDK's GetObjectCommand stream.
  */
 export async function downloadFileAsBuffer(key: string): Promise<R2Response<Buffer>> {
-  const result = await downloadFile(key)
-  if (!result.success) return result
+  // Generate presigned GET URL locally
+  const url = await createDownloadUrl(key, 3600)
+  if (!url) {
+    return { success: false, error: "Failed to generate presigned URL" }
+  }
+
+  // Download via fetch with 30s timeout
   try {
-    const buffer = await readableToBuffer(result.data.body)
-    return { success: true, data: buffer }
+    const res = await Promise.race([
+      fetch(url),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error(`Download timed out after 30000ms`)), 30_000),
+      ),
+    ])
+    if (!res.ok) {
+      return { success: false, error: `HTTP ${res.status}: ${res.statusText}` }
+    }
+    const ab = await res.arrayBuffer()
+    console.log(`[R2] Downloaded: ${key} (${ab.byteLength} bytes)`)
+    return { success: true, data: Buffer.from(ab) }
   } catch (err) {
     return handleAwsError(err)
   }
