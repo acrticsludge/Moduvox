@@ -3,7 +3,7 @@
 import { useEffect } from "react"
 import Link from "next/link"
 
-export default function DashboardError({
+export default function ArchivedError({
   error,
   reset,
 }: {
@@ -11,7 +11,7 @@ export default function DashboardError({
   reset: () => void
 }) {
   useEffect(() => {
-    console.error("Dashboard error:", error)
+    console.error("Archived error:", error)
   }, [error])
 
   return (
@@ -24,7 +24,7 @@ export default function DashboardError({
           Something went wrong
         </h2>
         <p className="mt-2 text-sm leading-relaxed text-[#71717A]">
-          We encountered an error loading this page. Try again or return to the dashboard.
+          We encountered an error loading this page. Try again or return to archived.
         </p>
         <div className="mt-6 flex items-center justify-center gap-3">
           <button
@@ -35,10 +35,10 @@ export default function DashboardError({
             Try again
           </button>
           <Link
-            href="/dashboard"
+            href="/dashboard/archived"
             className="min-h-[48px] min-w-[48px] rounded-lg border border-zinc-300 bg-white px-5 py-2.5 text-sm font-medium text-[#18181B] transition hover:bg-zinc-50"
           >
-            Go to dashboard
+            Go to archived
           </Link>
         </div>
       </div>
