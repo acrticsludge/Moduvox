@@ -21,6 +21,34 @@ export async function POST(
     return NextResponse.json({ error: "No file path provided" }, { status: 400 })
   }
 
+  // Verify file type via magic bytes (PPTX/ZIP header: PK\x03\x04)
+  const downloadUrl = await createDownloadUrl(filePath, 120)
+  if (!downloadUrl) {
+    return NextResponse.json({ error: "Failed to verify uploaded file" }, { status: 500 })
+  }
+
+  let magicBytes: Buffer | null = null
+  try {
+    const res = await fetch(downloadUrl, {
+      headers: { Range: "bytes=0-3" },
+    })
+    if (res.ok) {
+      const arr = await res.arrayBuffer()
+      magicBytes = Buffer.from(arr)
+    }
+  } catch {
+    console.error("[Upload] Failed to fetch file for MIME validation")
+  }
+
+  if (magicBytes) {
+    const validPptxMagic = Buffer.from([0x50, 0x4B, 0x03, 0x04])
+    if (!magicBytes.equals(validPptxMagic)) {
+      const { deleteFile } = await import("@/lib/r2")
+      await deleteFile(filePath)
+      return NextResponse.json({ error: "Invalid file type. Only .pptx files are allowed." }, { status: 422 })
+    }
+  }
+
   // Update presentation status
   await supabase
     .from("presentations")
