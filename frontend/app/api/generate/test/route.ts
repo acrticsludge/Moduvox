@@ -98,7 +98,9 @@ export async function POST(request: Request) {
 
       console.log("[TestVoice] R2 download OK:", sampleResult.data.length, "bytes")
       console.log("[TestVoice] Generating clone audio via VoxCPM...")
-      result = await generateWithClone(EXAMPLE_TEXT, sampleResult.data)
+      // Pass a default control instruction — empty string may cause Gradio 6 errors
+      const controlDesc = voice.control_instruction || "Natural, clear, professional speaking voice"
+      result = await generateWithClone(EXAMPLE_TEXT, sampleResult.data, controlDesc)
     }
 
     console.log("[TestVoice] VoxCPM result audioUrl:", result.audioUrl ? result.audioUrl.slice(0, 80) : "EMPTY!")
