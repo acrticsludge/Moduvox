@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { encrypt, decrypt } from "@/lib/encryption"
 
 export async function GET() {
   const supabase = await createClient()
@@ -14,7 +15,19 @@ export async function GET() {
     .eq("id", user.id)
     .single()
 
-  return NextResponse.json({ data: { geminiApiKey: data?.gemini_api_key || null } })
+  // Decrypt the stored key before returning (client needs plaintext)
+  let geminiApiKey: string | null = null
+  if (data?.gemini_api_key) {
+    try {
+      geminiApiKey = decrypt(data.gemini_api_key)
+    } catch {
+      // If decryption fails, key might be in plaintext from before encryption was added
+      // Return it as-is (migration path)
+      geminiApiKey = data.gemini_api_key
+    }
+  }
+
+  return NextResponse.json({ data: { geminiApiKey } })
 }
 
 export async function PUT(request: Request) {
@@ -29,9 +42,12 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: "geminiApiKey must be a string" }, { status: 400 })
   }
 
+  // Encrypt the key before storing
+  const encrypted = encrypt(geminiApiKey)
+
   const { error } = await supabase
     .from("users")
-    .update({ gemini_api_key: geminiApiKey || null })
+    .update({ gemini_api_key: encrypted })
     .eq("id", user.id)
 
   if (error) {
