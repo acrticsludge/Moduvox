@@ -7,6 +7,7 @@ import { Navbar } from "@/components/ui/Navbar"
 import { Footer } from "@/components/landing/footer"
 import { LayoutGrid, Mic, Settings, Archive, Menu, Loader2 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
+import { ErrorBoundary } from "react-error-boundary"
 
 const SIDEBAR_MAIN = [
   { label: "All Projects", icon: LayoutGrid, href: "/dashboard", match: /^\/dashboard(\/projects\/?.*|\/presentations\/?.*)?$/ },
@@ -82,6 +83,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         <div className="flex flex-1 pt-16">
           {/* ========== SIDEBAR ========== */}
+          <ErrorBoundary
+            fallback={
+              <aside className="fixed bottom-0 left-0 top-16 z-30 flex w-56 flex-col border-r border-[var(--color-border-faint)] bg-white p-4 md:static">
+                <p className="text-sm text-[#71717A]">Sidebar unavailable</p>
+              </aside>
+            }
+          >
           <aside
             className={`fixed bottom-0 left-0 top-16 z-30 flex w-56 flex-col border-r border-[var(--color-border-faint)] bg-white transition-transform duration-300 md:static md:translate-x-0 ${
               sidebarOpen ? "translate-x-0" : "-translate-x-full"
@@ -110,6 +118,7 @@ className={`touch-target gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-med
 
             </nav>
           </aside>
+          </ErrorBoundary>
 
           {/* ========== MAIN CONTENT ========== */}
           <main className="relative flex flex-1 flex-col min-w-0 pb-16">
@@ -124,7 +133,21 @@ className={`touch-target gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-med
                 <Menu className="h-4 w-4" />
               </button>
             )}
-            {children}
+            <ErrorBoundary
+              fallback={
+                <main className="flex flex-1 flex-col items-center justify-center p-8 min-w-0">
+                  <p className="text-sm text-[#71717A]">This section encountered an error.</p>
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="mt-3 min-h-[48px] min-w-[48px] rounded-lg bg-[#18181B] px-4 py-2 text-sm font-medium text-white"
+                  >
+                    Reload
+                  </button>
+                </main>
+              }
+            >
+              {children}
+            </ErrorBoundary>
           </main>
         </div>
 
