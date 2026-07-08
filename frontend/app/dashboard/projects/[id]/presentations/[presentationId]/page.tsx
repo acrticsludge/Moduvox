@@ -64,14 +64,17 @@ export default function PresentationCreatePage() {
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle")
   const [dirty, setDirty] = useState(false)
   const [restoring, setRestoring] = useState(false)
+  const [slideEditorReady, setSlideEditorReady] = useState(false)
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   function handleFileAccepted(file: File) {
     setUploadedFile(file)
     setMode("editor")
+    setSlideEditorReady(false) // Keep skeleton until SlideEditor finishes processing
   }
 
+  const handleSlideEditorReady = useCallback(() => setSlideEditorReady(true), [])
   function handleVoiceChange(id: string) { setSelectedVoiceId(id); setDirty(true) }
   function handleControlInstructionsChange(v: string) { setControlInstructions(v); setDirty(true) }
   function handleUltimateModeChange(v: boolean) { setUltimateMode(v); setDirty(true) }
@@ -128,6 +131,8 @@ export default function PresentationCreatePage() {
 
   // Load editor state from presentation DB record
   useEffect(() => {
+    // Reset SlideEditor readiness so the page skeleton persists until editor is ready
+    setSlideEditorReady(false)
     const supabase = createClient()
 
     Promise.all([
@@ -217,7 +222,8 @@ export default function PresentationCreatePage() {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload)
   }, [dirty])
 
-  if (loading) {
+  // Show skeleton on initial page load, or while waiting for SlideEditor to finish processing
+  if (loading || (presentation?.status !== "archived" && mode === "editor" && !slideEditorReady)) {
     return (
       <>
         <div className="absolute bottom-0 left-0 top-0 z-30 w-80 animate-pulse border-r border-[var(--color-border-faint)] bg-white p-5">
@@ -440,6 +446,7 @@ export default function PresentationCreatePage() {
               audioStoragePath={audioStoragePath}
               onAudioStoragePathChange={setAudioStoragePath}
               onRemovePpt={() => { setMode("upload"); setStoragePath(""); setAudioUrl(null); setAudioStoragePath(null) }}
+              onReady={handleSlideEditorReady}
             />
           </ErrorBoundary>
         )}

@@ -38,6 +38,7 @@ export function SlideEditor({
   onAudioSlidePathsChange,
   selectedVoiceId,
   ultimateMode,
+  onReady,
 }: {
   voiceSelected: boolean
   file: File | null
@@ -63,6 +64,8 @@ export function SlideEditor({
   onAudioSlidePathsChange?: (v: Record<number, string>) => void
   selectedVoiceId?: string | null
   ultimateMode?: boolean
+  /** Called once SlideEditor has finished loading slides (parsing or restoring from saved state) */
+  onReady?: () => void
 }) {
   const [slides, setSlides] = useState<ParsedSlide[]>([])
   const [internalIndex, setInternalIndex] = useState(0)
@@ -214,12 +217,12 @@ export function SlideEditor({
         }
       }
 
-      if (!cancelled) { setLoading(false); setUploadProgress(0) }
+      if (!cancelled) { setLoading(false); setUploadProgress(0); onReady?.() }
     }
 
     processFile()
     return () => { cancelled = true }
-  }, [file, presentationId])
+  }, [file, presentationId, onReady])
 
   // Auto-generate narration when slides are first parsed
   useEffect(() => {
