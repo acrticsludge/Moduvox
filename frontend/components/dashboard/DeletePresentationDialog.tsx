@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Loader2, TriangleAlert } from "lucide-react"
+import { ErrorBanner } from "@/components/ui/ErrorBanner"
 import type { Presentation } from "@/lib/validations/presentation"
 
 export function DeletePresentationDialog({
@@ -48,7 +49,9 @@ export function DeletePresentationDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#18181B]/40">
-      <div className="w-full max-w-sm rounded-xl border border-zinc-200 bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto hide-scrollbar">
+      <div className={`w-full max-w-sm rounded-xl border bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto hide-scrollbar transition-all duration-300 ${
+        error ? "border-red-300 shadow-[0_0_0_1px_#fca5a5]" : "border-zinc-200"
+      }`}>
         <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
           <TriangleAlert className="h-6 w-6 text-red-600" />
         </div>
@@ -76,12 +79,12 @@ export function DeletePresentationDialog({
         </div>
 
         {error && (
-          <div className="mb-4 flex items-center justify-between rounded-lg bg-red-50 px-3 py-2">
-            <p className="text-sm text-red-600">{error}</p>
+          <div className="mb-4 space-y-2">
+            <ErrorBanner message={error} />
             <button
               type="button"
               onClick={handleDelete}
-              className="ml-2 whitespace-nowrap text-sm font-medium text-red-700 underline hover:text-red-800"
+              className="text-sm font-medium text-red-700 underline hover:text-red-800"
             >
               Try again
             </button>

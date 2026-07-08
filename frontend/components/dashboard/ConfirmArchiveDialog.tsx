@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Archive, Loader2, X } from "lucide-react"
+import { ErrorBanner } from "@/components/ui/ErrorBanner"
 import type { Presentation } from "@/lib/validations/presentation"
 
 export function ConfirmArchiveDialog({
@@ -34,7 +35,9 @@ export function ConfirmArchiveDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#18181B]/40 p-4">
-      <div className="w-full max-w-sm rounded-xl border border-zinc-200 bg-white p-6 shadow-xl">
+      <div className={`w-full max-w-sm rounded-xl border bg-white p-6 shadow-xl transition-all duration-300 ${
+        error ? "border-red-300 shadow-[0_0_0_1px_#fca5a5]" : "border-zinc-200"
+      }`}>
         {/* Close button */}
         <button
           type="button"
@@ -60,12 +63,12 @@ export function ConfirmArchiveDialog({
         </p>
 
         {error && (
-          <div className="mb-4 flex items-center justify-between rounded-lg bg-red-50 px-3 py-2">
-            <p className="text-sm text-red-600">{error}</p>
+          <div className="mb-4 space-y-2">
+            <ErrorBanner message={error} />
             <button
               type="button"
               onClick={handleArchive}
-              className="ml-2 whitespace-nowrap text-sm font-medium text-red-700 underline hover:text-red-800"
+              className="text-sm font-medium text-red-700 underline hover:text-red-800"
             >
               Try again
             </button>
