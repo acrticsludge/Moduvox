@@ -84,12 +84,6 @@ export default function FeedbackPage() {
         return
       }
 
-      if (res.status === 401) {
-        setError("You need to log in to submit feedback.")
-        setState({ type: "form" })
-        return
-      }
-
       if (!res.ok) {
         if (json.details) {
           const fieldErrors: Record<string, string> = {}

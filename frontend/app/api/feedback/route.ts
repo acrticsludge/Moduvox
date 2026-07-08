@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { submitFeedbackSchema, CATEGORY_LABELS } from "@/lib/validations/feedback"
 import type { FeedbackCategory } from "@/lib/validations/feedback"
@@ -10,13 +9,6 @@ export async function POST(request: Request) {
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
       console.error("POST /api/feedback: Missing Supabase env vars")
       return NextResponse.json({ error: "Server configuration error" }, { status: 500 })
-    }
-
-    // Require authentication
-    const auth = await createClient()
-    const { data: { user }, error: authError } = await auth.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: "You must be logged in to submit feedback" }, { status: 401 })
     }
 
     const supabase = createAdminClient()
@@ -75,8 +67,11 @@ export async function POST(request: Request) {
       .single()
 
     if (insertError || !feedback) {
-      console.error("Failed to insert feedback:", insertError?.message)
-      return NextResponse.json({ error: "Failed to submit feedback" }, { status: 500 })
+      console.error("POST /api/feedback: Insert failed", insertError?.message)
+      return NextResponse.json(
+        { error: "Failed to save feedback. Please try again later." },
+        { status: 500 },
+      )
     }
 
     // Send email notification via Resend
@@ -108,7 +103,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ data: { ok: true } }, { status: 201 })
   } catch (err) {
     // Catch-all: any unexpected error returns JSON, never HTML
-    console.error("POST /api/feedback: Unexpected error", err)
+    const message = err instanceof Error ? err.message : "Unknown error"
+    console.error("POST /api/feedback: Unexpected error", message)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
