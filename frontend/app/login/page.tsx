@@ -12,6 +12,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const router = useRouter();
   const supabase = createClient();
 
@@ -32,7 +33,17 @@ export default function LoginPage() {
   async function handleEmailLogin(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setFieldErrors({});
     setLoading(true);
+
+    const errors: Record<string, string> = {}
+    if (!email.trim()) errors.email = "Email is required"
+    if (!password) errors.password = "Password is required"
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors)
+      setLoading(false)
+      return
+    }
 
     const { error } = await supabase.auth.signInWithPassword({ email, password });
 
@@ -105,10 +116,16 @@ export default function LoginPage() {
               type="email"
               required
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value)
+                setFieldErrors((prev) => ({ ...prev, email: "" }))
+              }}
               className="mt-1 block w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-[#18181B] placeholder:text-zinc-400 focus:border-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-800/20"
               placeholder="you@company.com"
             />
+            {fieldErrors.email && (
+              <p className="mt-1 text-xs text-red-500">{fieldErrors.email}</p>
+            )}
           </div>
 
           <div>
@@ -120,10 +137,16 @@ export default function LoginPage() {
               type="password"
               required
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value)
+                setFieldErrors((prev) => ({ ...prev, password: "" }))
+              }}
               className="mt-1 block w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-[#18181B] placeholder:text-zinc-400 focus:border-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-800/20"
               placeholder="Enter your password"
             />
+            {fieldErrors.password && (
+              <p className="mt-1 text-xs text-red-500">{fieldErrors.password}</p>
+            )}
           </div>
 
           {error && (
