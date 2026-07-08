@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Toaster } from "react-hot-toast";
 import { UnhandledRejectionHandler } from "@/components/UnhandledRejectionHandler";
 import "./globals.css";
 
@@ -34,6 +35,13 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <UnhandledRejectionHandler />
+        <Toaster
+          position="top-center"
+          toastOptions={{
+            duration: 4000,
+            style: { fontSize: "13px", background: "#18181B", color: "#FAFAFA", borderRadius: "8px" },
+          }}
+        />
         {children}
       </body>
     </html>
