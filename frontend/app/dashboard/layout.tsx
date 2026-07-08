@@ -1,11 +1,12 @@
 "use client"
 
-import { useState, createContext, useContext } from "react"
-import { usePathname } from "next/navigation"
+import { useState, useEffect, createContext, useContext } from "react"
+import { usePathname, useRouter } from "next/navigation"
 import { Toaster } from "react-hot-toast"
 import { Navbar } from "@/components/ui/Navbar"
 import { Footer } from "@/components/landing/footer"
-import { LayoutGrid, Mic, Settings, Archive, Menu } from "lucide-react"
+import { LayoutGrid, Mic, Settings, Archive, Menu, Loader2 } from "lucide-react"
+import { createClient } from "@/lib/supabase/client"
 
 const SIDEBAR_MAIN = [
   { label: "All Projects", icon: LayoutGrid, href: "/dashboard", match: /^\/dashboard(\/projects\/?.*|\/presentations\/?.*)?$/ },
@@ -30,7 +31,29 @@ export function useSidebar() {
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [checkingAuth, setCheckingAuth] = useState(true)
   const pathname = usePathname()
+  const router = useRouter()
+  const supabase = createClient()
+
+  // Defense-in-depth: verify auth client-side even if middleware was bypassed
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (!data.user) {
+        router.push("/login")
+      } else {
+        setCheckingAuth(false)
+      }
+    })
+  }, [router, supabase])
+
+  if (checkingAuth) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#F9FAFB]">
+        <Loader2 className="h-6 w-6 animate-spin text-[#71717A]" />
+      </div>
+    )
+  }
 
   const ctx: SidebarCtx = {
     open: () => setSidebarOpen(true),
