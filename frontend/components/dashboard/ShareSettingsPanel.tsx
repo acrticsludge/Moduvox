@@ -40,8 +40,8 @@ const [expireDate, setExpireDate] = useState<Date | undefined>(undefined)
           setExpireTime(format(dt, "HH:mm"))
         }
       }
-    } catch {
-      // Settings fetch failed — component will show nothing
+    } catch (err) {
+      console.error("[ShareSettingsPanel] Settings fetch failed:", err)
     } finally {
       setLoading(false)
     }
