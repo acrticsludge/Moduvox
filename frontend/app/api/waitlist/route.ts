@@ -3,8 +3,9 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { submitWaitlistSchema } from "@/lib/validations/waitlist"
 import { checkRateLimit } from "@/lib/rate-limiter"
+import { withApiHandler } from "@/lib/api-handler"
 
-export async function POST(request: Request) {
+export const POST = withApiHandler(async (request: Request) => {
   const supabase = await createClient()
 
   const { data: { user }, error: authError } = await supabase.auth.getUser()

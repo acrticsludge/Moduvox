@@ -2,8 +2,9 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createPresetVoiceSchema } from "@/lib/validations/voice"
 import { checkPresetVoiceQuota, quotaBlockResponse } from "@/lib/quota"
+import { withApiHandler } from "@/lib/api-handler"
 
-export async function GET() {
+export const GET = withApiHandler(async () => {
   const supabase = await createClient()
 
   const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -26,7 +27,7 @@ export async function GET() {
   return NextResponse.json({ data })
 }
 
-export async function POST(request: Request) {
+export const POST = withApiHandler(async (request: Request) => {
   const supabase = await createClient()
 
   const { data: { user }, error: authError } = await supabase.auth.getUser()

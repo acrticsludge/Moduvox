@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { withApiHandler } from "@/lib/api-handler"
 
-export async function GET(
+export const GET = withApiHandler(async (
   request: Request,
   { params }: { params: Promise<{ shareToken: string }> },
-) {
+) => {
   const { shareToken } = await params
   const { searchParams } = new URL(request.url)
   const vt = searchParams.get("vt")

@@ -2,11 +2,12 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { downloadFileAsBuffer } from "@/lib/r2"
 import { isValidWav } from "@/lib/wav-utils"
+import { withApiHandler } from "@/lib/api-handler"
 
-export async function GET(
+export const GET = withApiHandler(async (
   request: Request,
   { params }: { params: Promise<{ id: string; slideNumber: string }> },
-) {
+) => {
   const supabase = await createClient()
   const { id: presentationId, slideNumber } = await params
 

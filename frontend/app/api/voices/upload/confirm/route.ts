@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { deleteFile } from "@/lib/r2"
+import { withApiHandler } from "@/lib/api-handler"
 
 /**
  * Called after the browser uploads a voice sample to R2 via presigned URL.
  * Creates the voice record in the database.
  */
-export async function POST(request: Request) {
+export const POST = withApiHandler(async (request: Request) => {
   const supabase = await createClient()
 
   const { data: { user }, error: authError } = await supabase.auth.getUser()

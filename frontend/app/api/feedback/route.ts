@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { submitFeedbackSchema, CATEGORY_LABELS } from "@/lib/validations/feedback"
 import type { FeedbackCategory } from "@/lib/validations/feedback"
+import { withApiHandler } from "@/lib/api-handler"
 
 const COOLDOWN_MS = 12 * 60 * 60 * 1000
 const COOKIE_NAME = "feedback_submitted_at"
@@ -15,7 +16,7 @@ function getCookie(name: string, header: string | null): string | null {
   return null
 }
 
-export async function POST(request: Request) {
+export const POST = withApiHandler(async (request: Request) => {
   try {
     // ── Rate limit check ────────────────────────────────────
     const existing = getCookie(COOKIE_NAME, request.headers.get("cookie"))

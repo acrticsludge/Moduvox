@@ -2,11 +2,12 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { updateShareSettingsSchema } from "@/lib/validations/share"
 import bcrypt from "bcryptjs"
+import { withApiHandler } from "@/lib/api-handler"
 
-export async function GET(
+export const GET = withApiHandler(async (
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
-) {
+) => {
   const supabase = await createClient()
   const { id: presentationId } = await params
 
@@ -39,10 +40,10 @@ export async function GET(
   })
 }
 
-export async function PATCH(
+export const PATCH = withApiHandler(async (
   request: Request,
   { params }: { params: Promise<{ id: string }> },
-) {
+) => {
   const supabase = await createClient()
   const { id: presentationId } = await params
 

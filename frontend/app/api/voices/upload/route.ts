@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { checkVoiceCloneQuota, quotaBlockResponse } from "@/lib/quota"
 import { createUploadUrl } from "@/lib/r2"
+import { withApiHandler } from "@/lib/api-handler"
 
 const ALLOWED_EXTENSIONS = ["wav", "mp3", "mp4", "m4a", "webm", "ogg"]
 
@@ -9,7 +10,7 @@ const ALLOWED_EXTENSIONS = ["wav", "mp3", "mp4", "m4a", "webm", "ogg"]
  * Returns a presigned PUT URL for direct browser-to-R2 upload.
  * The client then uploads the file to this URL and calls /api/voices/upload/confirm.
  */
-export async function POST(request: Request) {
+export const POST = withApiHandler(async (request: Request) => {
   const supabase = await createClient()
 
   const { data: { user }, error: authError } = await supabase.auth.getUser()

@@ -2,11 +2,12 @@ import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { magicLinkGateSchema, passwordGateSchema } from "@/lib/validations/share"
 import bcrypt from "bcryptjs"
+import { withApiHandler } from "@/lib/api-handler"
 
-export async function POST(
+export const POST = withApiHandler(async (
   request: Request,
   { params }: { params: Promise<{ shareToken: string }> },
-) {
+) => {
   const { shareToken } = await params
   const supabase = createAdminClient()
 
