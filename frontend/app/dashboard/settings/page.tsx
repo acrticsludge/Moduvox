@@ -16,6 +16,7 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [loggingOut, setLoggingOut] = useState(false)
   const [showPasswordForm, setShowPasswordForm] = useState(false)
   const [currentPassword, setCurrentPassword] = useState("")
   const [newPassword, setNewPassword] = useState("")
@@ -122,6 +123,7 @@ export default function SettingsPage() {
   }
 
   async function handleLogout() {
+    setLoggingOut(true)
     await supabase.auth.signOut()
     router.push("/")
     router.refresh()
@@ -321,10 +323,14 @@ export default function SettingsPage() {
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="mt-3 inline-flex items-center gap-2 rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-[#18181B] transition-all hover:bg-zinc-50"
+                  disabled={loggingOut}
+                  className="mt-3 inline-flex items-center gap-2 rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-[#18181B] transition-all hover:bg-zinc-50 disabled:opacity-50"
                 >
-                  <LogOut className="h-4 w-4" />
-                  Log out
+                  {loggingOut ? (
+                    <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Signing out...</span>
+                  ) : (
+                    <span className="flex items-center gap-2"><LogOut className="h-4 w-4" /> Log out</span>
+                  )}
                 </button>
               </div>
 
