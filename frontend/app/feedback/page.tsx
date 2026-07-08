@@ -24,9 +24,29 @@ function formatTime(ms: number) {
   const h = Math.floor(totalSec / 3600)
   const m = Math.floor((totalSec % 3600) / 60)
   const s = totalSec % 60
-  if (h > 0) return `${h}h ${m}m`
+  if (h > 0) return `${h}h ${m}m ${s}s`
   if (m > 0) return `${m}m ${s}s`
   return `${s}s`
+}
+
+function CountdownTimer({ initialMs }: { initialMs: number }) {
+  const [remainingMs, setRemainingMs] = useState(initialMs)
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setRemainingMs((prev) => {
+        const next = prev - 1000
+        return next <= 0 ? 0 : next
+      })
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [])
+
+  return (
+    <span className="font-mono font-medium text-[#18181B]">
+      {remainingMs > 0 ? formatTime(remainingMs) : "0s"}
+    </span>
+  )
 }
 
 function RateLimitedDisplay({
@@ -153,19 +173,6 @@ export default function FeedbackPage() {
     }
   }
 
-  function handleReset() {
-    setName("")
-    setEmail("")
-    setCategory("")
-    setRating(0)
-    setMessage("")
-    setAnonymous(false)
-    setCanContact(false)
-    setError("")
-    setFieldErrors({})
-    setState({ type: "form" })
-  }
-
   return (
     <main className="bg-[#F9FAFB] min-h-screen flex flex-col">
       <Navbar />
@@ -189,13 +196,10 @@ export default function FeedbackPage() {
             <p className="text-sm text-[#71717A]">
               We review every submission and use it to improve Moduvox.
             </p>
-            <button
-              type="button"
-              onClick={handleReset}
-              className="inline-flex items-center justify-center rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-[#18181B] transition-colors hover:bg-zinc-50"
-            >
-              Submit another
-            </button>
+            <div className="text-xs text-zinc-400">
+              You can make another submission in{" "}
+              <CountdownTimer initialMs={12 * 60 * 60 * 1000} />
+            </div>
           </div>
         )}
 
