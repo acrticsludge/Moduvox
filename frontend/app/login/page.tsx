@@ -148,12 +148,12 @@ export default function LoginPage() {
             <FieldError message={fieldErrors.password} />
           </div>
 
-          <ErrorBanner message={error} className="mb-4" />
+          <ErrorBanner message={error} />
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-lg border border-[#18181B]/70 bg-[#18181B] px-4 py-2.5 text-sm font-medium text-white transition-all hover:border-[#18181B] hover:bg-[#27272A] active:scale-[0.98] disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-[#18181B]/70 bg-[#18181B] px-4 py-2.5 text-sm font-medium text-white transition-all hover:border-[#18181B] hover:bg-[#27272A] active:scale-[0.98] disabled:opacity-50"
           >
             {loading ? (
               <>

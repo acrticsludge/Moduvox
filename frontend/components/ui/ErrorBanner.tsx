@@ -8,7 +8,7 @@ interface ErrorBannerProps {
 }
 
 export function ErrorBanner({ message, className = "" }: ErrorBannerProps) {
-  if (!message) return <div className={`min-h-[48px] ${className}`} aria-live="polite" />
+  if (!message) return null
 
   return (
     <div
