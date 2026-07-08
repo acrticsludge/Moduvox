@@ -38,30 +38,34 @@ export default function SettingsPage() {
 
   useEffect(() => {
     async function loadProfile() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) { setLoading(false); return }
 
-      setEmail(user.email ?? "")
+        setEmail(user.email ?? "")
 
-      const { data } = await supabase
-        .from("users")
-        .select("name")
-        .eq("id", user.id)
-        .maybeSingle()
+        const { data } = await supabase
+          .from("users")
+          .select("name")
+          .eq("id", user.id)
+          .maybeSingle()
 
-      setName(data?.name ?? user.user_metadata?.full_name ?? "")
+        setName(data?.name ?? user.user_metadata?.full_name ?? "")
 
-      // Load Gemini key status
-      const keyRes = await fetch("/api/user/gemini-key")
-      const keyJson = await keyRes.json()
-      const storedKey = keyJson.data?.geminiApiKey
-      setGeminiKeyExists(!!storedKey)
-      if (storedKey) {
-        // Show last 4 chars masked
-        setGeminiKeyDisplay(`············${storedKey.slice(-4)}`)
+        // Load Gemini key status
+        const keyRes = await fetch("/api/user/gemini-key")
+        const keyJson = await keyRes.json()
+        const storedKey = keyJson.data?.geminiApiKey
+        setGeminiKeyExists(!!storedKey)
+        if (storedKey) {
+          // Show last 4 chars masked
+          setGeminiKeyDisplay(`············${storedKey.slice(-4)}`)
+        }
+      } catch {
+        // Data fetch failed — settings form shows with empty fields
+      } finally {
+        setLoading(false)
       }
-
-      setLoading(false)
     }
     loadProfile()
   }, [supabase])

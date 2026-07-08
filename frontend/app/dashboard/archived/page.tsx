@@ -30,19 +30,24 @@ export default function ArchivedPage() {
   const [restoring, setRestoring] = useState<Set<string>>(new Set())
 
   const fetchArchived = useCallback(async () => {
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { setLoading(false); return }
 
-    const { data } = await supabase
-      .from("presentations")
-      .select("id, project_id, title, status, created_at, updated_at")
-      .eq("user_id", user.id)
-      .eq("status", "archived")
-      .order("updated_at", { ascending: false })
+      const { data } = await supabase
+        .from("presentations")
+        .select("id, project_id, title, status, created_at, updated_at")
+        .eq("user_id", user.id)
+        .eq("status", "archived")
+        .order("updated_at", { ascending: false })
 
-    setPresentations((data ?? []) as ArchivedPresentation[])
-    setLoading(false)
+      setPresentations((data ?? []) as ArchivedPresentation[])
+    } catch {
+      // Data fetch failed — empty state shows
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   useEffect(() => { fetchArchived() }, [fetchArchived])

@@ -163,6 +163,9 @@ export default function PresentationCreatePage() {
         }
       }
       setLoading(false)
+    }).catch(() => {
+      setError("Failed to load presentation")
+      setLoading(false)
     })
   }, [params.presentationId, params.id])
 

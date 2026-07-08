@@ -62,18 +62,20 @@ export function CreatePageSidebar({
   useEffect(() => {
     const supabase = createClient()
     setVoicesLoading(true)
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) { setVoicesLoading(false); return }
-      supabase
-        .from("voices")
-        .select("id, name, type, preset_id, control_instruction")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .then(({ data }) => {
-          if (data) setVoices(data as Voice[])
-          setVoicesLoading(false)
-        })
-    })
+    supabase.auth.getUser()
+      .then(({ data: { user } }) => {
+        if (!user) { setVoicesLoading(false); return }
+        return supabase
+          .from("voices")
+          .select("id, name, type, preset_id, control_instruction")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .then(({ data }) => {
+            if (data) setVoices(data as Voice[])
+            setVoicesLoading(false)
+          })
+      })
+      .catch(() => setVoicesLoading(false))
   }, [])
 
   const presetVoices = voices.filter((v) => v.type === "preset")

@@ -10,8 +10,22 @@ import { ViewNavbar } from "@/components/view/ViewNavbar"
 import { ViewFooter } from "@/components/view/ViewFooter"
 import { ViewSidebar } from "@/components/view/ViewSidebar"
 
-const CombinedGateDialog = dynamic(() => import("@/components/view/CombinedGateDialog").then(mod => mod.CombinedGateDialog), { ssr: false })
-const ViewAudioBar = dynamic(() => import("@/components/view/ViewAudioBar").then(mod => mod.ViewAudioBar), { ssr: false })
+const CombinedGateDialog = dynamic(() => import("@/components/view/CombinedGateDialog").then(mod => mod.CombinedGateDialog), {
+  ssr: false,
+  loading: () => (
+    <div className="flex min-h-screen items-center justify-center bg-[#F9FAFB]">
+      <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-600" />
+    </div>
+  ),
+})
+const ViewAudioBar = dynamic(() => import("@/components/view/ViewAudioBar").then(mod => mod.ViewAudioBar), {
+  ssr: false,
+  loading: () => (
+    <div className="animate-pulse border-t border-zinc-200 px-6 py-4">
+      <div className="h-16 w-full rounded-xl bg-zinc-100" />
+    </div>
+  ),
+})
 
 type PresentationMeta = {
   id: string

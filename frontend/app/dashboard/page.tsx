@@ -9,39 +9,48 @@ import { ProjectCard } from "@/components/dashboard/ProjectCard"
 
 const CreateProjectModal = dynamic(() => import("@/components/dashboard/CreateProjectModal").then(mod => mod.CreateProjectModal), { ssr: false })
 
+type DashboardState =
+  | { status: "loading" }
+  | { status: "empty" }
+  | { status: "ready"; projects: Project[] }
+
 export default function DashboardPage() {
-  const [projects, setProjects] = useState<Project[]>([])
-  const [loading, setLoading] = useState(true)
+  const [state, setState] = useState<DashboardState>({ status: "loading" })
   const [showCreate, setShowCreate] = useState(false)
 
   async function loadProjects() {
-    setLoading(true)
-    const supabase = createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) {
-      setLoading(false)
-      return
-    }
+    setState({ status: "loading" })
+    try {
+      const supabase = createClient()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) {
+        setState({ status: "empty" })
+        return
+      }
 
-    const { data } = await supabase
-      .from("projects")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
+      const { data } = await supabase
+        .from("projects")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
 
-    if (data) {
-      setProjects(data as Project[])
+      if (data && data.length > 0) {
+        setState({ status: "ready", projects: data as Project[] })
+      } else {
+        setState({ status: "empty" })
+      }
+    } catch {
+      setState({ status: "empty" })
     }
-    setLoading(false)
   }
 
   useEffect(() => {
     loadProjects()
   }, [])
 
-  if (loading) {
+  if (state.status === "loading") {
     return (
       <div className="flex-1 px-6 py-6">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -83,7 +92,7 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      {projects.length === 0 ? (
+      {state.status === "empty" ? (
         <div className="flex flex-1 items-center justify-center px-6">
           <div className="mx-auto max-w-sm text-center">
             <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-zinc-100">
@@ -108,7 +117,7 @@ export default function DashboardPage() {
       ) : (
         <div className="flex-1 px-6 py-6">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {projects.map((project) => (
+            {state.projects.map((project) => (
               <ProjectCard key={project.id} project={project} />
             ))}
           </div>
