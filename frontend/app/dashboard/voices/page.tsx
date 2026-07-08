@@ -32,6 +32,14 @@ const PRESET_VOICES = [
   { id: "warm-friendly", label: "Warm Friendly", description: "Approachable, conversational. Makes complex topics feel simple." },
 ]
 
+const PRESET_CONTROL_INSTRUCTIONS: Record<string, string> = {
+  "calm-female": "A calm, warm female voice with a steady and reassuring tone. Ideal for policy and compliance training content.",
+  "energetic-male": "An upbeat, energetic male voice. Good for onboarding, introductions, and motivational content.",
+  "soft-narrator": "A gentle, measured voice with a soft delivery. Fits detailed explanations and tutorial-style content.",
+  "professional-tone": "A clear, authoritative voice with a professional business tone. Suits formal business content.",
+  "warm-friendly": "An approachable, conversational voice that makes complex topics feel simple and accessible.",
+}
+
 // ── Helpers ──────────────────────────────────────────
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -230,6 +238,11 @@ function AddVoiceModal({
     if (!voiceName.trim()) return
     if (isCustom && !controlInstruction.trim()) return
 
+    // For built-in presets, auto-fill the control instruction from the map
+    const resolvedInstruction = selectedPreset
+      ? PRESET_CONTROL_INSTRUCTIONS[selectedPreset]
+      : controlInstruction.trim() || undefined
+
     setUploading(true)
     setError(null)
 
@@ -241,7 +254,7 @@ function AddVoiceModal({
           name: voiceName.trim(),
           type: "preset",
           preset_id: selectedPreset,
-          control_instruction: controlInstruction.trim() || undefined,
+          control_instruction: resolvedInstruction,
         }),
       })
       const json = await res.json()
