@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Loader2, LogOut } from "lucide-react"
+import { ErrorBanner } from "@/components/ui/ErrorBanner"
 import { useRouter } from "next/navigation"
 
 type Tab = "profile" | "security" | "api-keys"
@@ -188,12 +189,8 @@ export default function SettingsPage() {
 
       {/* Content */}
       <div className="flex flex-1 px-6 py-8">
-        <div className="mx-auto w-full max-w-lg">
-          {error && (
-            <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
-              {error}
-            </div>
-          )}
+        <div className="mx-auto w-full max-w-lg shadow-red-500/10">
+          <ErrorBanner message={error} className="mb-4" />
 
           {saveMessage && (
             <div className="mb-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-600">
@@ -399,12 +396,11 @@ export default function SettingsPage() {
                   (shared key is capped at 5 requests/minute).
                 </p>
 
-                {geminiMessage && (
-                  <div className={`mt-4 rounded-lg px-4 py-3 text-sm ${
-                    geminiMessage.type === "success"
-                      ? "bg-emerald-50 text-emerald-600"
-                      : "bg-red-50 text-red-600"
-                  }`}>
+                {geminiMessage?.type === "error" && (
+                  <ErrorBanner message={geminiMessage.text} />
+                )}
+                {geminiMessage?.type === "success" && (
+                  <div className="mt-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-600">
                     {geminiMessage.text}
                   </div>
                 )}

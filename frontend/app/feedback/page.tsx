@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Loader2, CheckCircle, AlertCircle, Star } from "lucide-react"
+import { ErrorBanner, FieldError } from "@/components/ui/ErrorBanner"
 import { Navbar } from "@/components/ui/Navbar"
 import { Footer } from "@/components/landing/footer"
 import { CATEGORIES, CATEGORY_LABELS } from "@/lib/validations/feedback"
@@ -211,7 +212,7 @@ export default function FeedbackPage() {
         )}
 
         {(state.type === "form" || state.type === "submitting") && (
-          <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+          <form onSubmit={handleSubmit} className="mt-8 space-y-5 shadow-red-500/10">
             {/* Name */}
             <div>
               <label className="mb-1.5 block text-sm font-medium text-[#18181B]">
@@ -226,7 +227,7 @@ export default function FeedbackPage() {
                 autoFocus
                 className="w-full rounded-lg border border-zinc-300 px-3 py-2.5 text-sm text-[#18181B] placeholder:text-zinc-400 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 disabled:opacity-50"
               />
-              {fieldErrors.name && <p className="mt-1 text-xs text-red-500">{fieldErrors.name}</p>}
+              <FieldError message={fieldErrors.name} />
             </div>
 
             {/* Email */}
@@ -243,7 +244,7 @@ export default function FeedbackPage() {
                   disabled={state.type === "submitting"}
                   className="w-full rounded-lg border border-zinc-300 px-3 py-2.5 text-sm text-[#18181B] placeholder:text-zinc-400 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 disabled:opacity-50"
                 />
-                {fieldErrors.email && <p className="mt-1 text-xs text-red-500">{fieldErrors.email}</p>}
+                <FieldError message={fieldErrors.email} />
               </div>
             )}
 
@@ -268,7 +269,7 @@ export default function FeedbackPage() {
                   ))}
                 </SelectContent>
               </Select>
-              {fieldErrors.category && <p className="mt-1 text-xs text-red-500">{fieldErrors.category}</p>}
+              <FieldError message={fieldErrors.category} />
             </div>
 
             {/* Anonymous toggle */}
@@ -329,7 +330,7 @@ export default function FeedbackPage() {
                   </button>
                 ))}
               </div>
-              {fieldErrors.rating && <p className="mt-1 text-xs text-red-500">{fieldErrors.rating}</p>}
+              <FieldError message={fieldErrors.rating} />
             </div>
 
             {/* Message */}
@@ -347,19 +348,14 @@ export default function FeedbackPage() {
                 className="w-full resize-none rounded-lg border border-zinc-300 px-3 py-2.5 text-sm text-[#18181B] placeholder:text-zinc-400 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 disabled:opacity-50"
               />
               <div className="mt-1 flex items-center justify-between">
-                {fieldErrors.message && <p className="text-xs text-red-500">{fieldErrors.message}</p>}
+                <FieldError message={fieldErrors.message} />
                 <p className={`ml-auto text-xs ${charCount > 4500 ? "text-amber-500" : "text-zinc-400"}`}>
                   {charCount} / 5000
                 </p>
               </div>
             </div>
 
-            {error && (
-              <div className="flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
-                <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                <span>{error}</span>
-              </div>
-            )}
+            <ErrorBanner message={error} />
 
             <button
               type="submit"
