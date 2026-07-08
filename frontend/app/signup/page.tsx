@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
+import { ErrorBanner, FieldError } from "@/components/ui/ErrorBanner";
 
 export default function SignupPage() {
   const [checkingAuth, setCheckingAuth] = useState(true);
@@ -110,7 +111,9 @@ export default function SignupPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#F9FAFB] px-4">
-      <div className="w-full max-w-sm rounded-xl border border-zinc-200 bg-white p-8 shadow-lg">
+      <div className={`w-full max-w-sm rounded-xl border bg-white p-8 shadow-lg transition-all duration-300 ${
+          error ? "border-red-300 shadow-[0_0_0_1px_#fca5a5]" : "border-zinc-200"
+        }`}>
         <h1 className="mb-1 text-2xl font-semibold tracking-tight text-[#18181B]">
           Create your account
         </h1>
@@ -134,9 +137,7 @@ export default function SignupPage() {
               className="mt-1 block w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-[#18181B] placeholder:text-zinc-400 focus:border-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-800/20"
               placeholder="Your name"
             />
-            {fieldErrors.name && (
-              <p className="mt-1 text-xs text-red-500">{fieldErrors.name}</p>
-            )}
+            <FieldError message={fieldErrors.name} />
           </div>
 
           <div>
@@ -155,9 +156,7 @@ export default function SignupPage() {
               className="mt-1 block w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-[#18181B] placeholder:text-zinc-400 focus:border-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-800/20"
               placeholder="you@company.com"
             />
-            {fieldErrors.email && (
-              <p className="mt-1 text-xs text-red-500">{fieldErrors.email}</p>
-            )}
+            <FieldError message={fieldErrors.email} />
           </div>
 
           <div>
@@ -177,14 +176,10 @@ export default function SignupPage() {
               className="mt-1 block w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-[#18181B] placeholder:text-zinc-400 focus:border-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-800/20"
               placeholder="At least 6 characters"
             />
-            {fieldErrors.password && (
-              <p className="mt-1 text-xs text-red-500">{fieldErrors.password}</p>
-            )}
+            <FieldError message={fieldErrors.password} />
           </div>
 
-          {error && (
-            <p className="text-sm text-red-600">{error}</p>
-          )}
+          <ErrorBanner message={error} className="mb-4" />
 
           <button
             type="submit"
