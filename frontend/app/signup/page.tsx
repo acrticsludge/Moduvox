@@ -50,7 +50,7 @@ export default function SignupPage() {
       return
     }
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: { data: { name } },
@@ -58,6 +58,13 @@ export default function SignupPage() {
 
     if (error) {
       setError(error.message);
+      setLoading(false);
+      return;
+    }
+
+    // If no new identity was created, the user already exists
+    if (!data?.user?.identities?.length) {
+      setError("An account with this email already exists. Please log in instead.");
       setLoading(false);
       return;
     }
