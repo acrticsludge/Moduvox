@@ -4,6 +4,7 @@ import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import { generateAudio, generateWithPreset } from "@/lib/voxcpm"
 import { deleteFile, uploadFile, createDownloadUrl } from "@/lib/r2"
+import { withApiHandler } from "@/lib/api-handler"
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 const ALLOWED_TYPES = ["audio/wav", "audio/mpeg", "audio/mp4", "audio/x-m4a", "audio/webm", "audio/ogg"]
@@ -44,7 +45,7 @@ async function generateSlideAudio(
   return signedUrl ?? ""
 }
 
-export async function POST(request: Request) {
+export const POST = withApiHandler(async (request: Request) => {
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) {
@@ -135,4 +136,4 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Audio generation failed" }, { status: 502 })
     }
   }
-}
+})

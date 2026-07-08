@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { X, Loader2, Check } from "lucide-react"
+import { ErrorBanner } from "@/components/ui/ErrorBanner"
 import { COLOR_PALETTE, ICON_SET, type Project, type ProjectColor, type ProjectIcon } from "@/lib/validations/project"
 
 import {
@@ -72,7 +73,9 @@ export function RenameProjectModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#18181B]/40">
-      <div className="w-full max-w-md rounded-xl border border-zinc-200 bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto hide-scrollbar">
+      <div className={`w-full max-w-md rounded-xl border bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto hide-scrollbar transition-all duration-300 ${
+        error ? "border-red-300 shadow-[0_0_0_1px_#fca5a5]" : "border-zinc-200"
+      }`}>
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold text-[#18181B]">Edit Project</h2>
           <button type="button" onClick={onClose} className="text-[#71717A] hover:text-[#18181B]">
@@ -144,7 +147,18 @@ export function RenameProjectModal({
             </div>
           </div>
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && (
+            <div className="space-y-2">
+              <ErrorBanner message={error} />
+              <button
+                type="button"
+                onClick={handleSubmit}
+                className="text-sm font-medium text-red-700 underline hover:text-red-800"
+              >
+                Try again
+              </button>
+            </div>
+          )}
 
           <div className="flex justify-end gap-3 pt-2">
             <button

@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createDownloadUrl } from "@/lib/r2"
+import { withApiHandler } from "@/lib/api-handler"
 
-export async function GET(
+export const GET = withApiHandler(async (
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
-) {
+) => {
   const supabase = await createClient()
   const { id: presentationId } = await params
 
@@ -37,4 +38,4 @@ export async function GET(
   return NextResponse.json({
     data: { audioUrl },
   })
-}
+})

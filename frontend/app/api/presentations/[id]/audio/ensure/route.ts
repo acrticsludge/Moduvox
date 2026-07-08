@@ -2,11 +2,12 @@ import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { concatWavBuffers, isValidWav } from "@/lib/wav-utils"
 import { listFiles, downloadFileAsBuffer, uploadFile, createDownloadUrl } from "@/lib/r2"
+import { withApiHandler } from "@/lib/api-handler"
 
-export async function GET(
+export const GET = withApiHandler(async (
   request: Request,
   { params }: { params: Promise<{ id: string }> },
-) {
+) => {
   try {
     const { id: presentationId } = await params
     const { searchParams } = new URL(request.url)
@@ -101,4 +102,4 @@ export async function GET(
     console.error("ensure audio:", err)
     return NextResponse.json({ error: "Failed to prepare audio" }, { status: 500 })
   }
-}
+})

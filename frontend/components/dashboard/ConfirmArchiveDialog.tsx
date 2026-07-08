@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Archive, Loader2, X } from "lucide-react"
+import { ErrorBanner } from "@/components/ui/ErrorBanner"
 import type { Presentation } from "@/lib/validations/presentation"
 
 export function ConfirmArchiveDialog({
@@ -18,11 +19,15 @@ export function ConfirmArchiveDialog({
     return () => { document.body.style.overflow = "" }
   }, [])
   const [archiving, setArchiving] = useState(false)
+  const [error, setError] = useState("")
 
   async function handleArchive() {
     setArchiving(true)
+    setError("")
     try {
       await onArchive()
+    } catch {
+      setError("Something went wrong")
     } finally {
       setArchiving(false)
     }
@@ -30,7 +35,9 @@ export function ConfirmArchiveDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#18181B]/40 p-4">
-      <div className="w-full max-w-sm rounded-xl border border-zinc-200 bg-white p-6 shadow-xl">
+      <div className={`w-full max-w-sm rounded-xl border bg-white p-6 shadow-xl transition-all duration-300 ${
+        error ? "border-red-300 shadow-[0_0_0_1px_#fca5a5]" : "border-zinc-200"
+      }`}>
         {/* Close button */}
         <button
           type="button"
@@ -54,6 +61,19 @@ export function ConfirmArchiveDialog({
           This presentation will no longer be accessible via its share link.
           You can restore it anytime from the project page.
         </p>
+
+        {error && (
+          <div className="mb-4 space-y-2">
+            <ErrorBanner message={error} />
+            <button
+              type="button"
+              onClick={handleArchive}
+              className="text-sm font-medium text-red-700 underline hover:text-red-800"
+            >
+              Try again
+            </button>
+          </div>
+        )}
 
         <div className="flex gap-3">
           <button

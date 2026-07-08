@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { concatWavBuffers, isValidWav } from "@/lib/wav-utils"
 import { listFiles, downloadFileAsBuffer, uploadFile, createDownloadUrl } from "@/lib/r2"
+import { withApiHandler } from "@/lib/api-handler"
 
 async function getUserId(
   request: Request,
@@ -75,10 +76,10 @@ function serveWav(data: Buffer, rangeHeader: string | null, mtime: string) {
   })
 }
 
-export async function GET(
+export const GET = withApiHandler(async (
   request: Request,
   { params }: { params: Promise<{ id: string }> },
-) {
+) => {
   try {
     const { id: presentationId } = await params
 
@@ -100,7 +101,7 @@ export async function GET(
       }
     }
 
-    // No cached combined file — generate from per-slide WAVs
+    // No cached combined file â€” generate from per-slide WAVs
     const slidesPrefix = `${audioPrefix}slides/`
     const allFiles = await listFiles(slidesPrefix)
 
@@ -146,4 +147,4 @@ export async function GET(
     console.error("GET /api/presentations/[id]/audio/combined:", err)
     return NextResponse.json({ error: "Failed to load audio" }, { status: 500 })
   }
-}
+})

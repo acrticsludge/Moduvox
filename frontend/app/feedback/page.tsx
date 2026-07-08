@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Loader2, CheckCircle, AlertCircle, Star } from "lucide-react"
+import { ErrorBanner, FieldError } from "@/components/ui/ErrorBanner"
 import { Navbar } from "@/components/ui/Navbar"
 import { Footer } from "@/components/landing/footer"
 import { CATEGORIES, CATEGORY_LABELS } from "@/lib/validations/feedback"
@@ -17,7 +18,76 @@ type PageState =
   | { type: "form" }
   | { type: "submitting" }
   | { type: "success" }
-  | { type: "rate_limited" }
+  | { type: "rate_limited"; remainingMs: number }
+
+function formatTime(ms: number) {
+  const totalSec = Math.floor(ms / 1000)
+  const h = Math.floor(totalSec / 3600)
+  const m = Math.floor((totalSec % 3600) / 60)
+  const s = totalSec % 60
+  if (h > 0) return `${h}h ${m}m ${s}s`
+  if (m > 0) return `${m}m ${s}s`
+  return `${s}s`
+}
+
+function CountdownTimer({ initialMs }: { initialMs: number }) {
+  const [remainingMs, setRemainingMs] = useState(initialMs)
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setRemainingMs((prev) => {
+        const next = prev - 1000
+        return next <= 0 ? 0 : next
+      })
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [])
+
+  return (
+    <span className="font-mono font-medium text-[#18181B]">
+      {remainingMs > 0 ? formatTime(remainingMs) : "0s"}
+    </span>
+  )
+}
+
+function RateLimitedDisplay({
+  remainingMs: initialMs,
+  onExpired,
+}: {
+  remainingMs: number
+  onExpired: () => void
+}) {
+  const [remainingMs, setRemainingMs] = useState(initialMs)
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setRemainingMs((prev) => {
+        const next = prev - 1000
+        if (next <= 0) {
+          onExpired()
+          return 0
+        }
+        return next
+      })
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [onExpired])
+
+  return (
+    <div className="mt-8 space-y-4 text-center">
+      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-100">
+        <AlertCircle className="h-7 w-7 text-amber-600" />
+      </div>
+      <h2 className="text-lg font-semibold text-[#18181B]">Already submitted</h2>
+      <p className="text-sm text-[#71717A]">
+        You can make another submission in{" "}
+        <span className="font-mono font-medium text-[#18181B]">
+          {remainingMs > 0 ? formatTime(remainingMs) : "0s"}
+        </span>
+      </p>
+    </div>
+  )
+}
 
 export default function FeedbackPage() {
   const [state, setState] = useState<PageState>({ type: "form" })
@@ -68,10 +138,19 @@ export default function FeedbackPage() {
         }),
       })
 
-      const json = await res.json()
+      // Try to parse JSON; if it fails (e.g. server returned HTML error page),
+      // extract the status text for a meaningful message
+      let json: Record<string, unknown>
+      try {
+        json = await res.json()
+      } catch {
+        setError(`Server error (${res.status} ${res.statusText}). Please try again later.`)
+        setState({ type: "form" })
+        return
+      }
 
       if (res.status === 429) {
-        setState({ type: "rate_limited" })
+        setState({ type: "rate_limited", remainingMs: (json.remainingMs as number) ?? 12 * 60 * 60 * 1000 })
         return
       }
 
@@ -83,29 +162,16 @@ export default function FeedbackPage() {
           }
           setFieldErrors(fieldErrors)
         }
-        setError(json.error || "Something went wrong")
+        setError((json.error as string) || "Something went wrong")
         setState({ type: "form" })
         return
       }
 
       setState({ type: "success" })
     } catch {
-      setError("Network error. Please try again.")
+      setError("Unable to reach the server. Check your internet connection and try again.")
       setState({ type: "form" })
     }
-  }
-
-  function handleReset() {
-    setName("")
-    setEmail("")
-    setCategory("")
-    setRating(0)
-    setMessage("")
-    setAnonymous(false)
-    setCanContact(false)
-    setError("")
-    setFieldErrors({})
-    setState({ type: "form" })
   }
 
   return (
@@ -131,30 +197,22 @@ export default function FeedbackPage() {
             <p className="text-sm text-[#71717A]">
               We review every submission and use it to improve Moduvox.
             </p>
-            <button
-              type="button"
-              onClick={handleReset}
-              className="inline-flex items-center justify-center rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-[#18181B] transition-colors hover:bg-zinc-50"
-            >
-              Submit another
-            </button>
+            <div className="text-xs text-zinc-400">
+              You can make another submission in{" "}
+              <CountdownTimer initialMs={12 * 60 * 60 * 1000} />
+            </div>
           </div>
         )}
 
         {state.type === "rate_limited" && (
-          <div className="mt-8 space-y-4 text-center">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-100">
-              <AlertCircle className="h-7 w-7 text-amber-600" />
-            </div>
-            <h2 className="text-lg font-semibold text-[#18181B]">Already submitted</h2>
-            <p className="text-sm text-[#71717A]">
-              You've already submitted feedback recently. You can submit again in about 12 hours.
-            </p>
-          </div>
+          <RateLimitedDisplay
+            remainingMs={state.remainingMs}
+            onExpired={() => setState({ type: "form" })}
+          />
         )}
 
         {(state.type === "form" || state.type === "submitting") && (
-          <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+          <form onSubmit={handleSubmit} className="mt-8 space-y-5 shadow-red-500/10">
             {/* Name */}
             <div>
               <label className="mb-1.5 block text-sm font-medium text-[#18181B]">
@@ -169,7 +227,7 @@ export default function FeedbackPage() {
                 autoFocus
                 className="w-full rounded-lg border border-zinc-300 px-3 py-2.5 text-sm text-[#18181B] placeholder:text-zinc-400 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 disabled:opacity-50"
               />
-              {fieldErrors.name && <p className="mt-1 text-xs text-red-500">{fieldErrors.name}</p>}
+              <FieldError message={fieldErrors.name} />
             </div>
 
             {/* Email */}
@@ -186,7 +244,7 @@ export default function FeedbackPage() {
                   disabled={state.type === "submitting"}
                   className="w-full rounded-lg border border-zinc-300 px-3 py-2.5 text-sm text-[#18181B] placeholder:text-zinc-400 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 disabled:opacity-50"
                 />
-                {fieldErrors.email && <p className="mt-1 text-xs text-red-500">{fieldErrors.email}</p>}
+                <FieldError message={fieldErrors.email} />
               </div>
             )}
 
@@ -211,7 +269,7 @@ export default function FeedbackPage() {
                   ))}
                 </SelectContent>
               </Select>
-              {fieldErrors.category && <p className="mt-1 text-xs text-red-500">{fieldErrors.category}</p>}
+              <FieldError message={fieldErrors.category} />
             </div>
 
             {/* Anonymous toggle */}
@@ -272,7 +330,7 @@ export default function FeedbackPage() {
                   </button>
                 ))}
               </div>
-              {fieldErrors.rating && <p className="mt-1 text-xs text-red-500">{fieldErrors.rating}</p>}
+              <FieldError message={fieldErrors.rating} />
             </div>
 
             {/* Message */}
@@ -290,19 +348,14 @@ export default function FeedbackPage() {
                 className="w-full resize-none rounded-lg border border-zinc-300 px-3 py-2.5 text-sm text-[#18181B] placeholder:text-zinc-400 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 disabled:opacity-50"
               />
               <div className="mt-1 flex items-center justify-between">
-                {fieldErrors.message && <p className="text-xs text-red-500">{fieldErrors.message}</p>}
+                <FieldError message={fieldErrors.message} />
                 <p className={`ml-auto text-xs ${charCount > 4500 ? "text-amber-500" : "text-zinc-400"}`}>
                   {charCount} / 5000
                 </p>
               </div>
             </div>
 
-            {error && (
-              <div className="flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
-                <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                <span>{error}</span>
-              </div>
-            )}
+            <ErrorBanner message={error} />
 
             <button
               type="submit"

@@ -43,7 +43,7 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
       .then((json) => {
         if (json.data?.audioUrl) setResolvedUrl(json.data.audioUrl)
       })
-      .catch(() => {})
+      .catch((err) => { console.error("[ViewAudioBar] Audio fetch failed:", err) })
   }, [resolvedUrl, presentationId, sessionToken])
 
   // Howler initialization
@@ -155,7 +155,7 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ session_token: sessionToken, event_type: eventType, progress_pct: progressPct }),
       })
-    } catch { /* fire-and-forget */ }
+    } catch (err) { console.error("[ViewAudioBar] Tracking failed:", err) }
   }
 
   function togglePlay() {

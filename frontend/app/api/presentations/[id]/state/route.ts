@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { saveStateSchema } from "@/lib/validations/state"
+import { withApiHandler } from "@/lib/api-handler"
 
-export async function PATCH(
+export const PATCH = withApiHandler(async (
   request: Request,
   { params }: { params: Promise<{ id: string }> },
-) {
+) => {
   const supabase = await createClient()
   const { id: presentationId } = await params
 
@@ -54,4 +55,4 @@ export async function PATCH(
   }
 
   return NextResponse.json({ data: { saved: true } })
-}
+})

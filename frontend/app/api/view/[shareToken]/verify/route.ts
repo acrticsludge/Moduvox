@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { withApiHandler } from "@/lib/api-handler"
 
-export async function GET(
+export const GET = withApiHandler(async (
   request: Request,
   { params }: { params: Promise<{ shareToken: string }> },
-) {
+) => {
   const { shareToken } = await params
   const { searchParams } = new URL(request.url)
   const vt = searchParams.get("vt")
@@ -23,7 +24,7 @@ export async function GET(
     .single()
 
   if (!presentation) {
-    return NextResponse.json({ error: "invalid_link", message: "This link is invalid." }, { status: 404 })
+    return NextResponse.json({ error: "Presentation not found" }, { status: 404 })
   }
 
   if (presentation.expires_at && new Date(presentation.expires_at) < new Date()) {
@@ -39,10 +40,10 @@ export async function GET(
     .single()
 
   if (!viewer) {
-    return NextResponse.json({ error: "invalid_link", message: "This verification link has expired or is invalid." }, { status: 404 })
+    return NextResponse.json({ error: "This verification link has expired or is invalid." }, { status: 404 })
   }
 
-  // If already verified, skip magic link expiry — viewer was verified through
+  // If already verified, skip magic link expiry â€” viewer was verified through
   // another path (e.g. gate API created them verified when email gate is disabled)
   if (viewer.email_verified) {
     const origin = new URL(request.url).origin
@@ -59,7 +60,7 @@ export async function GET(
   // Use verification_sent_at (updated on every upsert) instead of created_at
   const fifteenMinAgo = new Date(Date.now() - 15 * 60 * 1000)
   if (viewer.verification_sent_at && new Date(viewer.verification_sent_at) < fifteenMinAgo) {
-    return NextResponse.json({ error: "invalid_link", message: "This verification link has expired." }, { status: 410 })
+    return NextResponse.json({ error: "This verification link has expired." }, { status: 410 })
   }
 
   // Mark as verified
@@ -78,7 +79,7 @@ export async function GET(
 
   const origin = new URL(request.url).origin
 
-  // Return redirect info — client will store session in sessionStorage and redirect
+  // Return redirect info â€” client will store session in sessionStorage and redirect
   return NextResponse.json({
     data: {
       viewer_id: viewer.id,
@@ -86,4 +87,4 @@ export async function GET(
       redirect_url: `${origin}/view/${shareToken}?session=${vt}`,
     },
   })
-}
+})

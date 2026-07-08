@@ -3,6 +3,7 @@ import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import { generateWithPreset, generateUltimateClone } from "@/lib/voxcpm"
 import { createDownloadUrl, downloadFileAsBuffer, uploadFile, fileExists } from "@/lib/r2"
+import { withApiHandler } from "@/lib/api-handler"
 
 const testVoiceSchema = z.object({
   voice_id: z.string().uuid("Invalid voice ID"),
@@ -19,7 +20,7 @@ const PRESET_VOICE_MAP: Record<string, string> = {
 const EXAMPLE_TEXT =
   "At Moduvox, we turn slides into narrated training videos using your own voice. This preview shows how your presentation will sound."
 
-export async function POST(request: Request) {
+export const POST = withApiHandler(async (request: Request) => {
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) {
@@ -184,4 +185,4 @@ export async function POST(request: Request) {
     console.error("[TestVoice] ERROR:", message, err instanceof Error ? err.message : JSON.stringify(errObj))
     return NextResponse.json({ error: message }, { status: 503 })
   }
-}
+})

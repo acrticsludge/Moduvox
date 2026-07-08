@@ -424,7 +424,7 @@ export function SlideEditor({
         })
 
         if (!res.ok) {
-          const json = await res.json().catch(() => ({}))
+          const json = await res.json().catch((err) => { console.error("[SlideEditor] Operation failed:", err) })
           throw new Error(typeof json.error === "string" ? json.error : `Slide ${slideTexts[i].number} failed`)
         }
       } catch (err) {
@@ -489,7 +489,7 @@ export function SlideEditor({
             })
 
             if (!res.ok) {
-              const json = await res.json().catch(() => ({}))
+              const json = await res.json().catch((err) => { console.error("[SlideEditor] Operation failed:", err) })
               throw new Error(typeof json.error === "string" ? json.error : `Slide ${slideTexts[i].number} failed`)
             }
           } catch (err) {
@@ -730,7 +730,7 @@ export function SlideEditor({
                     setViewerUrl(`https://view.officeapps.live.com/op/embed.aspx?src=${encodedUrl}&wdSlideIndex=1`)
                   }
                 }
-              } catch { /* background upload error — non-critical */ }
+              } catch (err) { console.error("[SlideEditor] Operation failed:", err) }
             })()
           }
         } catch {

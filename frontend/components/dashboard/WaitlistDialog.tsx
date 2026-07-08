@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Loader2, CheckCircle2 } from "lucide-react"
+import { ErrorBanner, FieldError } from "@/components/ui/ErrorBanner"
 import type { QuotaResult } from "@/lib/quota"
 import type { WaitlistInterest } from "@/lib/validations/waitlist"
 
@@ -105,7 +106,7 @@ export function WaitlistDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#18181B]/40">
-      <div className="w-full max-w-md rounded-xl border border-zinc-200 bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto hide-scrollbar">
+      <div className="w-full max-w-md rounded-xl border border-zinc-200 bg-white p-6 shadow-xl shadow-red-500/10 max-h-[90vh] overflow-y-auto hide-scrollbar">
         {/* Header */}
         <div className="mb-5">
           <h2 className="text-base font-semibold text-[#18181B]">
@@ -150,15 +151,10 @@ export function WaitlistDialog({
               </div>
             </button>
           ))}
-          {validationError && <p className="text-xs text-red-600">{validationError}</p>}
+          <FieldError message={validationError} />
         </div>
 
-        {/* Error */}
-        {error && (
-          <div className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
-            {error}
-          </div>
-        )}
+        <ErrorBanner message={error} className="mt-4" />
 
         {/* Actions */}
         <div className="mt-6 flex items-center justify-between">

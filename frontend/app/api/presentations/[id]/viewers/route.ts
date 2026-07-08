@@ -1,15 +1,16 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { withApiHandler } from "@/lib/api-handler"
 
-export async function GET(
+export const GET = withApiHandler(async (
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
-) {
+) => {
   try {
     const supabase = await createClient()
     const { id: presentationId } = await params
 
-    // Wrap auth check separately — ECONNRESET from Supabase Auth after idle
+    // Wrap auth check separately â€” ECONNRESET from Supabase Auth after idle
     let user: { id: string } | null = null
     try {
       const { data, error: authError } = await supabase.auth.getUser()
@@ -77,4 +78,4 @@ export async function GET(
   } catch {
     return NextResponse.json({ error: "Failed to load viewers" }, { status: 500 })
   }
-}
+})

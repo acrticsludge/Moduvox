@@ -1,78 +1,85 @@
 import { NextResponse } from "next/server"
-import { createAdminClient } from "@/lib/supabase/admin"
 import { submitFeedbackSchema, CATEGORY_LABELS } from "@/lib/validations/feedback"
 import type { FeedbackCategory } from "@/lib/validations/feedback"
+import { withApiHandler } from "@/lib/api-handler"
 
-export async function POST(request: Request) {
-  const supabase = createAdminClient()
+const COOLDOWN_MS = 12 * 60 * 60 * 1000
+const COOKIE_NAME = "feedback_submitted_at"
 
-  // Parse body
-  let body: Record<string, unknown>
+function getCookie(name: string, header: string | null): string | null {
+  if (!header) return null
+  for (const part of header.split(";")) {
+    const idx = part.indexOf("=")
+    if (idx === -1) continue
+    if (part.slice(0, idx).trim() === name) return part.slice(idx + 1).trim()
+  }
+  return null
+}
+
+export const POST = withApiHandler(async (request: Request) => {
   try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
-  }
+    // ── Rate limit check ────────────────────────────────────
+    const existing = getCookie(COOKIE_NAME, request.headers.get("cookie"))
+    if (existing) {
+      const submittedAt = Number(existing)
+      if (!isNaN(submittedAt)) {
+        const elapsed = Date.now() - submittedAt
+        if (elapsed < COOLDOWN_MS) {
+          const remainingMs = COOLDOWN_MS - elapsed
+          return NextResponse.json(
+            { error: "You've already submitted feedback recently.", remainingMs },
+            { status: 429 },
+          )
+        }
+      }
+    }
 
-  // Validate
-  const parsed = submitFeedbackSchema.safeParse(body)
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Validation failed", details: parsed.error.flatten().fieldErrors },
-      { status: 422 },
-    )
-  }
+    // ── Parse body ──────────────────────────────────────────
+    let body: Record<string, unknown>
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
+    }
 
-  // Extract IP
-  const ipAddress = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
-    || request.headers.get("x-real-ip")
-    || "unknown"
+    // ── Validate ────────────────────────────────────────────
+    const parsed = submitFeedbackSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Validation failed", details: parsed.error.flatten().fieldErrors },
+        { status: 422 },
+      )
+    }
 
-  // Rate limit: 1 submission per IP per 12 hours
-  const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString()
-  const { count: recentCount } = await supabase
-    .from("feedback")
-    .select("id", { count: "exact", head: true })
-    .eq("ip_address", ipAddress)
-    .gte("created_at", twelveHoursAgo)
+    // Extract IP for reference
+    const ipAddress = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+      || request.headers.get("x-real-ip")
+      || "unknown"
 
-  if (recentCount && recentCount > 0) {
-    return NextResponse.json(
-      { error: "You've already submitted feedback recently. Please try again later." },
-      { status: 429 },
-    )
-  }
+    // Build email content
+    const categoryLabel = CATEGORY_LABELS[parsed.data.category as FeedbackCategory]
+    const stars = "★".repeat(parsed.data.rating) + "☆".repeat(5 - parsed.data.rating)
+    const email = parsed.data.email || null
+    const contactInfo = email
+      ? `Email: ${email}\nCan contact: ${parsed.data.can_contact ? "Yes" : "No"}`
+      : "Email: Not provided (anonymous)"
 
-  // Insert into DB
-  const email = parsed.data.email || null
-  const { data: feedback, error: insertError } = await supabase
-    .from("feedback")
-    .insert({
-      name: parsed.data.name,
-      email: email,
-      category: parsed.data.category,
-      rating: parsed.data.rating,
-      message: parsed.data.message,
-      can_contact: parsed.data.can_contact || false,
-      ip_address: ipAddress,
-    })
-    .select("id, created_at")
-    .single()
+    const text = [
+      `New feedback submitted`,
+      ``,
+      `Category: ${categoryLabel}`,
+      `Rating: ${parsed.data.rating}/5`,
+      `Name: ${parsed.data.name}`,
+      contactInfo,
+      ``,
+      `Message:`,
+      parsed.data.message,
+      ``,
+      `IP: ${ipAddress}`,
+    ].join("\n")
 
-  if (insertError || !feedback) {
-    console.error("Failed to insert feedback:", insertError?.message)
-    return NextResponse.json({ error: "Failed to submit feedback" }, { status: 500 })
-  }
-
-  // Send email notification via Resend
-  const categoryLabel = CATEGORY_LABELS[parsed.data.category as FeedbackCategory]
-  const stars = "★".repeat(parsed.data.rating) + "☆".repeat(5 - parsed.data.rating)
-  const contactInfo = email
-    ? `Email: ${email}\nCan contact: ${parsed.data.can_contact ? "Yes" : "No"}`
-    : "Email: Not provided (anonymous)"
-
-  try {
-    await fetch("https://api.resend.com/emails", {
+    // ── Send email ──────────────────────────────────────────
+    const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${process.env.RESEND_API_KEY || ""}`,
@@ -82,13 +89,31 @@ export async function POST(request: Request) {
         from: process.env.RESEND_FROM_EMAIL || "Moduvox <alerts@pulsemonitor.dev>",
         to: ["anubhavrai100@gmail.com"],
         subject: `New feedback: ${categoryLabel} ${stars}`,
-        text: `New feedback submitted\n\nCategory: ${categoryLabel}\nRating: ${parsed.data.rating}/5\nName: ${parsed.data.name}\n${contactInfo}\n\nMessage:\n${parsed.data.message}\n\nSubmitted at: ${feedback.created_at}\nIP: ${ipAddress}`,
+        text,
       }),
     })
-  } catch (err) {
-    console.error("Failed to send feedback email:", err)
-    // Don't fail — feedback is already saved
-  }
 
-  return NextResponse.json({ data: { ok: true } }, { status: 201 })
-}
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "")
+      console.error("POST /api/feedback: Resend API error", res.status, errText)
+      return NextResponse.json(
+        { error: "Failed to send feedback. Please try again later." },
+        { status: 500 },
+      )
+    }
+
+    // ── Success — set cooldown cookie ───────────────────────
+    const response = NextResponse.json({ data: { ok: true } }, { status: 201 })
+    response.cookies.set(COOKIE_NAME, String(Date.now()), {
+      maxAge: COOLDOWN_MS / 1000,
+      path: "/",
+      sameSite: "lax",
+      httpOnly: true,
+    })
+    return response
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error"
+    console.error("POST /api/feedback: Unexpected error", message)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+})

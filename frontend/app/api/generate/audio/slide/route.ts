@@ -5,6 +5,7 @@ import { generateWithPreset, generateWithClone } from "@/lib/voxcpm"
 import { isValidWav, detectFormat } from "@/lib/wav-utils"
 import { toWav } from "@/lib/audio-convert"
 import { downloadFileAsBuffer, deleteFile, uploadFile } from "@/lib/r2"
+import { withApiHandler } from "@/lib/api-handler"
 
 const slideSchema = z.object({
   slide_number: z.number().int().min(1),
@@ -15,7 +16,7 @@ const slideSchema = z.object({
   voice_id: z.string().uuid().optional(),
 }).strict()
 
-export async function POST(request: Request) {
+export const POST = withApiHandler(async (request: Request) => {
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) {
@@ -103,4 +104,4 @@ export async function POST(request: Request) {
       error: `Failed to generate audio for slide ${slide_number}`,
     }, { status: 502 })
   }
-}
+})

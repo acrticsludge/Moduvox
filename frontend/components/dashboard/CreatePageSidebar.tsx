@@ -75,7 +75,10 @@ export function CreatePageSidebar({
             setVoicesLoading(false)
           })
       })
-      .catch(() => setVoicesLoading(false))
+      .catch((err) => {
+        console.error("[CreatePageSidebar] Voices fetch failed:", err)
+        setVoicesLoading(false)
+      })
   }, [])
 
   const presetVoices = voices.filter((v) => v.type === "preset")
@@ -111,7 +114,7 @@ export function CreatePageSidebar({
       if (json.data?.audioUrl) {
         setPreviewAudioUrl(json.data.audioUrl)
       }
-    } catch { /* preview failed */ }
+    } catch (err) { console.error("[CreatePageSidebar] Preview failed:", err) }
     setPreviewLoading(false)
   }
 

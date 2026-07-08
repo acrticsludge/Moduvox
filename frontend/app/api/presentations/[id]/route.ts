@@ -2,11 +2,12 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { deleteFile } from "@/lib/r2"
 import { updatePresentationSchema } from "@/lib/validations/presentation"
+import { withApiHandler } from "@/lib/api-handler"
 
-export async function PATCH(
+export const PATCH = withApiHandler(async (
   request: Request,
   { params }: { params: Promise<{ id: string }> },
-) {
+) => {
   const supabase = await createClient()
   const { id: presentationId } = await params
 
@@ -57,7 +58,7 @@ export async function PATCH(
       previousStatus = (rec as Record<string, unknown>).previous_status as string | null
     }
   } catch {
-    // previous_status column may not exist yet (pre-migration) — fall back gracefully
+    // previous_status column may not exist yet (pre-migration) â€” fall back gracefully
   }
 
   const updates: Record<string, unknown> = {
@@ -94,12 +95,12 @@ export async function PATCH(
   }
 
   return NextResponse.json({ data })
-}
+})
 
-export async function DELETE(
+export const DELETE = withApiHandler(async (
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
-) {
+) => {
   const supabase = await createClient()
   const { id: presentationId } = await params
 
@@ -137,4 +138,4 @@ export async function DELETE(
   }
 
   return NextResponse.json({ data: { id: presentationId } })
-}
+})

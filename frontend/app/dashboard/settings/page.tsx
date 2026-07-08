@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Loader2, LogOut } from "lucide-react"
+import { ErrorBanner } from "@/components/ui/ErrorBanner"
 import { useRouter } from "next/navigation"
 
 type Tab = "profile" | "security" | "api-keys"
@@ -15,6 +16,7 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [loggingOut, setLoggingOut] = useState(false)
   const [showPasswordForm, setShowPasswordForm] = useState(false)
   const [currentPassword, setCurrentPassword] = useState("")
   const [newPassword, setNewPassword] = useState("")
@@ -121,6 +123,7 @@ export default function SettingsPage() {
   }
 
   async function handleLogout() {
+    setLoggingOut(true)
     await supabase.auth.signOut()
     router.push("/")
     router.refresh()
@@ -188,12 +191,8 @@ export default function SettingsPage() {
 
       {/* Content */}
       <div className="flex flex-1 px-6 py-8">
-        <div className="mx-auto w-full max-w-lg">
-          {error && (
-            <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
-              {error}
-            </div>
-          )}
+        <div className="mx-auto w-full max-w-lg shadow-red-500/10">
+          <ErrorBanner message={error} className="mb-4" />
 
           {saveMessage && (
             <div className="mb-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-600">
@@ -324,10 +323,14 @@ export default function SettingsPage() {
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="mt-3 inline-flex items-center gap-2 rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-[#18181B] transition-all hover:bg-zinc-50"
+                  disabled={loggingOut}
+                  className="mt-3 inline-flex items-center gap-2 rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-[#18181B] transition-all hover:bg-zinc-50 disabled:opacity-50"
                 >
-                  <LogOut className="h-4 w-4" />
-                  Log out
+                  {loggingOut ? (
+                    <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Signing out...</span>
+                  ) : (
+                    <span className="flex items-center gap-2"><LogOut className="h-4 w-4" /> Log out</span>
+                  )}
                 </button>
               </div>
 
@@ -399,12 +402,11 @@ export default function SettingsPage() {
                   (shared key is capped at 5 requests/minute).
                 </p>
 
-                {geminiMessage && (
-                  <div className={`mt-4 rounded-lg px-4 py-3 text-sm ${
-                    geminiMessage.type === "success"
-                      ? "bg-emerald-50 text-emerald-600"
-                      : "bg-red-50 text-red-600"
-                  }`}>
+                {geminiMessage?.type === "error" && (
+                  <ErrorBanner message={geminiMessage.text} />
+                )}
+                {geminiMessage?.type === "success" && (
+                  <div className="mt-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-600">
                     {geminiMessage.text}
                   </div>
                 )}

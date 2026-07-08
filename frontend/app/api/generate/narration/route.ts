@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { GoogleGenerativeAI } from "@google/generative-ai"
+import { withApiHandler } from "@/lib/api-handler"
 import { createClient } from "@/lib/supabase/server"
 
 type SlideInput = {
@@ -58,7 +59,7 @@ function parseRetryAfter(msg: string): number | null {
   return null
 }
 
-export async function POST(request: Request) {
+export const POST = withApiHandler(async (request: Request) => {
   try {
     // ── Auth ────────────────────────────────────────────────
     const supabase = await createClient()
@@ -209,4 +210,4 @@ ${slideBlocks.join("\n\n")}`
 
     return NextResponse.json({ error: "Failed to generate narrations. Please try again." }, { status: 500 })
   }
-}
+})

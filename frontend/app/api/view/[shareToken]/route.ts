@@ -2,11 +2,12 @@ import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getAllSlideDurations } from "@/lib/wav-duration"
 import { listFiles, createDownloadUrl } from "@/lib/r2"
+import { withApiHandler } from "@/lib/api-handler"
 
-export async function GET(
+export const GET = withApiHandler(async (
   request: Request,
   { params }: { params: Promise<{ shareToken: string }> },
-) {
+) => {
   const { shareToken } = await params
 
   const supabase = createAdminClient()
@@ -31,10 +32,10 @@ export async function GET(
 
   // Check expiration
   if (presentation.expires_at && new Date(presentation.expires_at) < new Date()) {
-    return NextResponse.json({ error: "expired", message: "This link has expired" }, { status: 410 })
+    return NextResponse.json({ error: "This presentation link has expired" }, { status: 410 })
   }
 
-  // Check if a verified session is provided — skip gate if so
+  // Check if a verified session is provided â€” skip gate if so
   const { searchParams } = new URL(request.url)
   const sessionToken = searchParams.get("session")
   let sessionVerified = false
@@ -68,7 +69,7 @@ export async function GET(
     })
   }
 
-  // No gate (or session verified) — return minimal verified response
+  // No gate (or session verified) â€” return minimal verified response
   let totalDurationMs = 0
   try {
     const timings = await getAllSlideDurations(presentation.user_id, presentation.id, presentation.slide_count || 0)
@@ -102,4 +103,4 @@ export async function GET(
       viewer_id: viewerData?.id || null,
     },
   })
-}
+})
