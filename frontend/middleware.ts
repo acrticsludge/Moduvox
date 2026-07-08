@@ -12,7 +12,6 @@ export async function middleware(request: NextRequest) {
       pathname.startsWith("/api/voices") ||
       pathname.startsWith("/api/generate") ||
       pathname.startsWith("/api/user") ||
-      pathname.startsWith("/api/feedback") ||
       pathname.startsWith("/api/waitlist");
 
     // Run session update (handles cookie refresh) for all matched routes
@@ -41,7 +40,6 @@ export const config = {
     "/api/voices/:path*",
     "/api/generate/:path*",
     "/api/user/:path*",
-    "/api/feedback/:path*",
     "/api/waitlist/:path*",
   ],
 };
