@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 
-export async function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   try {
     const { pathname } = request.nextUrl;
 
@@ -25,7 +25,7 @@ export async function proxy(request: NextRequest) {
 
     return response;
   } catch {
-    // If proxy throws (e.g. missing env vars, Supabase down),
+    // If middleware throws (e.g. missing env vars, Supabase down),
     // fail closed — redirect to login instead of letting the request through
     const loginUrl = new URL("/login", request.url);
     return NextResponse.redirect(loginUrl);
