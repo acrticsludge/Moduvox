@@ -5,7 +5,8 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
-import { ErrorBanner, FieldError } from "@/components/ui/ErrorBanner";
+import { FieldError } from "@/components/ui/ErrorBanner"
+import toast from "react-hot-toast"
 
 export default function SignupPage() {
   const [checkingAuth, setCheckingAuth] = useState(true);
@@ -14,6 +15,7 @@ export default function SignupPage() {
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const router = useRouter();
   const supabase = createClient();
@@ -21,6 +23,16 @@ export default function SignupPage() {
   useEffect(() => {
     document.title = "Create an account — Moduvox";
   }, []);
+
+  useEffect(() => {
+    if (success) {
+      const timer = setTimeout(() => {
+        router.push("/");
+        router.refresh();
+      }, 1200)
+      return () => clearTimeout(timer)
+    }
+  }, [success, router])
 
   // If already logged in, go to dashboard
   useEffect(() => {
@@ -57,20 +69,21 @@ export default function SignupPage() {
     });
 
     if (error) {
-      setError(error.message);
+      toast.error(error.message);
       setLoading(false);
       return;
     }
 
     // If no new identity was created, the user already exists
     if (!data?.user?.identities?.length) {
-      setError("An account with this email already exists. Please log in instead.");
+      toast.error("An account with this email already exists. Please log in instead.");
       setLoading(false);
       return;
     }
 
-    router.push("/");
-    router.refresh();
+    // Success! Show green glow then redirect
+    setSuccess(true);
+    setLoading(false);
   }
 
   async function handleGoogleLogin() {
@@ -81,7 +94,7 @@ export default function SignupPage() {
       options: { redirectTo: `${origin}/auth/callback` },
     });
 
-    if (error) setError(error.message);
+    if (error) toast.error(error.message);
   }
 
   if (checkingAuth) {
@@ -119,7 +132,11 @@ export default function SignupPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#F9FAFB] px-4">
       <div className={`w-full max-w-sm rounded-xl border bg-white p-8 shadow-lg transition-all duration-300 ${
-          error ? "border-red-300 shadow-[0_0_0_1px_#fca5a5]" : "border-zinc-200"
+          success
+            ? "border-green-500 shadow-[0_0_0_2px_#22c55e]"
+            : error
+              ? "border-red-300 shadow-[0_0_0_1px_#fca5a5]"
+              : "border-zinc-200"
         }`}>
         <h1 className="mb-1 text-2xl font-semibold tracking-tight text-[#18181B]">
           Create your account
@@ -128,6 +145,16 @@ export default function SignupPage() {
           Start turning slides into narrated training.
         </p>
 
+        {success ? (
+          <div className="flex flex-col items-center py-8">
+            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-100">
+              <svg className="h-7 w-7 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+              </svg>
+            </div>
+            <p className="text-sm text-[#71717A]">Redirecting to dashboard…</p>
+          </div>
+        ) : (
         <form onSubmit={handleEmailSignup} className="space-y-4">
           <div>
             <label htmlFor="name" className="text-sm font-medium text-[#18181B]">
@@ -186,8 +213,6 @@ export default function SignupPage() {
             <FieldError message={fieldErrors.password} />
           </div>
 
-          <ErrorBanner message={error} />
-
           <button
             type="submit"
             disabled={loading}
@@ -203,6 +228,7 @@ export default function SignupPage() {
             )}
           </button>
         </form>
+        )}
 
         <div className="my-6 flex items-center gap-3">
           <span className="h-px flex-1 bg-zinc-200" />
