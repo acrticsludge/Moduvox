@@ -4,8 +4,10 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Loader2 } from "lucide-react";
 
 export default function SignupPage() {
+  const [checkingAuth, setCheckingAuth] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -14,10 +16,18 @@ export default function SignupPage() {
   const router = useRouter();
   const supabase = createClient();
 
+  useEffect(() => {
+    document.title = "Create an account — Moduvox";
+  }, []);
+
   // If already logged in, go to dashboard
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
-      if (data.user) router.push("/dashboard");
+      if (data.user) {
+        router.push("/dashboard");
+      } else {
+        setCheckingAuth(false);
+      }
     });
   }, [router, supabase]);
 
@@ -49,6 +59,38 @@ export default function SignupPage() {
     });
 
     if (error) setError(error.message);
+  }
+
+  if (checkingAuth) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#F9FAFB] px-4">
+        <div className="w-full max-w-sm animate-pulse rounded-xl border border-zinc-200 bg-white p-8 shadow-lg">
+          <div className="mb-1 h-7 w-40 rounded bg-zinc-100" />
+          <div className="mb-8 h-4 w-56 rounded bg-zinc-100" />
+          <div className="space-y-4">
+            <div>
+              <div className="mb-1.5 h-4 w-10 rounded bg-zinc-100" />
+              <div className="h-10 w-full rounded-lg bg-zinc-100" />
+            </div>
+            <div>
+              <div className="mb-1.5 h-4 w-10 rounded bg-zinc-100" />
+              <div className="h-10 w-full rounded-lg bg-zinc-100" />
+            </div>
+            <div>
+              <div className="mb-1.5 h-4 w-16 rounded bg-zinc-100" />
+              <div className="h-10 w-full rounded-lg bg-zinc-100" />
+            </div>
+            <div className="h-10 w-full rounded-lg bg-zinc-100" />
+          </div>
+          <div className="my-6 flex items-center gap-3">
+            <span className="h-px flex-1 bg-zinc-100" />
+            <span className="h-3 w-4 rounded bg-zinc-100" />
+            <span className="h-px flex-1 bg-zinc-100" />
+          </div>
+          <div className="h-10 w-full rounded-lg bg-zinc-100" />
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -116,7 +158,14 @@ export default function SignupPage() {
             disabled={loading}
             className="w-full rounded-lg border border-[#18181B]/70 bg-[#18181B] px-4 py-2.5 text-sm font-medium text-white transition-all hover:border-[#18181B] hover:bg-[#27272A] active:scale-[0.98] disabled:opacity-50"
           >
-            {loading ? "Creating account…" : "Create account"}
+            {loading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Creating account…
+              </>
+            ) : (
+              "Create account"
+            )}
           </button>
         </form>
 

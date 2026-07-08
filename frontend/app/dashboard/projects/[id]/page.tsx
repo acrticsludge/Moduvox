@@ -7,8 +7,10 @@ import toast from "react-hot-toast"
 import { createClient } from "@/lib/supabase/client"
 import type { Project } from "@/lib/validations/project"
 import type { Presentation as PresentationType } from "@/lib/validations/presentation"
-import { RenameProjectModal } from "@/components/dashboard/RenameProjectModal"
-import { CreatePresentationDialog } from "@/components/dashboard/CreatePresentationDialog"
+import dynamic from "next/dynamic"
+
+const RenameProjectModal = dynamic(() => import("@/components/dashboard/RenameProjectModal").then(mod => mod.RenameProjectModal), { ssr: false })
+const CreatePresentationDialog = dynamic(() => import("@/components/dashboard/CreatePresentationDialog").then(mod => mod.CreatePresentationDialog), { ssr: false })
 import { PresentationCardActions } from "@/components/dashboard/PresentationCardActions"
 import { RenamePresentationDialog } from "@/components/dashboard/RenamePresentationDialog"
 import { DeletePresentationDialog } from "@/components/dashboard/DeletePresentationDialog"

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { X, Loader2 } from "lucide-react"
 import { WaitlistDialog } from "@/components/dashboard/WaitlistDialog"
@@ -13,6 +13,10 @@ export function CreatePresentationDialog({
   projectId: string
   onClose: () => void
 }) {
+  useEffect(() => {
+    document.body.style.overflow = "hidden"
+    return () => { document.body.style.overflow = "" }
+  }, [])
   const router = useRouter()
   const [title, setTitle] = useState("")
   const [saving, setSaving] = useState(false)

@@ -38,30 +38,34 @@ export default function SettingsPage() {
 
   useEffect(() => {
     async function loadProfile() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) { setLoading(false); return }
 
-      setEmail(user.email ?? "")
+        setEmail(user.email ?? "")
 
-      const { data } = await supabase
-        .from("users")
-        .select("name")
-        .eq("id", user.id)
-        .maybeSingle()
+        const { data } = await supabase
+          .from("users")
+          .select("name")
+          .eq("id", user.id)
+          .maybeSingle()
 
-      setName(data?.name ?? user.user_metadata?.full_name ?? "")
+        setName(data?.name ?? user.user_metadata?.full_name ?? "")
 
-      // Load Gemini key status
-      const keyRes = await fetch("/api/user/gemini-key")
-      const keyJson = await keyRes.json()
-      const storedKey = keyJson.data?.geminiApiKey
-      setGeminiKeyExists(!!storedKey)
-      if (storedKey) {
-        // Show last 4 chars masked
-        setGeminiKeyDisplay(`············${storedKey.slice(-4)}`)
+        // Load Gemini key status
+        const keyRes = await fetch("/api/user/gemini-key")
+        const keyJson = await keyRes.json()
+        const storedKey = keyJson.data?.geminiApiKey
+        setGeminiKeyExists(!!storedKey)
+        if (storedKey) {
+          // Show last 4 chars masked
+          setGeminiKeyDisplay(`············${storedKey.slice(-4)}`)
+        }
+      } catch {
+        // Data fetch failed — settings form shows with empty fields
+      } finally {
+        setLoading(false)
       }
-
-      setLoading(false)
     }
     loadProfile()
   }, [supabase])
@@ -142,8 +146,19 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-1 items-center justify-center">
-        <Loader2 className="h-5 w-5 animate-spin text-[#71717A]" />
+      <div className="flex flex-1 px-6 py-8">
+        <div className="mx-auto w-full max-w-lg space-y-5">
+          <div>
+            <div className="mb-1.5 h-4 w-10 rounded bg-zinc-100 animate-pulse" />
+            <div className="h-10 w-full rounded-lg bg-zinc-100 animate-pulse" />
+          </div>
+          <div>
+            <div className="mb-1.5 h-4 w-12 rounded bg-zinc-100 animate-pulse" />
+            <div className="h-10 w-full rounded-lg bg-zinc-50 animate-pulse" />
+            <div className="mt-1 h-3 w-32 rounded bg-zinc-100 animate-pulse" />
+          </div>
+          <div className="h-10 w-28 rounded-lg bg-zinc-100 animate-pulse" />
+        </div>
       </div>
     )
   }

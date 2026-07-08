@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { X, Loader2, Check } from "lucide-react"
 import { COLOR_PALETTE, ICON_SET, type ProjectColor, type ProjectIcon } from "@/lib/validations/project"
 
@@ -27,6 +27,10 @@ export function CreateProjectModal({
   onClose: () => void
   onCreated: () => void
 }) {
+  useEffect(() => {
+    document.body.style.overflow = "hidden"
+    return () => { document.body.style.overflow = "" }
+  }, [])
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
   const [color, setColor] = useState<ProjectColor | null>(null)

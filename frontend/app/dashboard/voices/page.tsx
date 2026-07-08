@@ -3,8 +3,10 @@
 import { useEffect, useState, useRef } from "react"
 import { Plus, Mic, Trash2, Music, Loader2, Volume2, Play } from "lucide-react"
 import toast from "react-hot-toast"
-import { DeleteVoiceDialog } from "@/components/dashboard/DeleteVoiceDialog"
-import { WaitlistDialog } from "@/components/dashboard/WaitlistDialog"
+import dynamic from "next/dynamic"
+
+const DeleteVoiceDialog = dynamic(() => import("@/components/dashboard/DeleteVoiceDialog").then(mod => mod.DeleteVoiceDialog), { ssr: false })
+const WaitlistDialog = dynamic(() => import("@/components/dashboard/WaitlistDialog").then(mod => mod.WaitlistDialog), { ssr: false })
 import type { QuotaResult } from "@/lib/quota"
 
 // ── Types ────────────────────────────────────────────
@@ -29,6 +31,14 @@ const PRESET_VOICES = [
   { id: "professional-tone", label: "Professional Tone", description: "Clear, authoritative. Suits formal business content." },
   { id: "warm-friendly", label: "Warm Friendly", description: "Approachable, conversational. Makes complex topics feel simple." },
 ]
+
+const PRESET_CONTROL_INSTRUCTIONS: Record<string, string> = {
+  "calm-female": "A calm, warm female voice with a steady and reassuring tone. Ideal for policy and compliance training content.",
+  "energetic-male": "An upbeat, energetic male voice. Good for onboarding, introductions, and motivational content.",
+  "soft-narrator": "A gentle, measured voice with a soft delivery. Fits detailed explanations and tutorial-style content.",
+  "professional-tone": "A clear, authoritative voice with a professional business tone. Suits formal business content.",
+  "warm-friendly": "An approachable, conversational voice that makes complex topics feel simple and accessible.",
+}
 
 // ── Helpers ──────────────────────────────────────────
 function formatDate(iso: string) {
@@ -228,6 +238,11 @@ function AddVoiceModal({
     if (!voiceName.trim()) return
     if (isCustom && !controlInstruction.trim()) return
 
+    // For built-in presets, auto-fill the control instruction from the map
+    const resolvedInstruction = selectedPreset
+      ? PRESET_CONTROL_INSTRUCTIONS[selectedPreset]
+      : controlInstruction.trim() || undefined
+
     setUploading(true)
     setError(null)
 
@@ -239,7 +254,7 @@ function AddVoiceModal({
           name: voiceName.trim(),
           type: "preset",
           preset_id: selectedPreset,
-          control_instruction: controlInstruction.trim() || undefined,
+          control_instruction: resolvedInstruction,
         }),
       })
       const json = await res.json()
@@ -753,8 +768,23 @@ export default function VoicesPage() {
       {/* Content */}
       <div className="flex flex-1 px-6 py-8">
         {loading ? (
-          <div className="flex w-full items-center justify-center">
-            <Loader2 className="h-5 w-5 animate-spin text-[#71717A]" />
+          <div className="w-full space-y-2">
+            <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="flex items-center gap-3 px-4 py-2.5">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-zinc-100 animate-pulse" />
+                  <div className="flex min-w-0 flex-1 items-center gap-2">
+                    <div className="h-4 w-32 rounded bg-zinc-100 animate-pulse" />
+                    <div className="hidden h-3 w-48 rounded bg-zinc-100 animate-pulse md:block" />
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <div className="h-5 w-14 rounded-md bg-zinc-100 animate-pulse" />
+                    <div className="hidden h-3 w-16 rounded bg-zinc-100 animate-pulse sm:block" />
+                    <div className="h-7 w-7 rounded-lg bg-zinc-100 animate-pulse" />
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         ) : voices.length > 0 ? (
           <div className="w-full overflow-hidden rounded-xl border border-zinc-200 bg-white">

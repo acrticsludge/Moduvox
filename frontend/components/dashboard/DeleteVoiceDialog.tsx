@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Loader2, TriangleAlert } from "lucide-react"
 
 type Voice = {
@@ -17,6 +17,10 @@ export function DeleteVoiceDialog({
   onClose: () => void
   onDeleted: () => void
 }) {
+  useEffect(() => {
+    document.body.style.overflow = "hidden"
+    return () => { document.body.style.overflow = "" }
+  }, [])
   const [confirm, setConfirm] = useState("")
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState("")

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Loader2, CheckCircle2 } from "lucide-react"
 import type { QuotaResult } from "@/lib/quota"
 import type { WaitlistInterest } from "@/lib/validations/waitlist"
@@ -42,6 +42,10 @@ export function WaitlistDialog({
   quota: QuotaResult
   onClose: () => void
 }) {
+  useEffect(() => {
+    document.body.style.overflow = "hidden"
+    return () => { document.body.style.overflow = "" }
+  }, [])
   const [interest, setInterest] = useState<WaitlistInterest | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)

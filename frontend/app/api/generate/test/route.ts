@@ -77,9 +77,12 @@ export async function POST(request: Request) {
     let result: { audioUrl: string; fileData?: Record<string, unknown> }
 
     if (voice.type === "preset") {
-      const description = voice.preset_id
-        ? (PRESET_VOICE_MAP[voice.preset_id] ?? PRESET_VOICE_MAP["calm-female"])
-        : PRESET_VOICE_MAP["calm-female"]
+      // Use control_instruction from DB if available (populated at voice creation),
+      // otherwise fall back to hardcoded map
+      const description = voice.control_instruction
+        ?? (voice.preset_id
+          ? (PRESET_VOICE_MAP[voice.preset_id] ?? PRESET_VOICE_MAP["calm-female"])
+          : PRESET_VOICE_MAP["calm-female"])
 
       console.log("[TestVoice] Generating with preset:", voice.preset_id, "→", description.slice(0, 60))
       result = await generateWithPreset(EXAMPLE_TEXT, description)

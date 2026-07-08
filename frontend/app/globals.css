@@ -75,3 +75,20 @@ body {
     height: 0;
   }
 }
+
+@utility touch-target {
+  @apply flex min-h-[48px] min-w-[48px] items-center justify-center;
+}
+
+@utility touch-target-sm {
+  @apply flex min-h-[44px] min-w-[44px] items-center justify-center;
+}
+
+@keyframes slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@utility animate-slide-up {
+  animation: slide-up 0.25s ease-out;
+}

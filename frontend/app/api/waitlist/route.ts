@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { submitWaitlistSchema } from "@/lib/validations/waitlist"
+import { checkRateLimit } from "@/lib/rate-limiter"
 
 export async function POST(request: Request) {
   const supabase = await createClient()
@@ -9,6 +10,16 @@ export async function POST(request: Request) {
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  // Rate limit: 3 submissions per user per hour
+  const { allowed, remaining, resetAt } = checkRateLimit(`waitlist:${user.id}`, 3, 3_600_000)
+  if (!allowed) {
+    return NextResponse.json({
+      error: "Too many requests. Please try again later.",
+      remaining,
+      resetAt: new Date(resetAt).toISOString(),
+    }, { status: 429 })
   }
 
   let body: Record<string, unknown>

@@ -1,0 +1,38 @@
+# Moduvox Project Rules — Synced with CLAUDE.md / AGENTS.md
+
+## AI Collaboration
+This file is kept in sync with CLAUDE.md, AGENTS.md, .windsurfrules, and GEMINI.md.
+
+## Stack
+- Next.js App Router, TypeScript strict, Tailwind CSS, Radix UI, shadcn/ui, Recharts
+- Supabase (Auth + Database only — no Supabase Storage), AES-256 encryption for API keys
+- Hosting: Vercel (frontend), Railway (worker)
+- Integrations: Resend (email), Dodo Payments, Google Gemini AI, Gradio/HuggingFace VoxCPM
+- Cloudflare R2 for all file storage
+
+## Coding Standards
+- TypeScript strict — no `any`
+- Server Components by default — `"use client"` only when needed
+- Response envelope: `{ data: T }` on success, `{ error: string }` on error
+- kebab-case routes, PascalCase types, camelCase variables, snake_case DB columns
+- Mobile-first: touch targets 48x48px+, base font 16px+
+- All API routes use Zod validation
+- All list endpoints paginated
+- RLS enabled on every Supabase table
+
+## Vercel Middleware
+CRITICAL: Always add a `config.matcher` to `middleware.ts`. Never ship without one.
+
+## Git Conventions
+- `feat/`, `fix/`, `chore/` branch prefixes
+- Present-tense imperative commits: "add Slack alert channel"
+- Commit after each fix or feature — don't batch unrelated changes
+- Never commit `.env*`, `node_modules`, `.next/`, `graphify-out/`
+
+## AI Patterns to Follow
+- Always load relevant skills before tasks
+- Check LESSONS.md at the start of every session
+- Surface tradeoffs, state assumptions, push back when warranted
+- Simplicity first — minimum code, no speculative features
+- Surgical changes — touch only what's needed
+- Goal-driven — define success criteria before implementing

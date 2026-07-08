@@ -9,10 +9,12 @@ import type { Presentation as PresentationType } from "@/lib/validations/present
 import { CreatePageSidebar } from "@/components/dashboard/CreatePageSidebar"
 import { PptxUploadZone } from "@/components/dashboard/PptxUploadZone"
 import { SlideEditor } from "@/components/dashboard/SlideEditor"
+import dynamic from "next/dynamic"
 import { ErrorBoundary } from "@/components/dashboard/ErrorBoundary"
-import { DeletePresentationDialog } from "@/components/dashboard/DeletePresentationDialog"
-import { RenamePresentationDialog } from "@/components/dashboard/RenamePresentationDialog"
-import { ConfirmArchiveDialog } from "@/components/dashboard/ConfirmArchiveDialog"
+
+const DeletePresentationDialog = dynamic(() => import("@/components/dashboard/DeletePresentationDialog").then(mod => mod.DeletePresentationDialog), { ssr: false })
+const RenamePresentationDialog = dynamic(() => import("@/components/dashboard/RenamePresentationDialog").then(mod => mod.RenamePresentationDialog), { ssr: false })
+const ConfirmArchiveDialog = dynamic(() => import("@/components/dashboard/ConfirmArchiveDialog").then(mod => mod.ConfirmArchiveDialog), { ssr: false })
 
 type EditorState = {
   selectedVoiceId?: string
@@ -161,6 +163,9 @@ export default function PresentationCreatePage() {
         }
       }
       setLoading(false)
+    }).catch(() => {
+      setError("Failed to load presentation")
+      setLoading(false)
     })
   }, [params.presentationId, params.id])
 
@@ -214,9 +219,55 @@ export default function PresentationCreatePage() {
 
   if (loading) {
     return (
-      <div className="flex flex-1 items-center justify-center px-6">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-600" />
-      </div>
+      <>
+        <div className="absolute bottom-0 left-0 top-0 z-30 w-80 animate-pulse border-r border-[var(--color-border-faint)] bg-white p-5">
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <div className="h-4 w-12 rounded bg-zinc-200" />
+              <div className="h-9 w-full rounded-lg bg-zinc-100" />
+            </div>
+            <div className="space-y-2">
+              <div className="h-4 w-32 rounded bg-zinc-200" />
+              <div className="h-[100px] w-full rounded-lg bg-zinc-100" />
+            </div>
+          </div>
+        </div>
+        <div className="ml-80 mr-[380px] flex flex-1 flex-col">
+          <div className="flex animate-pulse items-center justify-between border-b border-[var(--color-border-faint)] bg-white px-6 py-4">
+            <div className="flex items-center gap-2">
+              <div className="h-4 w-20 rounded bg-zinc-200" />
+              <div className="h-3.5 w-3.5 rounded bg-zinc-200" />
+              <div className="h-4 w-24 rounded bg-zinc-200" />
+              <div className="h-3.5 w-3.5 rounded bg-zinc-200" />
+              <div className="h-4 w-28 rounded bg-zinc-200" />
+            </div>
+          </div>
+          <div className="flex flex-1 animate-pulse items-center justify-center bg-zinc-100">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-600" />
+          </div>
+        </div>
+        <div className="absolute bottom-0 right-0 top-0 z-20 w-[380px] animate-pulse border-l border-[var(--color-border-faint)] bg-white p-6">
+          <div className="flex flex-col gap-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <div className="h-4 w-10 rounded bg-zinc-200" />
+                <div className="h-6 w-12 rounded border border-zinc-200 bg-zinc-50" />
+                <div className="h-4 w-16 rounded bg-zinc-200" />
+              </div>
+              <div className="flex gap-1">
+                <div className="h-7 w-7 rounded bg-zinc-100" />
+                <div className="h-7 w-7 rounded bg-zinc-100" />
+              </div>
+            </div>
+            <div className="h-10 w-full rounded-lg bg-zinc-100" />
+            <div className="space-y-2">
+              <div className="h-4 w-28 rounded bg-zinc-200" />
+              <div className="h-[120px] w-full rounded-lg bg-zinc-100" />
+            </div>
+            <div className="h-9 w-full rounded-lg bg-zinc-100" />
+          </div>
+        </div>
+      </>
     )
   }
 
@@ -422,6 +473,15 @@ export default function PresentationCreatePage() {
             toast.success("Presentation deleted")
           }}
         />
+      )}
+
+      {/* Right panel placeholder — shown when SlideEditor isn't rendering yet */}
+      {presentation?.status !== "archived" && mode === "upload" && (
+        <div className="absolute bottom-0 right-0 top-0 z-20 flex w-[380px] flex-col items-center justify-center border-l border-[var(--color-border-faint)] bg-white px-6">
+          <p className="text-center text-sm text-[#71717A]">
+            Upload a presentation to access narration and audio tools
+          </p>
+        </div>
       )}
     </>
   )

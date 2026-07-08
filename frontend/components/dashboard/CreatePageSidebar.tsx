@@ -43,6 +43,7 @@ export function CreatePageSidebar({
   onUltimateModeChange?: (v: boolean) => void
 }) {
   const [voices, setVoices] = useState<Voice[]>([])
+  const [voicesLoading, setVoicesLoading] = useState(true)
   const [internalVoiceId, setInternalVoiceId] = useState("")
   const [internalCi, setInternalCi] = useState("")
   const [internalUlt, setInternalUlt] = useState(false)
@@ -60,17 +61,21 @@ export function CreatePageSidebar({
 
   useEffect(() => {
     const supabase = createClient()
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return
-      supabase
-        .from("voices")
-        .select("id, name, type, preset_id, control_instruction")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .then(({ data }) => {
-          if (data) setVoices(data as Voice[])
-        })
-    })
+    setVoicesLoading(true)
+    supabase.auth.getUser()
+      .then(({ data: { user } }) => {
+        if (!user) { setVoicesLoading(false); return }
+        return supabase
+          .from("voices")
+          .select("id, name, type, preset_id, control_instruction")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .then(({ data }) => {
+            if (data) setVoices(data as Voice[])
+            setVoicesLoading(false)
+          })
+      })
+      .catch(() => setVoicesLoading(false))
   }, [])
 
   const presetVoices = voices.filter((v) => v.type === "preset")
@@ -120,41 +125,45 @@ export function CreatePageSidebar({
         </Label>
         <div className="flex items-center gap-2">
           <div className="flex-1">
-            <Select value={selectedVoiceId} onValueChange={handleVoiceChange}>
-              <SelectTrigger id="voice-select" className="w-full">
-                <SelectValue placeholder="Select a voice..." />
-              </SelectTrigger>
-              <SelectContent>
-                {voices.length === 0 && (
-                  <div className="px-2 py-4 text-center text-sm text-[#71717A]">
-                    No voices yet.{" "}
-                    <a href="/dashboard/voices" className="underline hover:text-[#18181B]">
-                      Create one
-                    </a>
-                  </div>
-                )}
-                {presetVoices.length > 0 && (
-                  <SelectGroup>
-                    <SelectLabel>Preset Voices</SelectLabel>
-                    {presetVoices.map((v) => (
-                      <SelectItem key={v.id} value={v.id}>
-                        {v.name}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                )}
-                {clonedVoices.length > 0 && (
-                  <SelectGroup>
-                    <SelectLabel>Cloned Voices</SelectLabel>
-                    {clonedVoices.map((v) => (
-                      <SelectItem key={v.id} value={v.id}>
-                        {v.name}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                )}
-              </SelectContent>
-            </Select>
+            {voicesLoading ? (
+              <div className="h-9 w-full animate-pulse rounded-lg bg-zinc-100" />
+            ) : (
+              <Select value={selectedVoiceId} onValueChange={handleVoiceChange}>
+                <SelectTrigger id="voice-select" className="w-full">
+                  <SelectValue placeholder="Select a voice..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {voices.length === 0 && (
+                    <div className="px-2 py-4 text-center text-sm text-[#71717A]">
+                      No voices yet.{" "}
+                      <a href="/dashboard/voices" className="underline hover:text-[#18181B]">
+                        Create one
+                      </a>
+                    </div>
+                  )}
+                  {presetVoices.length > 0 && (
+                    <SelectGroup>
+                      <SelectLabel>Preset Voices</SelectLabel>
+                      {presetVoices.map((v) => (
+                        <SelectItem key={v.id} value={v.id}>
+                          {v.name}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  )}
+                  {clonedVoices.length > 0 && (
+                    <SelectGroup>
+                      <SelectLabel>Cloned Voices</SelectLabel>
+                      {clonedVoices.map((v) => (
+                        <SelectItem key={v.id} value={v.id}>
+                          {v.name}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  )}
+                </SelectContent>
+              </Select>
+            )}
           </div>
           {selectedVoiceId && (
             <button

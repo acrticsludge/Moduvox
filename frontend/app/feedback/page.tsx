@@ -148,7 +148,7 @@ export default function FeedbackPage() {
             </div>
             <h2 className="text-lg font-semibold text-[#18181B]">Already submitted</h2>
             <p className="text-sm text-[#71717A]">
-              You've already submitted feedback recently. You can submit again later.
+              You've already submitted feedback recently. You can submit again in about 12 hours.
             </p>
           </div>
         )}

@@ -1,5 +1,11 @@
+import type { Metadata } from "next"
 import { Navbar } from "@/components/ui/Navbar";
 import { Footer } from "@/components/landing/footer";
+
+export const metadata: Metadata = {
+  title: "Terms of Service — Moduvox",
+  robots: "noindex",
+}
 
 export default function TermsPage() {
   return (
