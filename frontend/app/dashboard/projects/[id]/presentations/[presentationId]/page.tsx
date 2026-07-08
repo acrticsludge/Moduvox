@@ -474,6 +474,15 @@ export default function PresentationCreatePage() {
           }}
         />
       )}
+
+      {/* Right panel placeholder — shown when SlideEditor isn't rendering yet */}
+      {presentation?.status !== "archived" && mode === "upload" && (
+        <div className="absolute bottom-0 right-0 top-0 z-20 flex w-[380px] flex-col items-center justify-center border-l border-[var(--color-border-faint)] bg-white px-6">
+          <p className="text-center text-sm text-[#71717A]">
+            Upload a presentation to access narration and audio tools
+          </p>
+        </div>
+      )}
     </>
   )
 }
