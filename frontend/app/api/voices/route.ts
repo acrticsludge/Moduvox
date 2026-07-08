@@ -38,7 +38,10 @@ export const POST = withApiHandler(async (request: Request) => {
   const body = await request.json()
   const parsed = createPresetVoiceSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten().fieldErrors }, { status: 422 })
+    return NextResponse.json(
+      { error: "Validation failed", details: parsed.error.flatten().fieldErrors },
+      { status: 422 },
+    )
   }
 
   // Check free tier preset voice quota

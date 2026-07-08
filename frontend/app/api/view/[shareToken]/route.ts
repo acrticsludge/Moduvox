@@ -32,7 +32,7 @@ export const GET = withApiHandler(async (
 
   // Check expiration
   if (presentation.expires_at && new Date(presentation.expires_at) < new Date()) {
-    return NextResponse.json({ error: "expired", message: "This link has expired" }, { status: 410 })
+    return NextResponse.json({ error: "This presentation link has expired" }, { status: 410 })
   }
 
   // Check if a verified session is provided — skip gate if so

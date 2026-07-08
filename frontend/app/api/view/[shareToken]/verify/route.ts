@@ -24,7 +24,7 @@ export const GET = withApiHandler(async (
     .single()
 
   if (!presentation) {
-    return NextResponse.json({ error: "invalid_link", message: "This link is invalid." }, { status: 404 })
+    return NextResponse.json({ error: "Presentation not found" }, { status: 404 })
   }
 
   if (presentation.expires_at && new Date(presentation.expires_at) < new Date()) {
@@ -40,7 +40,7 @@ export const GET = withApiHandler(async (
     .single()
 
   if (!viewer) {
-    return NextResponse.json({ error: "invalid_link", message: "This verification link has expired or is invalid." }, { status: 404 })
+    return NextResponse.json({ error: "This verification link has expired or is invalid." }, { status: 404 })
   }
 
   // If already verified, skip magic link expiry — viewer was verified through
@@ -60,7 +60,7 @@ export const GET = withApiHandler(async (
   // Use verification_sent_at (updated on every upsert) instead of created_at
   const fifteenMinAgo = new Date(Date.now() - 15 * 60 * 1000)
   if (viewer.verification_sent_at && new Date(viewer.verification_sent_at) < fifteenMinAgo) {
-    return NextResponse.json({ error: "invalid_link", message: "This verification link has expired." }, { status: 410 })
+    return NextResponse.json({ error: "This verification link has expired." }, { status: 410 })
   }
 
   // Mark as verified
