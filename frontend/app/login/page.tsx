@@ -118,24 +118,23 @@ export default function LoginPage() {
               ? "border-red-300 shadow-[0_0_0_1px_#fca5a5]"
               : "border-zinc-200"
         }`}>
-        <h1 className="mb-1 text-2xl font-semibold tracking-tight text-[#18181B]">
-          Log in
-        </h1>
-        <p className="mb-8 text-sm text-[#71717A]">
-          Welcome back to Moduvox.
-        </p>
-
         {success ? (
-          <div className="flex flex-col items-center py-8">
-            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-100">
-              <svg className="h-7 w-7 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <div className="flex flex-col items-center py-16">
+            <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
+              <svg className="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
               </svg>
             </div>
-            <p className="text-sm text-[#71717A]">Redirecting to dashboard...</p>
+            <p className="text-sm text-[#71717A]">You&apos;re all set. Redirecting to your dashboard...</p>
           </div>
         ) : (
           <>
+            <h1 className="mb-1 text-2xl font-semibold tracking-tight text-[#18181B]">
+              Log in
+            </h1>
+            <p className="mb-8 text-sm text-[#71717A]">
+              Welcome back to Moduvox.
+            </p>
             <form onSubmit={handleEmailLogin} className="space-y-4">
               <div>
                 <label htmlFor="email" className="text-sm font-medium text-[#18181B]">Email</label>
