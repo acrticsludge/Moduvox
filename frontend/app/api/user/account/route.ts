@@ -49,4 +49,4 @@ export const DELETE = withApiHandler(async () => {
     console.error("DELETE /api/user/account:", err)
     return NextResponse.json({ error: "Failed to delete account" }, { status: 500 })
   }
-}
+})

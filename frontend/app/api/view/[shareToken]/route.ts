@@ -35,7 +35,7 @@ export const GET = withApiHandler(async (
     return NextResponse.json({ error: "This presentation link has expired" }, { status: 410 })
   }
 
-  // Check if a verified session is provided — skip gate if so
+  // Check if a verified session is provided â€” skip gate if so
   const { searchParams } = new URL(request.url)
   const sessionToken = searchParams.get("session")
   let sessionVerified = false
@@ -69,7 +69,7 @@ export const GET = withApiHandler(async (
     })
   }
 
-  // No gate (or session verified) — return minimal verified response
+  // No gate (or session verified) â€” return minimal verified response
   let totalDurationMs = 0
   try {
     const timings = await getAllSlideDurations(presentation.user_id, presentation.id, presentation.slide_count || 0)
@@ -103,4 +103,4 @@ export const GET = withApiHandler(async (
       viewer_id: viewerData?.id || null,
     },
   })
-}
+})

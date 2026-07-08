@@ -58,7 +58,7 @@ export const PATCH = withApiHandler(async (
       previousStatus = (rec as Record<string, unknown>).previous_status as string | null
     }
   } catch {
-    // previous_status column may not exist yet (pre-migration) — fall back gracefully
+    // previous_status column may not exist yet (pre-migration) â€” fall back gracefully
   }
 
   const updates: Record<string, unknown> = {
@@ -138,4 +138,4 @@ export const DELETE = withApiHandler(async (
   }
 
   return NextResponse.json({ data: { id: presentationId } })
-}
+})

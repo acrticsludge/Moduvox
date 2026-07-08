@@ -29,7 +29,7 @@ export const GET = withApiHandler(async () => {
   }
 
   return NextResponse.json({ data: { geminiApiKey } })
-}
+})
 
 export const PUT = withApiHandler(async (request: Request) => {
   const supabase = await createClient()
@@ -56,4 +56,4 @@ export const PUT = withApiHandler(async (request: Request) => {
   }
 
   return NextResponse.json({ data: { saved: true } })
-}
+})

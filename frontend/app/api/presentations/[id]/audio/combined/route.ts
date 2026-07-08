@@ -101,7 +101,7 @@ export const GET = withApiHandler(async (
       }
     }
 
-    // No cached combined file — generate from per-slide WAVs
+    // No cached combined file â€” generate from per-slide WAVs
     const slidesPrefix = `${audioPrefix}slides/`
     const allFiles = await listFiles(slidesPrefix)
 
@@ -147,4 +147,4 @@ export const GET = withApiHandler(async (
     console.error("GET /api/presentations/[id]/audio/combined:", err)
     return NextResponse.json({ error: "Failed to load audio" }, { status: 500 })
   }
-}
+})

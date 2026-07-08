@@ -50,4 +50,4 @@ export const POST = withApiHandler(async (
       path: filePath,
     },
   })
-}
+})

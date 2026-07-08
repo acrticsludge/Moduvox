@@ -136,4 +136,4 @@ export const POST = withApiHandler(async (request: Request) => {
       return NextResponse.json({ error: "Audio generation failed" }, { status: 502 })
     }
   }
-}
+})

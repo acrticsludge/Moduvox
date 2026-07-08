@@ -73,4 +73,4 @@ export const GET = withApiHandler(async (
       "Content-Disposition": `attachment; filename="${presentation.title.replace(/[^a-zA-Z0-9 _-]/g, "")}-viewers.csv"`,
     },
   })
-}
+})

@@ -59,4 +59,4 @@ export const GET = withApiHandler(async (
       "Cache-Control": "private, max-age=300",
     },
   })
-}
+})

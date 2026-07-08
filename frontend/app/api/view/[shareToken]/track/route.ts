@@ -118,4 +118,4 @@ export const POST = withApiHandler(async (
   }
 
   return NextResponse.json({ data: { ok: true } })
-}
+})

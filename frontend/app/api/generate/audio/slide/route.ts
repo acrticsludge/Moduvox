@@ -104,4 +104,4 @@ export const POST = withApiHandler(async (request: Request) => {
       error: `Failed to generate audio for slide ${slide_number}`,
     }, { status: 502 })
   }
-}
+})

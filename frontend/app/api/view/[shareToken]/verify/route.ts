@@ -43,7 +43,7 @@ export const GET = withApiHandler(async (
     return NextResponse.json({ error: "This verification link has expired or is invalid." }, { status: 404 })
   }
 
-  // If already verified, skip magic link expiry — viewer was verified through
+  // If already verified, skip magic link expiry â€” viewer was verified through
   // another path (e.g. gate API created them verified when email gate is disabled)
   if (viewer.email_verified) {
     const origin = new URL(request.url).origin
@@ -79,7 +79,7 @@ export const GET = withApiHandler(async (
 
   const origin = new URL(request.url).origin
 
-  // Return redirect info — client will store session in sessionStorage and redirect
+  // Return redirect info â€” client will store session in sessionStorage and redirect
   return NextResponse.json({
     data: {
       viewer_id: viewer.id,
@@ -87,4 +87,4 @@ export const GET = withApiHandler(async (
       redirect_url: `${origin}/view/${shareToken}?session=${vt}`,
     },
   })
-}
+})

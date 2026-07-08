@@ -45,7 +45,7 @@ export const POST = withApiHandler(async (
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
   }
 
-  // Verify reCAPTCHA v3 token (skip if not configured — dev mode)
+  // Verify reCAPTCHA v3 token (skip if not configured â€” dev mode)
   if (process.env.RECAPTCHA_SECRET_KEY && process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY) {
     const recaptchaToken = body.recaptcha_token as string | undefined
     if (!recaptchaToken) {
@@ -65,7 +65,7 @@ export const POST = withApiHandler(async (
       console.error("reCAPTCHA v3 verification failed:", verifyJson)
       return NextResponse.json({ error: "Security check failed. Please try again." }, { status: 403 })
     }
-    // Check score — reject if below 0.5 (likely bot)
+    // Check score â€” reject if below 0.5 (likely bot)
     if (typeof verifyJson.score === "number" && verifyJson.score < 0.5) {
       console.error("reCAPTCHA v3 low score:", verifyJson.score)
       return NextResponse.json({ error: "Security check failed. Please try again." }, { status: 403 })
@@ -94,7 +94,7 @@ export const POST = withApiHandler(async (
     )
   }
 
-  // Email gate disabled → create viewer as verified, skip email, return success
+  // Email gate disabled â†’ create viewer as verified, skip email, return success
   if (!presentation.email_gate_enabled) {
     // Check if a verified viewer already exists for this email
     const { data: existingVerified } = await supabase
@@ -119,7 +119,7 @@ export const POST = withApiHandler(async (
       })
     }
 
-    // No verified viewer exists — create a new one
+    // No verified viewer exists â€” create a new one
     const newSessionToken = crypto.randomUUID()
 
     const { data: viewer, error: viewerError } = await supabase
@@ -182,7 +182,7 @@ export const POST = withApiHandler(async (
     })
   }
 
-  // Upsert viewer — create or update in one shot
+  // Upsert viewer â€” create or update in one shot
   const newSessionToken = crypto.randomUUID()
 
   const { data: viewer, error: viewerError } = await supabase
@@ -219,7 +219,7 @@ export const POST = withApiHandler(async (
     const resendPayload = {
       to: [viewer.viewer_email],
       subject: "Verify your email to watch this presentation",
-      text: `Hi ${viewer.viewer_name},\n\nClick this link to verify your email and start watching:\n${verificationUrl}\n\nThis link expires in 15 minutes.\n\n— Moduvox`,
+      text: `Hi ${viewer.viewer_name},\n\nClick this link to verify your email and start watching:\n${verificationUrl}\n\nThis link expires in 15 minutes.\n\nâ€” Moduvox`,
     }
 
     const emailRes = await fetch("https://api.resend.com/emails", {
@@ -267,4 +267,4 @@ export const POST = withApiHandler(async (
       message: "Check your inbox for the verification link.",
     },
   })
-}
+})

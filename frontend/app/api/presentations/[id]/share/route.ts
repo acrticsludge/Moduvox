@@ -120,4 +120,4 @@ export const PATCH = withApiHandler(async (
       email_gate_enabled: data.email_gate_enabled,
     },
   })
-}
+})

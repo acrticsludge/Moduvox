@@ -210,4 +210,4 @@ ${slideBlocks.join("\n\n")}`
 
     return NextResponse.json({ error: "Failed to generate narrations. Please try again." }, { status: 500 })
   }
-}
+})

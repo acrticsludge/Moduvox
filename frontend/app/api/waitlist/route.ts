@@ -59,4 +59,4 @@ export const POST = withApiHandler(async (request: Request) => {
   }
 
   return NextResponse.json({ data: { id: data.id } }, { status: 201 })
-}
+})

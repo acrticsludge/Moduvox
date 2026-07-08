@@ -27,4 +27,4 @@ export const GET = withApiHandler(async (request: Request) => {
   }
 
   return NextResponse.json({ data: { audioUrl } })
-}
+})

@@ -36,4 +36,4 @@ export const PATCH = withApiHandler(async (request: Request) => {
   }
 
   return NextResponse.json({ data: { name: parsed.data.name } })
-}
+})

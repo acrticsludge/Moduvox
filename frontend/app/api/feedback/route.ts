@@ -116,4 +116,4 @@ export const POST = withApiHandler(async (request: Request) => {
     console.error("POST /api/feedback: Unexpected error", message)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
-}
+})

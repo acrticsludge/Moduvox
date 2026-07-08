@@ -49,4 +49,4 @@ export const DELETE = withApiHandler(async (
   }
 
   return NextResponse.json({ data: { removed: true } })
-}
+})

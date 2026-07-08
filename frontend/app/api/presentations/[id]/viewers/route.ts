@@ -10,7 +10,7 @@ export const GET = withApiHandler(async (
     const supabase = await createClient()
     const { id: presentationId } = await params
 
-    // Wrap auth check separately — ECONNRESET from Supabase Auth after idle
+    // Wrap auth check separately â€” ECONNRESET from Supabase Auth after idle
     let user: { id: string } | null = null
     try {
       const { data, error: authError } = await supabase.auth.getUser()
@@ -78,4 +78,4 @@ export const GET = withApiHandler(async (
   } catch {
     return NextResponse.json({ error: "Failed to load viewers" }, { status: 500 })
   }
-}
+})
