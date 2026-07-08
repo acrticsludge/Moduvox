@@ -18,11 +18,15 @@ export function ConfirmArchiveDialog({
     return () => { document.body.style.overflow = "" }
   }, [])
   const [archiving, setArchiving] = useState(false)
+  const [error, setError] = useState("")
 
   async function handleArchive() {
     setArchiving(true)
+    setError("")
     try {
       await onArchive()
+    } catch {
+      setError("Something went wrong")
     } finally {
       setArchiving(false)
     }
@@ -54,6 +58,19 @@ export function ConfirmArchiveDialog({
           This presentation will no longer be accessible via its share link.
           You can restore it anytime from the project page.
         </p>
+
+        {error && (
+          <div className="mb-4 flex items-center justify-between rounded-lg bg-red-50 px-3 py-2">
+            <p className="text-sm text-red-600">{error}</p>
+            <button
+              type="button"
+              onClick={handleArchive}
+              className="ml-2 whitespace-nowrap text-sm font-medium text-red-700 underline hover:text-red-800"
+            >
+              Try again
+            </button>
+          </div>
+        )}
 
         <div className="flex gap-3">
           <button

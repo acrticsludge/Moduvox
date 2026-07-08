@@ -74,7 +74,18 @@ export function DeleteVoiceDialog({
           />
         </div>
 
-        {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+        {error && (
+          <div className="mt-2 flex items-center justify-between rounded-lg bg-red-50 px-3 py-2">
+            <p className="text-sm text-red-600">{error}</p>
+            <button
+              type="button"
+              onClick={handleDelete}
+              className="ml-2 whitespace-nowrap text-sm font-medium text-red-700 underline hover:text-red-800"
+            >
+              Try again
+            </button>
+          </div>
+        )}
 
         <div className="mt-5 flex gap-3">
           <button

@@ -85,7 +85,18 @@ export function CreatePresentationDialog({
               />
             </div>
 
-            {error && <p className="text-sm text-red-600">{error}</p>}
+            {error && (
+              <div className="flex items-center justify-between rounded-lg bg-red-50 px-3 py-2">
+                <p className="text-sm text-red-600">{error}</p>
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  className="ml-2 whitespace-nowrap text-sm font-medium text-red-700 underline hover:text-red-800"
+                >
+                  Try again
+                </button>
+              </div>
+            )}
 
             <div className="flex justify-end gap-3 pt-2">
               <button
