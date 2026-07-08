@@ -38,7 +38,6 @@ export function SlideEditor({
   onAudioSlidePathsChange,
   selectedVoiceId,
   ultimateMode,
-  onReady,
 }: {
   voiceSelected: boolean
   file: File | null
@@ -64,8 +63,6 @@ export function SlideEditor({
   onAudioSlidePathsChange?: (v: Record<number, string>) => void
   selectedVoiceId?: string | null
   ultimateMode?: boolean
-  /** Called once SlideEditor has finished loading slides (parsing or restoring from saved state) */
-  onReady?: () => void
 }) {
   const [slides, setSlides] = useState<ParsedSlide[]>([])
   const [internalIndex, setInternalIndex] = useState(0)
@@ -217,12 +214,12 @@ export function SlideEditor({
         }
       }
 
-      if (!cancelled) { setLoading(false); setUploadProgress(0); onReady?.() }
+      if (!cancelled) { setLoading(false); setUploadProgress(0) }
     }
 
     processFile()
     return () => { cancelled = true }
-  }, [file, presentationId, onReady])
+  }, [file, presentationId])
 
   // Auto-generate narration when slides are first parsed
   useEffect(() => {
@@ -778,21 +775,44 @@ export function SlideEditor({
 
   if (loading) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8">
-        <Loader2 className="h-6 w-6 animate-spin text-[#71717A]" />
-        <p className="text-sm text-[#71717A]">Processing presentation...</p>
-        {uploadProgress > 0 && (
-          <div className="w-48">
-            <div className="h-1.5 rounded-full bg-zinc-200">
-              <div
-                className="h-1.5 rounded-full bg-[#18181B] transition-all duration-300"
-                style={{ width: `${uploadProgress}%` }}
-              />
-            </div>
-            <p className="mt-1 text-center text-[11px] text-zinc-400">{uploadProgress}%</p>
+      <>
+        <div className="flex flex-1 flex-col">
+          <div className="relative flex flex-1 flex-col items-center justify-center gap-4 bg-zinc-100 p-8">
+            <Loader2 className="h-6 w-6 animate-spin text-[#71717A]" />
+            <p className="text-sm text-[#71717A]">Processing presentation...</p>
+            {uploadProgress > 0 && (
+              <div className="w-48">
+                <div className="h-1.5 rounded-full bg-zinc-200">
+                  <div
+                    className="h-1.5 rounded-full bg-[#18181B] transition-all duration-300"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+                <p className="mt-1 text-center text-[11px] text-zinc-400">{uploadProgress}%</p>
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </div>
+        {/* Right panel skeleton — never removed from DOM during loading */}
+        <div className="absolute bottom-0 right-0 top-0 z-20 hidden w-[380px] animate-pulse flex-col gap-5 overflow-y-auto border-l border-[var(--color-border-faint)] bg-white p-6 lg:flex hide-scrollbar">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5">
+              <div className="h-4 w-10 rounded bg-zinc-200" />
+              <div className="h-6 w-12 rounded border border-zinc-200 bg-zinc-50" />
+            </div>
+            <div className="flex gap-1">
+              <div className="h-7 w-7 rounded bg-zinc-100" />
+              <div className="h-7 w-7 rounded bg-zinc-100" />
+            </div>
+          </div>
+          <div className="h-10 w-full rounded-lg bg-zinc-100" />
+          <div className="space-y-2">
+            <div className="h-4 w-28 rounded bg-zinc-200" />
+            <div className="h-[120px] w-full rounded-lg bg-zinc-100" />
+          </div>
+          <div className="h-9 w-full rounded-lg bg-zinc-100" />
+        </div>
+      </>
     )
   }
 
