@@ -68,10 +68,25 @@ export default function FeedbackPage() {
         }),
       })
 
-      const json = await res.json()
+      // Try to parse JSON; if it fails (e.g. server returned HTML error page),
+      // extract the status text for a meaningful message
+      let json: Record<string, unknown>
+      try {
+        json = await res.json()
+      } catch {
+        setError(`Server error (${res.status} ${res.statusText}). Please try again later.`)
+        setState({ type: "form" })
+        return
+      }
 
       if (res.status === 429) {
         setState({ type: "rate_limited" })
+        return
+      }
+
+      if (res.status === 401) {
+        setError("You need to log in to submit feedback.")
+        setState({ type: "form" })
         return
       }
 
@@ -83,14 +98,14 @@ export default function FeedbackPage() {
           }
           setFieldErrors(fieldErrors)
         }
-        setError(json.error || "Something went wrong")
+        setError((json.error as string) || "Something went wrong")
         setState({ type: "form" })
         return
       }
 
       setState({ type: "success" })
     } catch {
-      setError("Network error. Please try again.")
+      setError("Unable to reach the server. Check your internet connection and try again.")
       setState({ type: "form" })
     }
   }
