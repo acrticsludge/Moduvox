@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Loader2, CheckCircle, AlertCircle, Star } from "lucide-react"
 import { Navbar } from "@/components/ui/Navbar"
 import { Footer } from "@/components/landing/footer"
@@ -17,7 +17,56 @@ type PageState =
   | { type: "form" }
   | { type: "submitting" }
   | { type: "success" }
-  | { type: "rate_limited" }
+  | { type: "rate_limited"; remainingMs: number }
+
+function formatTime(ms: number) {
+  const totalSec = Math.floor(ms / 1000)
+  const h = Math.floor(totalSec / 3600)
+  const m = Math.floor((totalSec % 3600) / 60)
+  const s = totalSec % 60
+  if (h > 0) return `${h}h ${m}m`
+  if (m > 0) return `${m}m ${s}s`
+  return `${s}s`
+}
+
+function RateLimitedDisplay({
+  remainingMs: initialMs,
+  onExpired,
+}: {
+  remainingMs: number
+  onExpired: () => void
+}) {
+  const [remainingMs, setRemainingMs] = useState(initialMs)
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setRemainingMs((prev) => {
+        const next = prev - 1000
+        if (next <= 0) {
+          onExpired()
+          return 0
+        }
+        return next
+      })
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [onExpired])
+
+  return (
+    <div className="mt-8 space-y-4 text-center">
+      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-100">
+        <AlertCircle className="h-7 w-7 text-amber-600" />
+      </div>
+      <h2 className="text-lg font-semibold text-[#18181B]">Already submitted</h2>
+      <p className="text-sm text-[#71717A]">
+        You can make another submission in{" "}
+        <span className="font-mono font-medium text-[#18181B]">
+          {remainingMs > 0 ? formatTime(remainingMs) : "0s"}
+        </span>
+      </p>
+    </div>
+  )
+}
 
 export default function FeedbackPage() {
   const [state, setState] = useState<PageState>({ type: "form" })
@@ -80,7 +129,7 @@ export default function FeedbackPage() {
       }
 
       if (res.status === 429) {
-        setState({ type: "rate_limited" })
+        setState({ type: "rate_limited", remainingMs: (json.remainingMs as number) ?? 12 * 60 * 60 * 1000 })
         return
       }
 
@@ -151,15 +200,10 @@ export default function FeedbackPage() {
         )}
 
         {state.type === "rate_limited" && (
-          <div className="mt-8 space-y-4 text-center">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-100">
-              <AlertCircle className="h-7 w-7 text-amber-600" />
-            </div>
-            <h2 className="text-lg font-semibold text-[#18181B]">Already submitted</h2>
-            <p className="text-sm text-[#71717A]">
-              You've already submitted feedback recently. You can submit again in about 12 hours.
-            </p>
-          </div>
+          <RateLimitedDisplay
+            remainingMs={state.remainingMs}
+            onExpired={() => setState({ type: "form" })}
+          />
         )}
 
         {(state.type === "form" || state.type === "submitting") && (

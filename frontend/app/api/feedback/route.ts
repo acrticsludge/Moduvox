@@ -2,9 +2,38 @@ import { NextResponse } from "next/server"
 import { submitFeedbackSchema, CATEGORY_LABELS } from "@/lib/validations/feedback"
 import type { FeedbackCategory } from "@/lib/validations/feedback"
 
+const COOLDOWN_MS = 12 * 60 * 60 * 1000
+const COOKIE_NAME = "feedback_submitted_at"
+
+function getCookie(name: string, header: string | null): string | null {
+  if (!header) return null
+  for (const part of header.split(";")) {
+    const idx = part.indexOf("=")
+    if (idx === -1) continue
+    if (part.slice(0, idx).trim() === name) return part.slice(idx + 1).trim()
+  }
+  return null
+}
+
 export async function POST(request: Request) {
   try {
-    // Parse body
+    // ── Rate limit check ────────────────────────────────────
+    const existing = getCookie(COOKIE_NAME, request.headers.get("cookie"))
+    if (existing) {
+      const submittedAt = Number(existing)
+      if (!isNaN(submittedAt)) {
+        const elapsed = Date.now() - submittedAt
+        if (elapsed < COOLDOWN_MS) {
+          const remainingMs = COOLDOWN_MS - elapsed
+          return NextResponse.json(
+            { error: "You've already submitted feedback recently.", remainingMs },
+            { status: 429 },
+          )
+        }
+      }
+    }
+
+    // ── Parse body ──────────────────────────────────────────
     let body: Record<string, unknown>
     try {
       body = await request.json()
@@ -12,7 +41,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
     }
 
-    // Validate
+    // ── Validate ────────────────────────────────────────────
     const parsed = submitFeedbackSchema.safeParse(body)
     if (!parsed.success) {
       return NextResponse.json(
@@ -48,7 +77,7 @@ export async function POST(request: Request) {
       `IP: ${ipAddress}`,
     ].join("\n")
 
-    // Send email to you via Resend
+    // ── Send email ──────────────────────────────────────────
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
@@ -72,7 +101,15 @@ export async function POST(request: Request) {
       )
     }
 
-    return NextResponse.json({ data: { ok: true } }, { status: 201 })
+    // ── Success — set cooldown cookie ───────────────────────
+    const response = NextResponse.json({ data: { ok: true } }, { status: 201 })
+    response.cookies.set(COOKIE_NAME, String(Date.now()), {
+      maxAge: COOLDOWN_MS / 1000,
+      path: "/",
+      sameSite: "lax",
+      httpOnly: true,
+    })
+    return response
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error"
     console.error("POST /api/feedback: Unexpected error", message)
