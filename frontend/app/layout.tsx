@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import Script from "next/script";
 import { Toaster } from "react-hot-toast";
 import { UnhandledRejectionHandler } from "@/components/UnhandledRejectionHandler";
@@ -44,6 +45,7 @@ export default function RootLayout({
           }}
         />
         {children}
+        <Analytics />
         {process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID && (
           <>
             <Script
