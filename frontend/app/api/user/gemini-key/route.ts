@@ -31,7 +31,8 @@ export const GET = withApiHandler(async () => {
   return NextResponse.json({ data: { geminiApiKey } })
 })
 
-export const PUT = withApiHandler(async (request: Request) => {
+export const PUT = withApiHandler(async (...args: any[]) => {
+  const request = args[0] as Request
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) {

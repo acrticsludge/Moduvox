@@ -38,7 +38,7 @@ export const GET = withApiHandler(async (
       email_gate_enabled: presentation.email_gate_enabled,
     },
   })
-}
+})
 
 export const PATCH = withApiHandler(async (
   request: Request,

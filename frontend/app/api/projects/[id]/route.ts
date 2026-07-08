@@ -57,7 +57,7 @@ export const PATCH = withApiHandler(async (
   }
 
   return NextResponse.json({ data })
-}
+})
 
 export const DELETE = withApiHandler(async (
   _request: Request,

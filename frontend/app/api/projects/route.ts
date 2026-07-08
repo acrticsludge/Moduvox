@@ -23,7 +23,7 @@ export const GET = withApiHandler(async () => {
   }
 
   return NextResponse.json({ data })
-}
+})
 
 export const POST = withApiHandler(async (request: Request) => {
   const supabase = await createClient()
