@@ -130,7 +130,7 @@ async function pollResult(
   throw new Error(`Gradio prediction timed out after ${timeoutMs}ms (${attempts} poll attempts)`)
 }
 
-export async function generateAudio(input: VoxCPMInput): Promise<VoxCPMResult> {
+async function generateWithHf(input: VoxCPMInput): Promise<VoxCPMResult> {
   const {
     targetText,
     referenceAudio = null,
@@ -142,7 +142,7 @@ export async function generateAudio(input: VoxCPMInput): Promise<VoxCPMResult> {
     refDenoise = false,
   } = input
 
-  log("START", `targetText="${targetText.slice(0, 50)}..." refAudio=${referenceAudio ? "yes" : "no"} cfg=${cfgValue}`)
+  log("HF", `targetText="${targetText.slice(0, 50)}..." refAudio=${referenceAudio ? "yes" : "no"} cfg=${cfgValue}`)
 
   const spaceUrl = `https://${DEFAULT_SPACE_ID.replace("/", "-")}.hf.space`
   const apiPrefix = "/gradio_api"
@@ -159,11 +159,11 @@ export async function generateAudio(input: VoxCPMInput): Promise<VoxCPMResult> {
         referenceAudio.byteOffset + referenceAudio.byteLength,
       ) as ArrayBuffer
       mimeType = "audio/wav"
-      log("REF", `Reference audio from Buffer: ${referenceAudio.length} bytes`)
+      log("HF", `Reference audio from Buffer: ${referenceAudio.length} bytes`)
     } else {
       refBuffer = await (referenceAudio as File).arrayBuffer()
       mimeType = (referenceAudio as File).type || "audio/wav"
-      log("REF", `Reference audio from File: ${refBuffer.byteLength} bytes`)
+      log("HF", `Reference audio from File: ${refBuffer.byteLength} bytes`)
     }
 
     if (!refBuffer || refBuffer.byteLength === 0) {
@@ -172,7 +172,7 @@ export async function generateAudio(input: VoxCPMInput): Promise<VoxCPMResult> {
     const blob = new Blob([refBuffer], { type: mimeType })
     refAudioRefs = await uploadFiles(spaceUrl, apiPrefix, [blob])
   } else {
-    log("REF", "No reference audio (preset mode)")
+    log("HF", "No reference audio (preset mode)")
   }
 
   // Start prediction
@@ -189,7 +189,7 @@ export async function generateAudio(input: VoxCPMInput): Promise<VoxCPMResult> {
     ],
   }
 
-  log("PREDICT", `Body: ${JSON.stringify(body).slice(0, 300)}`)
+  log("HF", `Predict body: ${JSON.stringify(body).slice(0, 300)}`)
 
   const t0 = Date.now()
   const startRes = await withTimeout(
@@ -199,9 +199,9 @@ export async function generateAudio(input: VoxCPMInput): Promise<VoxCPMResult> {
       body: JSON.stringify(body),
     }),
     30_000,
-    "Predict start",
+    "HF predict start",
   )
-  log("PREDICT", `Response ${startRes.status} in ${Date.now() - t0}ms`)
+  log("HF", `Response ${startRes.status} in ${Date.now() - t0}ms`)
 
   if (!startRes.ok) {
     const text = await startRes.text()
@@ -209,7 +209,7 @@ export async function generateAudio(input: VoxCPMInput): Promise<VoxCPMResult> {
   }
   const startJson = await startRes.json()
   const eventId = startJson.event_id
-  log("PREDICT", `Event ID: ${eventId}`)
+  log("HF", `Event ID: ${eventId}`)
   if (!eventId) throw new Error("Gradio API did not return an event_id")
 
   // Poll for result
@@ -217,10 +217,10 @@ export async function generateAudio(input: VoxCPMInput): Promise<VoxCPMResult> {
   const result = await pollResult(pollUrl)
 
   const data = result.data as Record<string, unknown>[]
-  log("RESULT", `Result data items: ${data.length}, raw: ${JSON.stringify(data).slice(0, 200)}`)
+  log("HF", `Result data items: ${data.length}`)
 
   const fileData = data[0] as Record<string, unknown> & { url?: string; path?: string }
-  log("RESULT", `FileData: url=${fileData?.url ? "present" : "MISSING"}, path=${fileData?.path ? "present" : "MISSING"}`)
+  log("HF", `FileData: url=${fileData?.url ? "present" : "MISSING"}, path=${fileData?.path ? "present" : "MISSING"}`)
 
   const audioUrl =
     fileData.url ||
@@ -229,9 +229,87 @@ export async function generateAudio(input: VoxCPMInput): Promise<VoxCPMResult> {
       : "") ||
     ""
 
-  log("RESULT", `Audio URL: ${audioUrl ? "generated (" + audioUrl.slice(0, 80) + ")" : "EMPTY!"}`)
+  log("HF", `Audio URL: ${audioUrl ? "generated" : "EMPTY!"}`)
 
   return { audioUrl, fileData }
+}
+
+async function generateWithFallback(input: VoxCPMInput): Promise<VoxCPMResult> {
+  const baseUrl = process.env.INFERENCE_BASE_URL
+  if (!baseUrl) throw new Error("INFERENCE_BASE_URL not set — no fallback available")
+
+  log("FALLBACK", `Using ${baseUrl}`)
+
+  const { targetText, toneInstructions = "", referenceAudio, cfgValue = 2.0 } = input
+
+  // If there's a reference audio, upload it to the fallback endpoint first
+  let referenceAudioUrl = ""
+  if (referenceAudio) {
+    let refBuffer: ArrayBuffer
+    let mimeType: string
+    if (referenceAudio instanceof Buffer) {
+      refBuffer = referenceAudio.buffer.slice(
+        referenceAudio.byteOffset,
+        referenceAudio.byteOffset + referenceAudio.byteLength,
+      ) as ArrayBuffer
+      mimeType = "audio/wav"
+    } else {
+      refBuffer = await (referenceAudio as File).arrayBuffer()
+      mimeType = (referenceAudio as File).type || "audio/wav"
+    }
+
+    const uploadRes = await fetch(`${baseUrl}/upload`, {
+      method: "POST",
+      headers: { "Content-Type": mimeType },
+      body: new Blob([refBuffer], { type: mimeType }),
+    })
+    if (!uploadRes.ok) throw new Error(`Fallback upload failed (${uploadRes.status})`)
+    const uploadJson = await uploadRes.json()
+    referenceAudioUrl = uploadJson.audioUrl || uploadJson.url || ""
+  }
+
+  // Request generation
+  const genRes = await fetch(`${baseUrl}/generate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      targetText,
+      toneInstructions,
+      referenceAudioUrl: referenceAudioUrl || undefined,
+      cfgValue,
+    }),
+  })
+
+  if (!genRes.ok) {
+    const text = await genRes.text()
+    throw new Error(`Fallback generate failed (${genRes.status}): ${text.slice(0, 200)}`)
+  }
+
+  const genJson = await genRes.json()
+  const audioUrl = genJson.audioUrl || genJson.url || ""
+
+  if (!audioUrl) throw new Error("Fallback did not return an audio URL")
+
+  log("FALLBACK", `Audio URL: ${audioUrl.slice(0, 80)}`)
+  return { audioUrl, fileData: genJson }
+}
+
+export async function generateAudio(input: VoxCPMInput): Promise<VoxCPMResult> {
+  // Try HF space first, fall back to INFERENCE_BASE_URL if available
+  try {
+    return await generateWithHf(input)
+  } catch (hfError) {
+    const msg = hfError instanceof Error ? hfError.message : String(hfError)
+    console.warn("[VoxCPM] HF space failed:", msg)
+
+    if (process.env.INFERENCE_BASE_URL) {
+      console.log("[VoxCPM] Falling back to INFERENCE_BASE_URL")
+      return await generateWithFallback(input)
+    }
+
+    // No fallback configured — rethrow the original error
+    throw hfError
+  }
 }
 
 export async function generateWithPreset(
