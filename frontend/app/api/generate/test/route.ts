@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
-import { generateWithPreset, generateUltimateClone } from "@/lib/voxcpm"
+import { generateWithPreset, generateWithClone } from "@/lib/voxcpm"
 import { createDownloadUrl, downloadFileAsBuffer, uploadFile, fileExists } from "@/lib/r2"
 import { withApiHandler } from "@/lib/api-handler"
 
@@ -101,25 +101,14 @@ export const POST = withApiHandler(async (request: Request) => {
       }
 
       console.log("[TestVoice] R2 download OK:", sampleResult.data.length, "bytes")
-      console.log("[TestVoice] Generating clone audio via @gradio/client...")
-      // Use @gradio/client with named params — it handles file upload internally
-      const { Client } = await import("@gradio/client")
-      const client = await Client.connect(process.env.VOXCPM2_SPACE_ID || "openbmb/VoxCPM-Demo")
-      const audioBlob = new Blob([new Uint8Array(sampleResult.data)], { type: "audio/wav" })
-      const prediction = await client.predict("/generate", {
-        text_input: EXAMPLE_TEXT,
-        control_instruction: voice.control_instruction || "",
-        reference_wav_path_input: audioBlob,
-        use_prompt_text: false,
-        prompt_text_input: "",
-        cfg_value_input: 2,
-        do_normalize: false,
-        denoise: false,
-      })
-      const predData = prediction.data as Record<string, unknown>[]
-      const fileData = predData[0] as Record<string, unknown> & { url?: string }
-      const audioUrl = fileData?.url || ""
-      result = { audioUrl, fileData }
+      const audioBuffer = sampleResult.data
+      console.log("[TestVoice] Generating clone audio via voxcpm...")
+      result = await generateWithClone(
+        EXAMPLE_TEXT,
+        audioBuffer,
+        voice.control_instruction || "",
+        2,
+      )
     }
 
     console.log("[TestVoice] VoxCPM result audioUrl:", result.audioUrl ? result.audioUrl.slice(0, 80) : "EMPTY!")
