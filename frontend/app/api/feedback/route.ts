@@ -51,6 +51,31 @@ export const POST = withApiHandler(async (request: Request) => {
       )
     }
 
+    // ── reCAPTCHA v3 verification ──────────────────────────
+    if (process.env.RECAPTCHA_SECRET_KEY && process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY) {
+      const recaptchaToken = body.recaptcha_token as string | undefined
+      if (!recaptchaToken) {
+        return NextResponse.json({ error: "Security verification failed." }, { status: 403 })
+      }
+      const verifyRes = await fetch("https://www.google.com/recaptcha/api/siteverify", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          secret: process.env.RECAPTCHA_SECRET_KEY,
+          response: recaptchaToken,
+        }),
+      })
+      const verifyJson = await verifyRes.json()
+      if (!verifyJson.success) {
+        console.error("reCAPTCHA v3 verification failed:", verifyJson)
+        return NextResponse.json({ error: "Security check failed. Please try again." }, { status: 403 })
+      }
+      if (typeof verifyJson.score === "number" && verifyJson.score < 0.5) {
+        console.error("reCAPTCHA v3 low score:", verifyJson.score)
+        return NextResponse.json({ error: "Security check failed. Please try again." }, { status: 403 })
+      }
+    }
+
     // Extract IP for reference
     const ipAddress = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
       || request.headers.get("x-real-ip")

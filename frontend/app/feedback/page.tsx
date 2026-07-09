@@ -1,10 +1,19 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
-import { Loader2, ArrowLeft, ChevronRight } from "lucide-react"
+import { useState, useEffect, useCallback, useRef } from "react"
+import { Loader2, ArrowLeft, ChevronRight, Shield } from "lucide-react"
 import { Navbar } from "@/components/ui/Navbar"
 import { Footer } from "@/components/landing/footer"
 import { CATEGORIES, CATEGORY_LABELS } from "@/lib/validations/feedback"
+
+declare global {
+  interface Window {
+    grecaptcha?: {
+      ready: (cb: () => void) => void
+      execute: (siteKey: string, opts: { action: string }) => Promise<string>
+    }
+  }
+}
 
 // ── Types ──────────────────────────────────────────────────
 
@@ -405,15 +414,22 @@ function StepSuccess({ remainingMs: initialMs, onReset }: { remainingMs: number;
   )
 }
 
-function StepRateLimited({ remainingMs }: { remainingMs: number }) {
-  const [displayMs, setDisplayMs] = useState(remainingMs)
+function StepRateLimited({ remainingMs: initialMs, onExpired }: { remainingMs: number; onExpired: () => void }) {
+  const [displayMs, setDisplayMs] = useState(initialMs)
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setDisplayMs((prev) => Math.max(0, prev - 1000))
+      setDisplayMs((prev) => {
+        const next = prev - 1000
+        if (next <= 0) {
+          onExpired()
+          return 0
+        }
+        return next
+      })
     }, 1000)
     return () => clearInterval(interval)
-  }, [])
+  }, [onExpired])
 
   return (
     <div className="flex flex-col items-center text-center">
@@ -451,6 +467,37 @@ export default function FeedbackPage() {
   })
 
   const currentStep = STEP_ORDER[stepIdx]
+  const expiredRef = useRef(false)
+
+  // On mount, check if already rate limited via cookie
+  useEffect(() => {
+    const match = document.cookie.match(/(?:^|;\s*)feedback_submitted_at=([^;]*)/)
+    if (match) {
+      const submittedAt = Number(match[1])
+      if (!isNaN(submittedAt)) {
+        const elapsed = Date.now() - submittedAt
+        const cooldown = 12 * 60 * 60 * 1000
+        const remainingMs = cooldown - elapsed
+        if (remainingMs > 0) {
+          setPageState({ type: "rate_limited", remainingMs })
+        }
+      }
+    }
+  }, [])
+
+  // Load reCAPTCHA v3 script
+  const recaptchaLoaded = useRef(false)
+  useEffect(() => {
+    if (!process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY) return
+    if (recaptchaLoaded.current) return
+    if (document.querySelector('script[src*="recaptcha/api.js"]')) return
+    recaptchaLoaded.current = true
+    const script = document.createElement("script")
+    script.src = `https://www.google.com/recaptcha/api.js?render=${process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY}`
+    script.async = true
+    script.defer = true
+    document.head.appendChild(script)
+  }, [])
 
   const isStepVisible = useCallback((step: Step) => {
     if (step === "contact") return !formData.anonymous && !!formData.email
@@ -501,6 +548,30 @@ export default function FeedbackPage() {
       return
     }
 
+    // Gather reCAPTCHA v3 token (silent, no user interaction)
+    let recaptchaToken = ""
+    if (process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY && window.grecaptcha) {
+      try {
+        recaptchaToken = await new Promise<string>((resolve, reject) => {
+          window.grecaptcha!.ready(async () => {
+            try {
+              const token = await window.grecaptcha!.execute(
+                process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY!,
+                { action: "submit" },
+              )
+              resolve(token)
+            } catch (e) {
+              reject(e)
+            }
+          })
+        })
+      } catch {
+        setFormData((prev) => ({ ...prev, fieldErrors: { ...prev.fieldErrors, message: "Security verification failed. Please try again." } }))
+        setPageState({ type: "form" })
+        return
+      }
+    }
+
     try {
       const res = await fetch("/api/feedback", {
         method: "POST",
@@ -512,6 +583,7 @@ export default function FeedbackPage() {
           rating: formData.rating,
           message: formData.message.trim(),
           can_contact: formData.can_contact,
+          recaptcha_token: recaptchaToken || undefined,
         }),
       })
 
@@ -573,13 +645,21 @@ export default function FeedbackPage() {
     }
   }
 
-  // Rate limited state
+  // Rate limited state — show immediately without form
   if (pageState.type === "rate_limited") {
     return (
       <main className="min-h-screen bg-[#F9FAFB] flex flex-col">
         <Navbar />
         <div className="mx-auto flex w-full max-w-md flex-1 items-center justify-center px-4">
-          <StepRateLimited remainingMs={pageState.remainingMs} />
+          <StepRateLimited
+            remainingMs={pageState.remainingMs}
+            onExpired={() => {
+              if (!expiredRef.current) {
+                expiredRef.current = true
+                setPageState({ type: "form" })
+              }
+            }}
+          />
         </div>
         <Footer />
       </main>
@@ -603,16 +683,39 @@ export default function FeedbackPage() {
   return (
     <main className="min-h-screen bg-[#F9FAFB] flex flex-col">
       <Navbar />
-      <div className="mx-auto flex w-full max-w-md flex-1 flex-col px-4 pt-28 pb-24 sm:pt-32">
-        {/* Progress bar */}
-        <div className="mb-10 h-1 w-full overflow-hidden rounded-full bg-zinc-100">
-          <div
-            className="h-full rounded-full bg-[#18181B] transition-all duration-500 ease-out"
-            style={{ width: `${progressPct}%` }}
-          />
+      {/* Full-width progress bar with step dots */}
+      <div className="sticky top-0 z-10 w-full bg-[#F9FAFB] px-4 pt-8 pb-6 sm:pt-12">
+        <div className="relative mx-auto max-w-md">
+          <div className="relative h-[3px] w-full rounded-full bg-zinc-200">
+            {/* Green fill */}
+            <div
+              className="absolute left-0 top-0 h-full rounded-full bg-green-500 transition-all duration-500 ease-out"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+          {/* Step dots */}
+          <div className="absolute -top-[9px] left-0 right-0 flex justify-between px-0">
+            {visibleSteps.map((step, idx) => {
+              const isCompleted = idx < currentVisibleIdx
+              const isCurrent = idx === currentVisibleIdx
+              return (
+                <div
+                  key={step}
+                  className={`rounded-full transition-all duration-300 ${
+                    isCompleted
+                      ? "h-[21px] w-[21px] border-[3px] border-green-500 bg-green-500"
+                      : isCurrent
+                        ? "h-[21px] w-[21px] border-[3px] border-green-500 bg-white"
+                        : "h-[15px] w-[15px] border-[3px] border-zinc-300 bg-white"
+                  }`}
+                />
+              )
+            })}
+          </div>
         </div>
-
-        {/* Step content */}
+      </div>
+      {/* Step content */}
+      <div className="mx-auto flex w-full max-w-md flex-1 flex-col px-4 pb-24">
         <div
           key={stepIdx}
           className={
