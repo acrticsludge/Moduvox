@@ -13,6 +13,8 @@ export type VoxCPMInput = {
   cfgValue?: number
   normalize?: boolean
   refDenoise?: boolean
+  ditSteps?: number
+  seedValue?: number
 }
 
 export type VoxCPMResult = {
@@ -144,6 +146,8 @@ async function generateWithGradio(
     cfgValue = 2.0,
     normalize = true,
     refDenoise = false,
+    ditSteps = 10,
+    seedValue = 575590034,
   } = input
 
   log("GRADIO", `spaceUrl=${spaceUrl} targetText="${targetText.slice(0, 50)}..." refAudio=${referenceAudio ? "yes" : "no"} cfg=${cfgValue}`)
@@ -178,17 +182,19 @@ async function generateWithGradio(
     log("GRADIO", "No reference audio (preset mode)")
   }
 
-  // Start prediction
+  // Start prediction — send exactly 10 params matching Gradio API
   const body: { data: unknown[] } = {
     data: [
-      targetText,
-      ultimateMode ? "" : toneInstructions,
-      refAudioRefs.length > 0 ? refAudioRefs : null,
-      ultimateMode,
-      promptText,
-      cfgValue,
-      normalize,
-      refDenoise,
+      targetText,                // 1. text
+      ultimateMode ? "" : toneInstructions, // 2. control_instruction
+      refAudioRefs.length > 0 ? refAudioRefs : null, // 3. ref_wav
+      ultimateMode,              // 4. use_prompt_text
+      promptText,                // 5. prompt_text_value
+      cfgValue,                  // 6. cfg_value
+      normalize,                 // 7. do_normalize
+      refDenoise,                // 8. denoise
+      ditSteps,                  // 9. dit_steps
+      seedValue,                 // 10. seed_value
     ],
   }
 
@@ -238,8 +244,18 @@ async function generateWithGradio(
   return { audioUrl, fileData }
 }
 
+/** Ensure a URL has a protocol prefix — defaults to http:// if missing. */
+function normalizeUrl(raw: string): string {
+  raw = raw.trim()
+  if (!raw.startsWith("http://") && !raw.startsWith("https://")) {
+    raw = `http://${raw}`
+  }
+  return raw.replace(/\/+$/, "") // strip trailing slashes
+}
+
 export async function generateAudio(input: VoxCPMInput): Promise<VoxCPMResult> {
-  const fallbackUrl = process.env.INFERENCE_BASE_URL
+  const rawFallback = process.env.INFERENCE_BASE_URL
+  const fallbackUrl = rawFallback ? normalizeUrl(rawFallback) : undefined
 
   // Try HF space first
   try {
