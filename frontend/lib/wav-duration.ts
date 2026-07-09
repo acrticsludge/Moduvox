@@ -1,5 +1,5 @@
 /**
- * Compute duration (in milliseconds) from a WAV ArrayBuffer.
+ * Compute duration (in milliseconds) from a WAV buffer (only needs first ~100 bytes).
  * WAV format: RIFF header (12 bytes) + fmt chunk + data chunk.
  * Duration = dataSize / (sampleRate * numChannels * bitsPerSample/8)
  */
@@ -14,7 +14,7 @@ export function getWavDuration(buffer: ArrayBufferLike): number {
   const wave = String.fromCharCode(view.getUint8(8), view.getUint8(9), view.getUint8(10), view.getUint8(11))
   if (wave !== "WAVE") throw new Error("Not a valid WAV file")
 
-  // Read format chunk (starts at byte 12, but we search for "fmt ")
+  // Walk chunks to find fmt and data
   let offset = 12
   let foundFmt = false
   let sampleRate = 0
@@ -36,7 +36,6 @@ export function getWavDuration(buffer: ArrayBufferLike): number {
     }
 
     offset += 8 + chunkSize
-    // Chunks are aligned to even byte boundaries
     if (chunkSize % 2 !== 0) offset++
   }
 
@@ -50,7 +49,20 @@ export function getWavDuration(buffer: ArrayBufferLike): number {
 }
 
 /**
- * Fetch all per-slide WAVs from storage and compute their durations.
+ * Fetch just the WAV header (first 100 bytes) from a presigned URL using a Range request.
+ * This is ~2000x faster than downloading the full audio file (~1-2MB per slide).
+ */
+async function getWavDurationFromUrl(url: string): Promise<number> {
+  const res = await fetch(url, {
+    headers: { Range: "bytes=0-99" },
+  })
+  if (!res.ok) throw new Error(`WAV header fetch failed (${res.status})`)
+  const buf = await res.arrayBuffer()
+  return getWavDuration(buf)
+}
+
+/**
+ * Compute per-slide WAV durations by fetching only the header of each file.
  * Returns sorted array of { slideNumber, durationMs }.
  */
 export async function getAllSlideDurations(
@@ -59,16 +71,15 @@ export async function getAllSlideDurations(
   slideCount: number,
 ): Promise<{ slideNumber: number; durationMs: number }[]> {
   const timings: { slideNumber: number; durationMs: number }[] = []
+  const { createDownloadUrl } = await import("@/lib/r2")
 
   for (let i = 1; i <= slideCount; i++) {
     const key = `${userId}/audio/${presentationId}/slides/slide-${i}.wav`
     try {
-      const { downloadFileAsBuffer } = await import("@/lib/r2")
-      const result = await downloadFileAsBuffer(key)
-      if (result.success) {
-        const durationMs = getWavDuration(result.data.buffer)
-        timings.push({ slideNumber: i, durationMs })
-      }
+      const url = await createDownloadUrl(key, 300) // 5 min should be enough
+      if (!url) continue
+      const durationMs = await getWavDurationFromUrl(url)
+      timings.push({ slideNumber: i, durationMs })
     } catch {
       continue
     }
