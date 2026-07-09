@@ -5,22 +5,24 @@ type ToastVariant = "success" | "error"
 interface CustomToastProps {
   message: string
   variant: ToastVariant
-  id?: string
   visible?: boolean
 }
 
-function CustomToast({ message, variant, id }: CustomToastProps) {
+function CustomToast({ message, variant, visible }: CustomToastProps) {
   const isError = variant === "error"
 
   return (
     <div
       className={`
-        flex items-start gap-3 rounded-xl border p-4 pr-12 shadow-lg backdrop-blur-sm
+        flex items-start gap-3 rounded-xl border p-4 shadow-lg backdrop-blur-sm
+        transition-all duration-300 ease-in-out
+        ${visible ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"}
         ${isError
           ? "border-red-300 bg-red-50 text-red-800"
           : "border-green-300 bg-green-50 text-green-800"
         }
       `}
+      style={{ maxWidth: "360px" }}
       role="alert"
     >
       {/* Icon */}
@@ -38,22 +40,6 @@ function CustomToast({ message, variant, id }: CustomToastProps) {
 
       {/* Message */}
       <p className="text-sm font-medium leading-5">{message}</p>
-
-      {/* Dismiss */}
-      {id && (
-        <button
-          type="button"
-          onClick={() => toast.dismiss(id)}
-          className={`absolute right-3 top-3 rounded-md p-1 transition-colors ${
-            isError ? "hover:bg-red-100" : "hover:bg-green-100"
-          }`}
-          aria-label="Dismiss"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
-        </button>
-      )}
     </div>
   )
 }
@@ -65,7 +51,7 @@ type ToastOptions = { id?: string; duration?: number }
 export function toastSuccess(message: string, opts?: ToastOptions) {
   if (opts?.id) toast.dismiss(opts.id)
   toast.custom(
-    (t) => <CustomToast message={message} variant="success" id={t.id} visible={t.visible} />,
+    (t) => <CustomToast message={message} variant="success" visible={t.visible} />,
     { duration: opts?.duration ?? 4000, position: "top-center", id: opts?.id },
   )
 }
@@ -73,7 +59,7 @@ export function toastSuccess(message: string, opts?: ToastOptions) {
 export function toastError(message: string, opts?: ToastOptions) {
   if (opts?.id) toast.dismiss(opts.id)
   toast.custom(
-    (t) => <CustomToast message={message} variant="error" id={t.id} visible={t.visible} />,
+    (t) => <CustomToast message={message} variant="error" visible={t.visible} />,
     { duration: opts?.duration ?? 5000, position: "top-center", id: opts?.id },
   )
 }
