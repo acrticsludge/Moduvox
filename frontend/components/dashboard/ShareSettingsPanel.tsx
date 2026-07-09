@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { Copy, Check, Link, Lock, Clock, Globe, Info, Loader2, Eye, EyeOff, CalendarIcon, ChevronLeft, ChevronRight, X } from "lucide-react"
 import { format } from "date-fns"
-import toast from "react-hot-toast"
+import { toastSuccess } from "@/components/ui/CustomToast"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
 import { cn } from "@/lib/utils"
@@ -76,7 +76,7 @@ const [expireDate, setExpireDate] = useState<Date | undefined>(undefined)
     if (!settings?.share_url) return
     navigator.clipboard.writeText(settings.share_url).then(() => {
       setCopied(true)
-      toast.success("Link copied")
+      toastSuccess("Link copied")
       setTimeout(() => setCopied(false), 2000)
     })
   }
@@ -85,7 +85,7 @@ const [expireDate, setExpireDate] = useState<Date | undefined>(undefined)
     if (!settings?.share_url) return
     const msg = `Hi, I've shared a training presentation with you.\nWatch it here: ${settings.share_url}\nYou'll need to verify your email before watching.`
     navigator.clipboard.writeText(msg).then(() => {
-      toast.success("Invite message copied")
+      toastSuccess("Invite message copied")
     })
   }
 

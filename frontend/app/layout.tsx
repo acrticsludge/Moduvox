@@ -37,13 +37,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <UnhandledRejectionHandler />
-        <Toaster
-          position="top-center"
-          toastOptions={{
-            duration: 4000,
-            style: { fontSize: "13px", background: "#18181B", color: "#FAFAFA", borderRadius: "8px" },
-          }}
-        />
+        <Toaster position="top-center" />
         {children}
         <Analytics />
         {process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID && (

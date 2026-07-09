@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { FieldError } from "@/components/ui/ErrorBanner";
-import toast from "react-hot-toast";
+import { toastError } from "@/components/ui/CustomToast";
 
 export default function LoginPage() {
   const [checkingAuth, setCheckingAuth] = useState(true);
@@ -62,7 +62,7 @@ export default function LoginPage() {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
-      toast.error(error.message)
+      toastError(error.message)
       setLoading(false)
       return
     }
@@ -81,7 +81,7 @@ export default function LoginPage() {
     });
 
     if (error) {
-      toast.error(error.message);
+      toastError(error.message);
       setGoogleLoading(false);
     }
   }

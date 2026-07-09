@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { ChevronRight, MoreHorizontal, Trash2, Pencil, Archive, RotateCcw, Loader2 } from "lucide-react"
-import toast from "react-hot-toast"
+import { toastSuccess, toastError } from "@/components/ui/CustomToast"
 import { createClient } from "@/lib/supabase/client"
 import type { Presentation as PresentationType } from "@/lib/validations/presentation"
 import { CreatePageSidebar } from "@/components/dashboard/CreatePageSidebar"
@@ -86,10 +86,10 @@ export default function PresentationCreatePage() {
       })
       if (!res.ok) throw new Error()
       setShowArchiveConfirm(false)
-      toast.success("Presentation archived")
+      toastSuccess("Presentation archived")
       router.push(`/dashboard/projects/${params.id}`)
     } catch {
-      toast.error("Failed to archive presentation")
+      toastError("Failed to archive presentation")
     }
   }
 
@@ -104,9 +104,9 @@ export default function PresentationCreatePage() {
       const json = await res.json()
       if (!res.ok) throw new Error()
       if (json.data) setPresentation(json.data)
-      toast.success("Presentation restored")
+      toastSuccess("Presentation restored")
     } catch {
-      toast.error("Failed to restore presentation")
+      toastError("Failed to restore presentation")
     } finally {
       setRestoring(false)
     }
@@ -193,10 +193,10 @@ export default function PresentationCreatePage() {
         body: JSON.stringify(state),
       })
         .then((res) => {
-          if (res.ok) { setSaveStatus("saved"); setDirty(false); toast.success("Changes saved", { id: "editor-save" }) }
-          else { setSaveStatus("error"); toast.error("Failed to save changes", { id: "editor-save" }) }
+          if (res.ok) { setSaveStatus("saved"); setDirty(false); toastSuccess("Changes saved", { id: "editor-save" }) }
+          else { setSaveStatus("error"); toastError("Failed to save changes", { id: "editor-save" }) }
         })
-        .catch(() => { setSaveStatus("error"); toast.error("Failed to save changes", { id: "editor-save" }) })
+        .catch(() => { setSaveStatus("error"); toastError("Failed to save changes", { id: "editor-save" }) })
     }, 2000)
   }, [selectedVoiceId, controlInstructions, ultimateMode, narrations, audioGenerated, storagePath, currentSlide, slideData, changedSlides, params.presentationId])
 
@@ -470,7 +470,7 @@ export default function PresentationCreatePage() {
           onClose={() => setShowDelete(false)}
           onDeleted={() => {
             router.push(`/dashboard/projects/${params.id}`)
-            toast.success("Presentation deleted")
+            toastSuccess("Presentation deleted")
           }}
         />
       )}

@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import { parsePptxText, type ParsedSlide } from "@/lib/pptx-renderer"
 import { compareSlides, type SlideDiff } from "@/lib/pptx-renderer"
-import toast from "react-hot-toast"
+import { toastSuccess, toastError } from "@/components/ui/CustomToast"
 import { ReUploadModal } from "./ReUploadModal"
 import { RegenerateModal } from "./RegenerateModal"
 import { AudioPlayer } from "./AudioPlayer"
@@ -296,7 +296,7 @@ export function SlideEditor({
 
       // Shared key quota exhausted — permanent block, always notify
       if (json.error === "quota_exhausted") {
-        toast.error(json.message || "The shared Gemini key has hit its daily limit. Add your own API key in Settings.")
+        toastError(json.message || "The shared Gemini key has hit its daily limit. Add your own API key in Settings.")
         return false
       }
 
@@ -309,7 +309,7 @@ export function SlideEditor({
             let remaining = retryAfter
             const updateMsg = () => {
               if (remaining > 0) {
-                toast.error(`Rate limit reached. Try again in ${remaining}s, or add your own API key in Settings.`, { id: toastId })
+                toastError(`Rate limit reached. Try again in ${remaining}s, or add your own API key in Settings.`, { id: toastId })
                 remaining--
               } else {
                 clearInterval(rateLimitIntervalRef.current)
@@ -319,7 +319,7 @@ export function SlideEditor({
             updateMsg()
             rateLimitIntervalRef.current = setInterval(updateMsg, 1000)
           } else {
-            toast.error(json.message || "Generation limit reached. Add your Gemini API key in Settings.")
+            toastError(json.message || "Generation limit reached. Add your Gemini API key in Settings.")
           }
         }
         return false
@@ -327,13 +327,13 @@ export function SlideEditor({
 
       // Invalid user API key — always notify
       if (json.error === "invalid_api_key") {
-        toast.error(json.message || "Your Gemini API key is invalid. Check Settings.")
+        toastError(json.message || "Your Gemini API key is invalid. Check Settings.")
         return false
       }
 
       // 503 Service Unavailable — temporary, retryable
       if (json.error === "service_unavailable") {
-        toast.error(json.message || "Gemini is temporarily overloaded. Wait a moment and try again.")
+        toastError(json.message || "Gemini is temporarily overloaded. Wait a moment and try again.")
         return false
       }
 
@@ -346,7 +346,7 @@ export function SlideEditor({
 
         // Warn if Gemini skipped some slides
         if (json.data.partial && Array.isArray(json.data.missingSlides) && json.data.missingSlides.length > 0) {
-          toast.error(
+          toastError(
             `AI narration skipped ${json.data.missingSlides.length} slide(s): ${json.data.missingSlides.join(", ")}. ` +
             `Add narration manually or try again.`,
           )
@@ -357,7 +357,7 @@ export function SlideEditor({
       return false
     } catch {
       if (showRateLimitPrompt) {
-        toast.error("Narration generation failed. Please check your connection and try again.")
+        toastError("Narration generation failed. Please check your connection and try again.")
       }
       return false
     }
@@ -402,7 +402,7 @@ export function SlideEditor({
       .filter((s) => s.text.trim())
 
     if (slideTexts.length === 0) {
-      toast.error("No narration text to generate audio from.")
+      toastError("No narration text to generate audio from.")
       return
     }
 
@@ -578,7 +578,7 @@ export function SlideEditor({
     try {
       const res = await fetch(`/api/presentations/${presentationId}/file`, { method: "DELETE" })
       if (!res.ok) {
-        toast.error("Failed to remove PPTX. Please try again.")
+        toastError("Failed to remove PPTX. Please try again.")
         return
       }
 
@@ -608,7 +608,7 @@ export function SlideEditor({
       // Signal parent to switch mode to upload
       onRemovePpt?.()
     } catch {
-      toast.error("Failed to remove PPTX")
+      toastError("Failed to remove PPTX")
     } finally {
       setRemovingPpt(false)
     }
@@ -740,7 +740,7 @@ export function SlideEditor({
             })()
           }
         } catch {
-          toast.error("Re-upload failed. Please try again.")
+          toastError("Re-upload failed. Please try again.")
         }
         setReUploading(false)
         setPendingFile(null)

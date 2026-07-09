@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import toast from "react-hot-toast"
+import { toastError } from "@/components/ui/CustomToast"
 import { createClient } from "@/lib/supabase/client"
 import {
   Archive,
@@ -63,7 +63,7 @@ export default function ArchivedPage() {
       if (res.ok) {
         setPresentations((prev) => prev.filter((p) => p.id !== id))
       }
-    } catch { toast.error("Failed to restore presentation") }
+    } catch { toastError("Failed to restore presentation") }
     setRestoring((prev) => { const next = new Set(prev); next.delete(id); return next })
   }
 

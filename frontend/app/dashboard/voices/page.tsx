@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react"
 import { Plus, Mic, Trash2, Music, Loader2, Volume2, Play } from "lucide-react"
-import toast from "react-hot-toast"
+import { toastError } from "@/components/ui/CustomToast"
 import dynamic from "next/dynamic"
 
 const DeleteVoiceDialog = dynamic(() => import("@/components/dashboard/DeleteVoiceDialog").then(mod => mod.DeleteVoiceDialog), { ssr: false })
@@ -93,7 +93,7 @@ function VoiceRow({
       const res = await fetch(`/api/voices/signed-url?path=${encodeURIComponent(voice.sample_path!)}`)
       const json = await res.json()
       if (!json.data?.audioUrl) {
-        toast.error("Failed to load voice sample")
+        toastError("Failed to load voice sample")
         return
       }
       const signedUrl = json.data.audioUrl
@@ -110,7 +110,7 @@ function VoiceRow({
       audio.play()
       setPlaying(true)
     } catch {
-      toast.error("Failed to load voice sample")
+      toastError("Failed to load voice sample")
     } finally {
       setLoadingSample(false)
     }

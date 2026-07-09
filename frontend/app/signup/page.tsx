@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { FieldError } from "@/components/ui/ErrorBanner"
-import toast from "react-hot-toast"
+import { toastError } from "@/components/ui/CustomToast"
 
 export default function SignupPage() {
   const [checkingAuth, setCheckingAuth] = useState(true);
@@ -70,14 +70,14 @@ export default function SignupPage() {
     });
 
     if (error) {
-      toast.error(error.message);
+      toastError(error.message);
       setLoading(false);
       return;
     }
 
     // If no new identity was created, the user already exists
     if (!data?.user?.identities?.length) {
-      toast.error("An account with this email already exists. Please log in instead.");
+      toastError("An account with this email already exists. Please log in instead.");
       setLoading(false);
       return;
     }
@@ -97,7 +97,7 @@ export default function SignupPage() {
     });
 
     if (error) {
-      toast.error(error.message);
+      toastError(error.message);
       setGoogleLoading(false);
     }
   }
