@@ -182,7 +182,7 @@ export function SlideEditor({
       let signedViewerUrl = ""
       if (path) {
         try {
-          const slideCount = parsedSlides?.length || 1
+          const slideCount = parsedSlides?.length ?? 1
           const confirmRes = await fetch(`/api/presentations/${presentationId}/upload/confirm`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -723,7 +723,7 @@ export function SlideEditor({
                   headers: { "Content-Type": "application/vnd.openxmlformats-officedocument.presentationml.presentation" },
                 })
                 if (uploadRes.ok) {
-                  const reSlideCount = slides.length > 0 ? slides.length : 1
+                  const reSlideCount = pendingSlides.length > 0 ? pendingSlides.length : 1
                   const confirmRes = await fetch(`/api/presentations/${presentationId}/upload/confirm`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },

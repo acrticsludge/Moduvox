@@ -158,7 +158,7 @@ export default function PresentationCreatePage() {
             setAudioUrl(`/api/presentations/${params.presentationId}/audio/combined`)
           }
           if (saved.currentSlide !== undefined) setCurrentSlide(saved.currentSlide)
-          if (saved.slideData) setSlideData(saved.slideData)
+          if (saved.slideData?.length) setSlideData(saved.slideData)
           if (saved.changedSlides) setChangedSlides(saved.changedSlides)
         }
       }
@@ -183,7 +183,7 @@ export default function PresentationCreatePage() {
         audioStoragePath: audioStoragePath ?? undefined,
         storagePath,
         currentSlide,
-        slideData,
+        slideData: slideData.length > 0 ? slideData : undefined,
         changedSlides: changedSlides.length > 0 ? changedSlides : undefined,
         slideCount: slideData.length > 0 ? slideData.length : undefined,
       }

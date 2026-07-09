@@ -17,7 +17,7 @@ export const POST = withApiHandler(async (
 
   const body = await request.json()
   const filePath = body.path as string
-  const slideCount = (body.slideCount as number) || 1
+  const slideCount = (body.slideCount as number) ?? 1
 
   if (!filePath) {
     return NextResponse.json({ error: "No file path provided" }, { status: 400 })
