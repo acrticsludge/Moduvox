@@ -1,9 +1,10 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef } from "react"
-import { Loader2, ArrowLeft, ChevronRight, Shield } from "lucide-react"
+import { Loader2, ArrowLeft, ChevronRight } from "lucide-react"
 import { Navbar } from "@/components/ui/Navbar"
 import { Footer } from "@/components/landing/footer"
+import { createClient } from "@/lib/supabase/client"
 import { CATEGORIES, CATEGORY_LABELS } from "@/lib/validations/feedback"
 
 declare global {
@@ -527,6 +528,24 @@ export default function FeedbackPage() {
         }
       }
     }
+  }, [])
+
+  // On mount, check if user is logged in and prefill name + email
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) {
+        const meta = data.user.user_metadata
+        const prefillName = meta?.full_name || data.user.email?.split("@")[0] || ""
+        const prefillEmail = data.user.email || ""
+        setFormData((prev) => ({
+          ...prev,
+          name: prefillName,
+          email: prefillEmail,
+          anonymous: false,
+        }))
+      }
+    }).catch(() => {})
   }, [])
 
   // Load reCAPTCHA v3 script
