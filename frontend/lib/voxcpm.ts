@@ -155,7 +155,7 @@ async function generateWithGradio(
   const apiPrefix = "/gradio_api"
 
   // Upload reference audio if provided
-  let refAudioRefs: Record<string, unknown>[] = []
+  let refAudioData: Record<string, unknown> | null = null
   if (referenceAudio) {
     let refBuffer: ArrayBuffer
     let mimeType: string
@@ -177,7 +177,16 @@ async function generateWithGradio(
       throw new Error("Reference audio is empty")
     }
     const blob = new Blob([refBuffer], { type: mimeType })
-    refAudioRefs = await uploadFiles(spaceUrl, apiPrefix, [blob])
+    const uploaded = await uploadFiles(spaceUrl, apiPrefix, [blob])
+    // Upload returns array of file paths; convert to single FileData for Gradio
+    const firstFile = uploaded[0]
+    if (typeof firstFile === "string") {
+      refAudioData = { path: firstFile, meta: { _type: "gradio.FileData" } }
+    } else {
+      const entry = firstFile as Record<string, unknown>
+      if (!entry.meta) entry.meta = { _type: "gradio.FileData" }
+      refAudioData = entry
+    }
   } else {
     log("GRADIO", "No reference audio (preset mode)")
   }
@@ -187,7 +196,7 @@ async function generateWithGradio(
     data: [
       targetText,                // 1. text
       ultimateMode ? "" : toneInstructions, // 2. control_instruction
-      refAudioRefs.length > 0 ? refAudioRefs : null, // 3. ref_wav
+      refAudioData,              // 3. ref_wav (single object or null)
       ultimateMode,              // 4. use_prompt_text
       promptText,                // 5. prompt_text_value
       cfgValue,                  // 6. cfg_value
