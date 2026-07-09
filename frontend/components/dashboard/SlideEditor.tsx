@@ -155,14 +155,38 @@ export function SlideEditor({
         path = externalStoragePath!
       }
 
-      // Generate viewer URL from storage path
+      // Extract text content for slides (parse early to get slide count)
+      let parsedSlides: ParsedSlide[] | null = null
+      if (externalSlideData && externalSlideData.length > 0 && !file) {
+        // Restore from saved editor state
+        parsedSlides = externalSlideData as ParsedSlide[]
+        if (!cancelled) {
+          setSlides(parsedSlides)
+          setInternalIndex(externalCurrentSlide ?? 0)
+        }
+      } else if (file) {
+        // Parse from uploaded file
+        try {
+          parsedSlides = await parsePptxText(file!)
+          if (!cancelled) {
+            setSlides(parsedSlides)
+            onSlideDataChange?.(parsedSlides)
+            setInternalIndex(externalCurrentSlide ?? 0)
+          }
+        } catch {
+          if (!cancelled) setLoadError("Failed to read presentation content.")
+        }
+      }
+
+      // Generate viewer URL from storage path (now with slide count)
       let signedViewerUrl = ""
       if (path) {
         try {
+          const slideCount = parsedSlides?.length || 1
           const confirmRes = await fetch(`/api/presentations/${presentationId}/upload/confirm`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ path }),
+            body: JSON.stringify({ path, slideCount }),
           })
           const confirmJson = await confirmRes.json()
           if (confirmJson.data?.viewerUrl) {
@@ -179,27 +203,8 @@ export function SlideEditor({
         }
       }
 
-      // Extract text content for slides
-      if (externalSlideData && externalSlideData.length > 0 && !file) {
-        // Restore from saved editor state
-        if (!cancelled) {
-          setSlides(externalSlideData as ParsedSlide[])
-          setInternalIndex(externalCurrentSlide ?? 0)
-        }
-      } else if (file) {
-        // Parse from uploaded file
-        try {
-          const parsed = await parsePptxText(file!)
-          if (!cancelled) {
-            setSlides(parsed)
-            onSlideDataChange?.(parsed)
-            setInternalIndex(externalCurrentSlide ?? 0)
-          }
-        } catch {
-          if (!cancelled) setLoadError("Failed to read presentation content.")
-        }
-      } else if (!file && signedViewerUrl) {
-        // Fallback: download PPTX from signed URL and parse it
+      // Fallback: download PPTX from signed URL and parse it (if not already parsed)
+      if (!parsedSlides && signedViewerUrl) {
         try {
           const blobRes = await fetch(signedViewerUrl)
           const blob = await blobRes.blob()
@@ -718,10 +723,11 @@ export function SlideEditor({
                   headers: { "Content-Type": "application/vnd.openxmlformats-officedocument.presentationml.presentation" },
                 })
                 if (uploadRes.ok) {
+                  const reSlideCount = slides.length > 0 ? slides.length : 1
                   const confirmRes = await fetch(`/api/presentations/${presentationId}/upload/confirm`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ path: json.data.path }),
+                    body: JSON.stringify({ path: json.data.path, slideCount: reSlideCount }),
                   })
                   const confirmJson = await confirmRes.json()
                   if (confirmJson.data?.viewerUrl) {
