@@ -97,6 +97,10 @@ export const POST = withApiHandler(async (request: Request) => {
     const uploadResult = await uploadFile(storagePath, audioBuffer, "audio/wav")
     if (!uploadResult.success) throw new Error(`Failed to save audio: ${uploadResult.error}`)
 
+    // Invalidate the combined audio cache so it gets rebuilt from fresh per-slide WAVs
+    const combinedKey = `${user.id}/audio/${presentation_id}/combined.wav`
+    await deleteFile(combinedKey).catch(() => {})
+
     return NextResponse.json({ data: { slide_number } })
   } catch (err) {
     console.error(`POST /api/generate/audio/slide (slide ${slide_number}):`, err)

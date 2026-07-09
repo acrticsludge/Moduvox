@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import { Play, Loader2, ExternalLink, FileText, ChevronRight, X, TriangleAlert, Share2 } from "lucide-react"
+import { Play, Loader2, ExternalLink, FileText, ChevronRight, X, Share2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
@@ -9,7 +9,7 @@ import { parsePptxText, type ParsedSlide } from "@/lib/pptx-renderer"
 import { compareSlides, type SlideDiff } from "@/lib/pptx-renderer"
 import { toastSuccess, toastError } from "@/components/ui/CustomToast"
 import { ReUploadModal } from "./ReUploadModal"
-import { RegenerateModal } from "./RegenerateModal"
+import { RegenerateModal, type RegenStep } from "./RegenerateModal"
 import { AudioPlayer } from "./AudioPlayer"
 import { SharePresentationModal } from "./SharePresentationModal"
 
@@ -95,10 +95,12 @@ export function SlideEditor({
   const [audioGenProgress, setAudioGenProgress] = useState<{ current: number; total: number; slideTitle?: string } | null>(null)
   const [audioGenError, setAudioGenError] = useState<string | null>(null)
   const [audioGenFailed, setAudioGenFailed] = useState(false)
+  const [regenStep, setRegenStep] = useState<RegenStep>("review")
+  const [generationSummary, setGenerationSummary] = useState<{ success: number; failed: number } | null>(null)
+  const [isInitialGenerate, setIsInitialGenerate] = useState(false)
   const [showMobilePanel, setShowMobilePanel] = useState(false)
   const originalNarrationsRef = useRef<Record<number, string>>({})
   const generatedWithVoiceRef = useRef<{ voiceId: string | null; description: string; ultimateMode: boolean } | null>(null)
-  const snapshotInitialized = useRef(false)
 
   const audioUrl = externalAudioUrl ?? internalAudioUrl
   const [removingPpt, setRemovingPpt] = useState(false)
@@ -234,8 +236,8 @@ export function SlideEditor({
     if (generatingNarrations) return
     if (!file) return // Only auto-generate for freshly uploaded files, not restored state
     setGenerationFailed(false)
-    generateNarrations(slides, false).then((ok) => {
-      if (!ok) setGenerationFailed(true)
+    generateNarrations(slides, false).then((result) => {
+      if (!result) setGenerationFailed(true)
     })
   }, [slides, file])
 
@@ -254,26 +256,19 @@ export function SlideEditor({
       return
     }
 
-    // Initialize snapshot on first mount if audio exists but no snapshot
-    if (!generatedWithVoiceRef.current) {
+    // If no snapshot yet (e.g., first time audio generated in this session),
+    // take one and don't compare yet
+    if (generatedWithVoiceRef.current === null) {
       generatedWithVoiceRef.current = {
         voiceId: selectedVoiceId ?? null,
         description: voiceDescription ?? "",
         ultimateMode: ultimateMode ?? false,
       }
-      snapshotInitialized.current = true
       setVoiceChangedSinceAudio(false)
       return
     }
 
-    // On the first comparison after initialization, don't flag as changed
-    // (snapshot was just taken with current values — nothing actually changed)
-    if (snapshotInitialized.current) {
-      snapshotInitialized.current = false
-      setVoiceChangedSinceAudio(false)
-      return
-    }
-
+    // Compare snapshot vs current
     const snap = generatedWithVoiceRef.current
     const voiceChanged = snap.voiceId !== (selectedVoiceId ?? null)
     const descChanged = snap.description !== (voiceDescription ?? "")
@@ -281,9 +276,12 @@ export function SlideEditor({
     setVoiceChangedSinceAudio(voiceChanged || descChanged || ultChanged)
   }, [selectedVoiceId, voiceDescription, ultimateMode, audioGenerated])
 
-  // Shared helper: generate narrations via API. Returns true if narrations were generated.
-  async function generateNarrations(targetSlides: ParsedSlide[], showRateLimitPrompt = true): Promise<boolean> {
-    if (targetSlides.length === 0) return false
+  // Shared helper: generate narrations via API. Returns the new narrations map, or null on failure.
+  async function generateNarrations(
+    targetSlides: ParsedSlide[],
+    showRateLimitPrompt = true
+  ): Promise<Record<number, string> | null> {
+    if (targetSlides.length === 0) return null
     setGeneratingNarrations(true)
     try {
       const res = await fetch("/api/generate/narration", {
@@ -295,13 +293,11 @@ export function SlideEditor({
       })
       const json = await res.json()
 
-      // Shared key quota exhausted — permanent block, always notify
       if (json.error === "quota_exhausted") {
         toastError(json.message || "The shared Gemini key has hit its daily limit. Add your own API key in Settings.")
-        return false
+        return null
       }
 
-      // Temporary rate limit — only show toast for explicit user actions
       if (json.error === "rate_limited") {
         if (showRateLimitPrompt) {
           const retryAfter = json.retryAfter as number | undefined
@@ -323,44 +319,40 @@ export function SlideEditor({
             toastError(json.message || "Generation limit reached. Add your Gemini API key in Settings.")
           }
         }
-        return false
+        return null
       }
 
-      // Invalid user API key — always notify
       if (json.error === "invalid_api_key") {
         toastError(json.message || "Your Gemini API key is invalid. Check Settings.")
-        return false
+        return null
       }
 
-      // 503 Service Unavailable — temporary, retryable
       if (json.error === "service_unavailable") {
         toastError(json.message || "Gemini is temporarily overloaded. Wait a moment and try again.")
-        return false
+        return null
       }
 
       if (json.data?.narrations && Object.keys(json.data.narrations).length > 0) {
-        // Merge new narrations with existing ones
         const updated = { ...narrations, ...json.data.narrations }
         setInternalNarrations(updated)
         onNarrationsChange?.(updated)
         originalNarrationsRef.current = { ...originalNarrationsRef.current, ...json.data.narrations }
 
-        // Warn if Gemini skipped some slides
         if (json.data.partial && Array.isArray(json.data.missingSlides) && json.data.missingSlides.length > 0) {
           toastError(
             `AI narration skipped ${json.data.missingSlides.length} slide(s): ${json.data.missingSlides.join(", ")}. ` +
             `Add narration manually or try again.`,
           )
         }
-        return true
+        return updated
       }
 
-      return false
+      return null
     } catch {
       if (showRateLimitPrompt) {
         toastError("Narration generation failed. Please check your connection and try again.")
       }
-      return false
+      return null
     }
     finally { setGeneratingNarrations(false) }
   }
@@ -407,10 +399,16 @@ export function SlideEditor({
       return
     }
 
+    // Show the unified modal (generating step)
+    setIsInitialGenerate(true)
+    setShowRegenModal(true)
+    setRegenStep("generating")
     setAudioGenFailed(false)
     setAudioGenError(null)
     setGeneratingAudio(true)
     setAudioGenProgress({ current: 0, total: slideTexts.length })
+
+    let failedCount = 0
 
     for (let i = 0; i < slideTexts.length; i++) {
       setAudioGenProgress({ current: i + 1, total: slideTexts.length, slideTitle: slideTexts[i].title })
@@ -430,17 +428,26 @@ export function SlideEditor({
         })
 
         if (!res.ok) {
-          const json = await res.json().catch((err) => { console.error("[SlideEditor] Operation failed:", err) })
+          const json = await res.json().catch(() => ({}))
           throw new Error(typeof json.error === "string" ? json.error : `Slide ${slideTexts[i].number} failed`)
         }
       } catch (err) {
-        const msg = err instanceof Error ? err.message : "Audio generation failed"
-        setAudioGenError(msg)
-        setAudioGenFailed(true)
-        setGeneratingAudio(false)
-        setAudioGenProgress(null)
-        return
+        failedCount++
+        console.error(`[SlideEditor] Slide ${slideTexts[i].number} audio failed:`, err)
       }
+    }
+
+    setGenerationSummary({
+      success: slideTexts.length - failedCount,
+      failed: failedCount,
+    })
+
+    if (failedCount > 0) {
+      setAudioGenFailed(true)
+      setRegenStep("complete")
+      setGeneratingAudio(false)
+      setAudioGenProgress(null)
+      return
     }
 
     // All slides generated successfully
@@ -450,11 +457,15 @@ export function SlideEditor({
     setInternalAudioGenerated(true)
     onAudioGeneratedChange?.(true)
     generatedWithVoiceRef.current = { voiceId: selectedVoiceId ?? null, description: voiceDescription ?? "", ultimateMode: ultimateMode ?? false }
+    setRegenStep("complete")
     setGeneratingAudio(false)
     setAudioGenProgress(null)
   }
 
-  async function handleGenerate(selectedSlides?: Set<number>) {
+  async function handleGenerate(
+    selectedSlides?: Set<number>,
+    reason: 'voice_changed' | 'content_changed' = 'voice_changed',
+  ) {
     setGenerating(true)
     setLastRegenCount(selectedSlides?.size ?? 0)
 
@@ -462,73 +473,79 @@ export function SlideEditor({
       ? slides.filter((s) => selectedSlides.has(s.number))
       : slides
 
-    // Regenerate narrations
-    const ok = await generateNarrations(targetSlides, false)
+    // When reason is 'voice_changed' (settings change, not content change),
+    // skip Gemini and use existing narrations. This prevents unnecessary
+    // Gemini calls that fail on sparse slide content.
+    let currentNarrations: Record<number, string> = { ...narrations }
+    if (reason === 'content_changed') {
+      const result = await generateNarrations(targetSlides, false)
+      if (result) {
+        currentNarrations = result
+        setGenerationFailed(false)
+      }
+    }
 
-    if (ok) {
-      setGenerationFailed(false)
+    // Build the list of slides needing audio, using the latest narrations
+    const sorted = targetSlides.slice().sort((a, b) => a.number - b.number)
+    const slideTexts = sorted
+      .map((s) => ({ number: s.number, text: currentNarrations[s.number] || "" }))
+      .filter((s) => s.text.trim())
 
-      // Regenerate audio for the affected slides (sequential, with progress)
-      const sorted = targetSlides.slice().sort((a, b) => a.number - b.number)
-      const slideTexts = sorted
-        .map((s) => ({ number: s.number, text: narrations[s.number] || "" }))
-        .filter((s) => s.text.trim())
+    let failedCount = 0
 
-      if (slideTexts.length > 0) {
-        setAudioGenProgress({ current: 0, total: slideTexts.length })
+    if (slideTexts.length > 0) {
+      for (let i = 0; i < slideTexts.length; i++) {
+        try {
+          const res = await fetch("/api/generate/audio/slide", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              slide_number: slideTexts[i].number,
+              text: slideTexts[i].text,
+              voice_id: selectedVoiceId || undefined,
+              voice_description: voiceDescription || "Natural, clear, professional speaking voice",
+              cfg_value: 2.0,
+              presentation_id: presentationId,
+            }),
+          })
 
-        for (let i = 0; i < slideTexts.length; i++) {
-          setAudioGenProgress({ current: i + 1, total: slideTexts.length })
-
-          try {
-            const res = await fetch("/api/generate/audio/slide", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                slide_number: slideTexts[i].number,
-                text: slideTexts[i].text,
-                voice_id: selectedVoiceId || undefined,
-                voice_description: voiceDescription || "Natural, clear, professional speaking voice",
-                cfg_value: 2.0,
-                presentation_id: presentationId,
-              }),
-            })
-
-            if (!res.ok) {
-              const json = await res.json().catch((err) => { console.error("[SlideEditor] Operation failed:", err) })
-              throw new Error(typeof json.error === "string" ? json.error : `Slide ${slideTexts[i].number} failed`)
-            }
-          } catch (err) {
-            const msg = err instanceof Error ? err.message : "Audio regeneration failed"
-            setAudioGenError(msg)
-            setAudioGenFailed(true)
-            setAudioGenProgress(null)
-            setGenerating(false)
-            return
+          if (!res.ok) {
+            const json = await res.json().catch(() => ({}))
+            throw new Error(typeof json.error === "string" ? json.error : `Slide ${slideTexts[i].number} failed`)
           }
+        } catch (err) {
+          failedCount++
+          console.error(`[SlideEditor] Slide ${slideTexts[i].number} audio failed:`, err)
         }
-
-        setAudioGenProgress(null)
       }
+    }
 
-      const combinedUrl = `/api/presentations/${presentationId}/audio/combined`
-      setInternalAudioUrl(combinedUrl)
-      onAudioUrlChange?.(combinedUrl)
-      setInternalAudioGenerated(true)
-      onAudioGeneratedChange?.(true)
-      generatedWithVoiceRef.current = { voiceId: selectedVoiceId ?? null, description: voiceDescription ?? "", ultimateMode: ultimateMode ?? false }
+    setGenerationSummary({
+      success: slideTexts.length - failedCount,
+      failed: failedCount,
+    })
 
-      // Clear changed status for regenerated slides
-      if (selectedSlides) {
-        const remaining = changedSlides.filter((s) => !selectedSlides.has(s))
-        setInternalChangedSlides(remaining)
-        onChangedSlidesChange?.(remaining)
-      } else {
-        setInternalChangedSlides([])
-        onChangedSlidesChange?.([])
-      }
+    if (failedCount > 0) {
+      setGenerating(false)
+      return
+    }
 
-      setShowRegenModal(false)
+    // All slides generated successfully
+    const combinedUrl = `/api/presentations/${presentationId}/audio/combined`
+    setInternalAudioUrl(combinedUrl)
+    onAudioUrlChange?.(combinedUrl)
+    setInternalAudioGenerated(true)
+    onAudioGeneratedChange?.(true)
+    generatedWithVoiceRef.current = { voiceId: selectedVoiceId ?? null, description: voiceDescription ?? "", ultimateMode: ultimateMode ?? false }
+
+    // Clear changed status for regenerated slides
+    if (selectedSlides) {
+      const remaining = changedSlides.filter((s) => !selectedSlides.has(s))
+      setInternalChangedSlides(remaining)
+      onChangedSlidesChange?.(remaining)
+    } else {
+      setInternalChangedSlides([])
+      onChangedSlidesChange?.([])
     }
 
     setGenerating(false)
@@ -694,8 +711,8 @@ export function SlideEditor({
       // Auto-generate AI narrations for changed/added slides (silent — no toast on rate limit)
       const slidesToRegen = pendingSlides.filter((s) => changed.includes(s.number))
       if (slidesToRegen.length > 0) {
-        generateNarrations(slidesToRegen, false).then((ok) => {
-          if (!ok) setGenerationFailed(true)
+        generateNarrations(slidesToRegen, false).then((result) => {
+          if (!result) setGenerationFailed(true)
         })
       }
     }
@@ -1100,8 +1117,8 @@ export function SlideEditor({
           <Button
             onClick={async () => {
               setGenerationFailed(false)
-              const ok = await generateNarrations(slides, true)
-              if (!ok) setGenerationFailed(true)
+              const result = await generateNarrations(slides, true)
+              if (!result) setGenerationFailed(true)
             }}
             disabled={generating || generatingNarrations}
             variant="outline"
@@ -1554,77 +1571,53 @@ export function SlideEditor({
         />
       )}
 
-      {/* Regenerate modal */}
+      {/* Regenerate modal — unified 3-step flow */}
       {showRegenModal && (
         <RegenerateModal
           slides={slides}
           changedSlides={changedSlides}
-          generating={generating}
           voiceChangedSinceAudio={voiceChangedSinceAudio}
           onNavigate={(num) => jumpToSlide(num)}
-          onConfirm={() => handleGenerate(voiceChangedSinceAudio ? undefined : new Set(changedSlides))}
-          onCancel={() => setShowRegenModal(false)}
+          onConfirm={() => {
+            setRegenStep("generating")
+            setShowRegenModal(true)
+            handleGenerate(voiceChangedSinceAudio ? undefined : new Set(changedSlides), "voice_changed")
+              .then(() => {
+                // After generation finishes (even with partial failures), show complete step
+                setRegenStep("complete")
+              })
+              .catch(() => {
+                setRegenStep("complete")
+              })
+          }}
+          onCancel={() => {
+            if (generating && !isInitialGenerate) {
+              // Hard cancel during regen — reload to reset state
+              window.location.reload()
+              return
+            }
+            setShowRegenModal(false)
+            setTimeout(() => {
+              setRegenStep("review")
+              setGenerationSummary(null)
+              setIsInitialGenerate(false)
+            }, 200)
+          }}
+          step={regenStep}
+          generationError={null}
+          audioGenProgress={audioGenProgress}
+          generationSummary={generationSummary}
+          onRetry={() => {
+            setRegenStep("generating")
+            setGenerating(true)
+            handleGenerate(voiceChangedSinceAudio ? undefined : new Set(changedSlides), "voice_changed")
+              .then(() => setRegenStep("complete"))
+              .catch(() => setRegenStep("complete"))
+          }}
         />
       )}
 
-      {/* Audio generation progress overlay — blocks the entire page */}
-      {audioGenProgress && (
-        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#18181B]/60">
-          <div className="flex flex-col items-center gap-4 rounded-xl bg-white px-8 py-10 shadow-xl">
-            <Loader2 className="h-8 w-8 animate-spin text-[#18181B]" />
-            <p className="text-sm font-medium text-[#18181B]">
-              Generating audio…
-            </p>
-            <p className="text-xs text-[#71717A]">
-              Slide {audioGenProgress.current} of {audioGenProgress.total}
-              {audioGenProgress.slideTitle ? `: ${audioGenProgress.slideTitle}` : ""}
-            </p>
-            {/* Progress bar */}
-            <div className="h-1.5 w-48 rounded-full bg-zinc-200">
-              <div
-                className="h-1.5 rounded-full bg-[#18181B] transition-all duration-300"
-                style={{ width: `${(audioGenProgress.current / audioGenProgress.total) * 100}%` }}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Audio generation error modal */}
-      {audioGenError && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#18181B]/40">
-          <div className="w-full max-w-sm rounded-xl border bg-white p-6 shadow-xl">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
-              <TriangleAlert className="h-6 w-6 text-red-600" />
-            </div>
-            <h2 className="mb-2 text-center text-lg font-semibold">Generation failed</h2>
-            <p className="mb-6 text-center text-sm text-zinc-500">
-              {audioGenError}
-            </p>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setAudioGenError(null)}
-                className="flex-1 rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setAudioGenError(null)
-                  setAudioGenFailed(false)
-                  runAudioGeneration()
-                }}
-                disabled={generatingAudio}
-                className="flex-1 rounded-lg bg-[#18181B] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#27272A] disabled:opacity-50"
-              >
-                {generatingAudio ? "Retrying..." : "Retry"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Audio generation progress is now shown inside the unified RegenerateModal */}
     </>
   )
 }
