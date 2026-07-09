@@ -133,7 +133,7 @@ export const POST = withApiHandler(async (request: Request) => {
       maxAge: COOLDOWN_MS / 1000,
       path: "/",
       sameSite: "lax",
-      httpOnly: true,
+      httpOnly: false,
     })
     return response
   } catch (err) {
