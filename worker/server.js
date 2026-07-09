@@ -38,9 +38,19 @@ app.use((req, res, next) => {
   next();
 });
 
+// ── Request logger ──
+app.use((req, res, next) => {
+  console.log(`[worker] ${req.method} ${req.path}`);
+  next();
+});
+
 // ── Auth middleware ──
 function auth(req, res, next) {
-  if (!API_KEY) return next(); // no key configured = skip auth (dev only)
+  console.log(`[worker] Auth check for ${req.method} ${req.path}`);
+  if (!API_KEY) {
+    console.log("[worker] No API_KEY configured — auth disabled");
+    return next(); // no key configured = skip auth (dev only)
+  }
   const header = req.headers.authorization;
   if (!header || !header.startsWith("Bearer ")) {
     return res
@@ -117,17 +127,25 @@ app.post("/convert", auth, async (req, res) => {
     await downloadFile(pptxUrl, tmpInput);
 
     console.log("[convert] Converting PPTX -> PDF via LibreOffice");
-    execSync(
-      `soffice --headless --convert-to pdf --outdir ${TMP_DIR} ${tmpInput}`,
-      {
-        timeout: 180_000, // 3 min for conversion
-        stdio: "pipe",
-      },
-    );
+    try {
+      execSync(
+        `soffice --headless --convert-to pdf --outdir ${TMP_DIR} ${tmpInput}`,
+        {
+          timeout: 180_000, // 3 min for conversion
+          stdio: "pipe",
+        },
+      );
+      console.log("[convert] LibreOffice conversion completed");
+    } catch (libreErr) {
+      console.error("[convert] LibreOffice command failed:", libreErr.stderr?.toString() || libreErr.message);
+      throw new Error(`LibreOffice conversion failed: ${libreErr.message}`);
+    }
 
     if (!existsSync(tmpOutput)) {
+      console.error(`[convert] Expected output not found at ${tmpOutput}`);
       throw new Error("LibreOffice did not produce output PDF");
     }
+    console.log(`[convert] Output PDF exists: ${tmpOutput} (${(await readFile(tmpOutput)).length} bytes)`);
 
     console.log("[convert] Reading PDF and splitting into pages");
     const sourcePdfBytes = await readFile(tmpOutput);
