@@ -78,6 +78,7 @@ function StepWelcome({ onNext }: StepProps) {
 
 function StepIdentity({ data, setData, onNext }: StepProps) {
   const anonymous = data.anonymous
+  const [localErrors, setLocalErrors] = useState<Record<string, string>>({})
 
   const handleToggle = (checked: boolean) => {
     setData((prev: Record<string, unknown>) => ({
@@ -86,7 +87,21 @@ function StepIdentity({ data, setData, onNext }: StepProps) {
       name: checked ? "Anonymous" : "",
       email: checked ? "" : prev.email,
       can_contact: checked ? false : prev.can_contact,
+      fieldErrors: {},
     }))
+    setLocalErrors({})
+  }
+
+  const handleContinue = () => {
+    const errors: Record<string, string> = {}
+    if (!data.name.trim() && !anonymous) errors.name = "Name is required"
+    if (!anonymous && !data.email.trim()) errors.email = "Email is required"
+    if (Object.keys(errors).length > 0) {
+      setLocalErrors(errors)
+      setData((prev: Record<string, unknown>) => ({ ...prev, fieldErrors: { ...((prev.fieldErrors as Record<string, string>) || {}), ...errors } }))
+      return
+    }
+    onNext()
   }
 
   return (
@@ -100,14 +115,17 @@ function StepIdentity({ data, setData, onNext }: StepProps) {
       <input
         type="text"
         value={data.name}
-        onChange={(e) => setData((prev: Record<string, unknown>) => ({ ...prev, name: e.target.value }))}
+        onChange={(e) => {
+          setData((prev: Record<string, unknown>) => ({ ...prev, name: e.target.value, fieldErrors: { ...((prev.fieldErrors as Record<string, string>) || {}), name: "" } }))
+          setLocalErrors((prev) => ({ ...prev, name: "" }))
+        }}
         placeholder={anonymous ? "Anonymous" : "Your name"}
         disabled={anonymous}
-        className={`mb-5 w-full rounded-xl border px-4 py-3 text-sm text-[#18181B] placeholder:text-zinc-400 transition-colors focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400 disabled:cursor-not-allowed disabled:opacity-50 ${data.fieldErrors?.name ? "border-red-300" : "border-zinc-200"}`}
+        className={`mb-5 w-full rounded-xl border px-4 py-3 text-sm text-[#18181B] placeholder:text-zinc-400 transition-colors focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400 disabled:cursor-not-allowed disabled:opacity-50 ${(localErrors.name || data.fieldErrors?.name) ? "border-red-300" : "border-zinc-200"}`}
         autoFocus
       />
-      {data.fieldErrors?.name && (
-        <p className="-mt-4 mb-5 text-xs text-red-500">{data.fieldErrors.name}</p>
+      {(localErrors.name || data.fieldErrors?.name) && (
+        <p className="-mt-4 mb-5 text-xs text-red-500">{localErrors.name || data.fieldErrors?.name}</p>
       )}
 
       {/* Email (only when not anonymous) */}
@@ -119,12 +137,15 @@ function StepIdentity({ data, setData, onNext }: StepProps) {
           <input
             type="email"
             value={data.email}
-            onChange={(e) => setData((prev: Record<string, unknown>) => ({ ...prev, email: e.target.value }))}
+            onChange={(e) => {
+              setData((prev: Record<string, unknown>) => ({ ...prev, email: e.target.value, fieldErrors: { ...((prev.fieldErrors as Record<string, string>) || {}), email: "" } }))
+              setLocalErrors((prev) => ({ ...prev, email: "" }))
+            }}
             placeholder="your@email.com"
-            className={`mb-5 w-full rounded-xl border px-4 py-3 text-sm text-[#18181B] placeholder:text-zinc-400 transition-colors focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400 ${data.fieldErrors?.email ? "border-red-300" : "border-zinc-200"}`}
+            className={`mb-5 w-full rounded-xl border px-4 py-3 text-sm text-[#18181B] placeholder:text-zinc-400 transition-colors focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400 ${(localErrors.email || data.fieldErrors?.email) ? "border-red-300" : "border-zinc-200"}`}
           />
-          {data.fieldErrors?.email && (
-            <p className="-mt-4 mb-5 text-xs text-red-500">{data.fieldErrors.email}</p>
+          {(localErrors.email || data.fieldErrors?.email) && (
+            <p className="-mt-4 mb-5 text-xs text-red-500">{localErrors.email || data.fieldErrors?.email}</p>
           )}
         </>
       )}
@@ -142,7 +163,7 @@ function StepIdentity({ data, setData, onNext }: StepProps) {
 
       <button
         type="button"
-        onClick={onNext}
+        onClick={handleContinue}
         className="mt-8 inline-flex items-center justify-center gap-2 rounded-xl bg-[#18181B] px-6 py-3 text-sm font-medium text-white transition-all hover:bg-[#27272A] active:scale-[0.97]"
       >
         Continue
@@ -206,36 +227,44 @@ function StepContact({ data, setData, onNext, onBack }: StepProps) {
 }
 
 function StepCategory({ data, setData, onNext, onBack }: StepProps) {
+  const selected = data.category
   return (
     <div className="flex flex-col">
       <p className="text-sm font-medium text-[#71717A] mb-6">What best describes your feedback?</p>
 
       <div className="flex flex-col gap-2.5">
         {CATEGORIES.map((cat) => {
+          const isSelected = selected === cat
           const icons: Record<string, string> = {
             bug_report: "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z",
             feature_request: "M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z",
             general: "M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z",
           }
-          const colors: Record<string, string> = {
-            bug_report: "bg-red-50 text-red-500 border-red-100 hover:border-red-200",
-            feature_request: "bg-blue-50 text-blue-500 border-blue-100 hover:border-blue-200",
-            general: "bg-zinc-50 text-zinc-500 border-zinc-100 hover:border-zinc-200",
+          const baseColors: Record<string, string> = {
+            bug_report: "border-red-100 bg-red-50 hover:border-red-200",
+            feature_request: "border-blue-100 bg-blue-50 hover:border-blue-200",
+            general: "border-zinc-100 bg-zinc-50 hover:border-zinc-200",
           }
           return (
             <button
               key={cat}
               type="button"
-              onClick={() => {
-                setData((prev: Record<string, unknown>) => ({ ...prev, category: cat }))
-                onNext()
-              }}
-              className={`flex items-center gap-4 rounded-xl border px-5 py-4 text-left transition-all active:scale-[0.99] ${colors[cat]}`}
+              onClick={() => setData((prev: Record<string, unknown>) => ({ ...prev, category: cat }))}
+              className={`flex items-center gap-4 rounded-xl border px-5 py-4 text-left transition-all active:scale-[0.99] ${
+                isSelected
+                  ? `${baseColors[cat]} ring-2 ring-[#18181B] ring-offset-1`
+                  : baseColors[cat]
+              }`}
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <path d={icons[cat]} />
               </svg>
               <span className="text-sm font-medium text-[#18181B]">{CATEGORY_LABELS[cat]}</span>
+              {isSelected && (
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" className="ml-auto shrink-0">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              )}
             </button>
           )
         })}
@@ -243,8 +272,18 @@ function StepCategory({ data, setData, onNext, onBack }: StepProps) {
 
       <button
         type="button"
+        disabled={!selected}
+        onClick={onNext}
+        className="mt-6 inline-flex items-center justify-center gap-2 rounded-xl bg-[#18181B] px-6 py-3 text-sm font-medium text-white transition-all hover:bg-[#27272A] disabled:opacity-40 active:scale-[0.97]"
+      >
+        Continue
+        <ChevronRight className="h-4 w-4" />
+      </button>
+
+      <button
+        type="button"
         onClick={onBack}
-        className="mt-6 inline-flex items-center justify-center gap-1.5 text-sm text-zinc-400 transition-colors hover:text-zinc-600"
+        className="mt-4 inline-flex items-center justify-center gap-1.5 text-sm text-zinc-400 transition-colors hover:text-zinc-600"
       >
         <ArrowLeft className="h-3.5 w-3.5" />
         Back
@@ -684,29 +723,29 @@ export default function FeedbackPage() {
     <main className="min-h-screen bg-[#F9FAFB] flex flex-col">
       <Navbar />
       {/* Full-width progress bar with step dots */}
-      <div className="sticky top-0 z-10 w-full bg-[#F9FAFB] px-4 pt-8 pb-6 sm:pt-12">
+      <div className="w-full bg-[#F9FAFB] px-4 pt-20 pb-6">
         <div className="relative mx-auto max-w-md">
-          <div className="relative h-[3px] w-full rounded-full bg-zinc-200">
-            {/* Green fill */}
+          {/* Track line */}
+          <div className="absolute left-0 right-0 top-1/2 h-[3px] -translate-y-1/2 rounded-full bg-zinc-200">
             <div
-              className="absolute left-0 top-0 h-full rounded-full bg-green-500 transition-all duration-500 ease-out"
+              className="h-full rounded-full bg-green-500 transition-all duration-500 ease-out"
               style={{ width: `${progressPct}%` }}
             />
           </div>
           {/* Step dots */}
-          <div className="absolute -top-[9px] left-0 right-0 flex justify-between px-0">
+          <div className="relative flex items-center justify-between">
             {visibleSteps.map((step, idx) => {
               const isCompleted = idx < currentVisibleIdx
               const isCurrent = idx === currentVisibleIdx
               return (
                 <div
                   key={step}
-                  className={`rounded-full transition-all duration-300 ${
+                  className={`relative z-10 rounded-full transition-all duration-300 ${
                     isCompleted
-                      ? "h-[21px] w-[21px] border-[3px] border-green-500 bg-green-500"
+                      ? "h-5 w-5 border-[3px] border-green-500 bg-green-500"
                       : isCurrent
-                        ? "h-[21px] w-[21px] border-[3px] border-green-500 bg-white"
-                        : "h-[15px] w-[15px] border-[3px] border-zinc-300 bg-white"
+                        ? "h-5 w-5 border-[3px] border-green-500 bg-white"
+                        : "h-3.5 w-3.5 border-[3px] border-zinc-300 bg-white"
                   }`}
                 />
               )
