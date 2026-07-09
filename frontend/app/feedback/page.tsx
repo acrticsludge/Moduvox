@@ -245,6 +245,11 @@ function StepCategory({ data, setData, onNext, onBack }: StepProps) {
             feature_request: "border-blue-100 bg-blue-50 hover:border-blue-200",
             general: "border-zinc-100 bg-zinc-50 hover:border-zinc-200",
           }
+          const ringColors: Record<string, string> = {
+            bug_report: "ring-red-400",
+            feature_request: "ring-blue-400",
+            general: "ring-zinc-400",
+          }
           return (
             <button
               key={cat}
@@ -252,7 +257,7 @@ function StepCategory({ data, setData, onNext, onBack }: StepProps) {
               onClick={() => setData((prev: Record<string, unknown>) => ({ ...prev, category: cat }))}
               className={`flex items-center gap-4 rounded-xl border px-5 py-4 text-left transition-all active:scale-[0.99] ${
                 isSelected
-                  ? `${baseColors[cat]} ring-2 ring-[#18181B] ring-offset-1`
+                  ? `${baseColors[cat]} ring-2 ${ringColors[cat]} ring-offset-1`
                   : baseColors[cat]
               }`}
             >
