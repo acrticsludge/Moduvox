@@ -9,7 +9,15 @@ import { VerifyErrorScreen } from "@/components/view/VerifyErrorScreen"
 import { ViewNavbar } from "@/components/view/ViewNavbar"
 import { ViewFooter } from "@/components/view/ViewFooter"
 import { ViewSidebar } from "@/components/view/ViewSidebar"
-import { ViewSlide } from "@/components/view/ViewSlide"
+
+const ViewSlide = dynamic(() => import("@/components/view/ViewSlide").then((mod) => mod.ViewSlide), {
+  ssr: false,
+  loading: () => (
+    <div className="flex flex-1 items-center justify-center rounded-lg bg-zinc-100 p-12">
+      <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-600" />
+    </div>
+  ),
+})
 
 const CombinedGateDialog = dynamic(() => import("@/components/view/CombinedGateDialog").then(mod => mod.CombinedGateDialog), {
   ssr: false,
