@@ -183,10 +183,11 @@ export function SlideEditor({
       if (path) {
         try {
           const slideCount = parsedSlides?.length ?? 1
+          // Only trigger PDF conversion on actual file upload, not on page restore
           const confirmRes = await fetch(`/api/presentations/${presentationId}/upload/confirm`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ path, slideCount }),
+            body: JSON.stringify({ path, slideCount, skipConversion: !file }),
           })
           const confirmJson = await confirmRes.json()
           if (confirmJson.data?.viewerUrl) {
