@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { createDownloadUrl } from "@/lib/r2"
+import { createDownloadUrl, createUploadUrl } from "@/lib/r2"
 import { withApiHandler } from "@/lib/api-handler"
 
 export const POST = withApiHandler(async (
@@ -17,6 +17,7 @@ export const POST = withApiHandler(async (
 
   const body = await request.json()
   const filePath = body.path as string
+  const slideCount = (body.slideCount as number) || 1
 
   if (!filePath) {
     return NextResponse.json({ error: "No file path provided" }, { status: 400 })
@@ -61,6 +62,33 @@ export const POST = withApiHandler(async (
 
   if (!viewerUrl) {
     return NextResponse.json({ error: "Failed to generate viewer URL" }, { status: 500 })
+  }
+
+  // ── Fire PDF conversion in background ──
+  const workerUrl = process.env.RENDER_WORKER_URL
+  const apiKey = process.env.RENDER_WORKER_API_KEY
+  if (workerUrl && apiKey) {
+    // Derive userId/presentationId from filePath: {userId}/{presentationId}.pptx
+    const pathParts = filePath.replace(".pptx", "").split("/")
+    if (pathParts.length === 2) {
+      const pptxDownloadUrl = await createDownloadUrl(filePath, 3600)
+      if (pptxDownloadUrl) {
+        const slidePutUrls: Record<string, string> = {}
+        for (let i = 1; i <= slideCount; i++) {
+          const pdfKey = `${pathParts[0]}/pdf/${pathParts[1]}/slide-${i}.pdf`
+          const putUrl = await createUploadUrl(pdfKey, "application/pdf", 3600)
+          if (putUrl) slidePutUrls[String(i)] = putUrl
+        }
+        fetch(`${workerUrl}/convert`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({ pptxUrl: pptxDownloadUrl, slidePutUrls, slideCount }),
+        }).catch((err) => console.error("[upload] PDF conversion trigger failed:", err))
+      }
+    }
   }
 
   return NextResponse.json({

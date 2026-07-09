@@ -9,6 +9,7 @@ import { VerifyErrorScreen } from "@/components/view/VerifyErrorScreen"
 import { ViewNavbar } from "@/components/view/ViewNavbar"
 import { ViewFooter } from "@/components/view/ViewFooter"
 import { ViewSidebar } from "@/components/view/ViewSidebar"
+import { ViewSlide } from "@/components/view/ViewSlide"
 
 const CombinedGateDialog = dynamic(() => import("@/components/view/CombinedGateDialog").then(mod => mod.CombinedGateDialog), {
   ssr: false,
@@ -93,6 +94,10 @@ export default function ViewPresentationPage() {
 
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [state, setState] = useState<PageState>({ type: "loading" })
+  const [slides, setSlides] = useState<{ slideNumber: number; pdfUrl: string | null }[] | null>(null)
+  const [currentSlide, setCurrentSlide] = useState(0)
+  const [slidesLoading, setSlidesLoading] = useState(false)
+  const [slidesError, setSlidesError] = useState<string | null>(null)
   const viewDataRef = useRef<{ title: string; created_at?: string; slide_count?: number; expires_at?: string | null; total_duration_ms?: number; audio_url?: string | null; viewer_created_at?: string | null; presentation_id?: string; viewer_id?: string | null } | null>(null)
 
   useEffect(() => {
@@ -266,6 +271,35 @@ export default function ViewPresentationPage() {
     }
   }
 
+  async function fetchSlides(sessionToken: string, token: string) {
+    setSlidesLoading(true)
+    setSlidesError(null)
+    try {
+      const res = await fetch(`/api/view/${token}/slides?session=${sessionToken}`)
+      const json = await res.json()
+      if (json.data) {
+        setSlides(json.data.slides)
+        if (json.data.slides.length === 0 || json.data.slides.every((s: { pdfUrl: unknown }) => !s.pdfUrl)) {
+          setSlidesError("Slides not available yet")
+        }
+      } else {
+        setSlidesError(json.error || "Failed to load slides")
+      }
+    } catch {
+      setSlidesError("Failed to load slides")
+    } finally {
+      setSlidesLoading(false)
+    }
+  }
+
+  // Fetch slides when entering verified state
+  useEffect(() => {
+    if (state.type === "verified" && state.sessionToken) {
+      fetchSlides(state.sessionToken, shareToken)
+      setCurrentSlide(0)
+    }
+  }, [state.type]) // eslint-disable-line react-hooks/exhaustive-deps
+
   function handleGateSuccess(data: { viewer_id: string; viewer_name: string; email: string; session_token?: string; email_sent?: boolean; already_verified?: boolean }) {
     saveGateState(shareToken, {
       viewerId: data.viewer_id,
@@ -393,7 +427,66 @@ export default function ViewPresentationPage() {
               isOpen={sidebarOpen}
               onClose={() => setSidebarOpen(false)}
             />
-            <main id="viewer-main-content" className="flex flex-1" />
+            <main id="viewer-main-content" className="flex flex-1 flex-col items-center p-4 md:p-8">
+              {slidesLoading ? (
+                <div className="flex flex-1 items-center justify-center">
+                  <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-600" />
+                </div>
+              ) : slidesError && (!slides || slides.length === 0) ? (
+                <div className="flex flex-1 flex-col items-center justify-center gap-4">
+                  <p className="text-sm text-zinc-500">{slidesError}</p>
+                  <button
+                    type="button"
+                    disabled={slidesLoading}
+                    onClick={async () => {
+                      if (state.type !== "verified" || !state.sessionToken) return
+                      try {
+                        await fetch(`/api/view/${shareToken}/convert`, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ sessionToken: state.sessionToken }),
+                        })
+                      } catch { /* ignore */ }
+                      if (state.sessionToken) await fetchSlides(state.sessionToken, shareToken)
+                    }}
+                    className="min-h-[44px] rounded-lg bg-zinc-800 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50"
+                  >
+                    {slidesLoading ? "Generating..." : "Generate slides"}
+                  </button>
+                </div>
+              ) : slides && slides.length > 0 ? (
+                <>
+                  <ViewSlide
+                    pdfUrl={slides[currentSlide]?.pdfUrl ?? null}
+                    slideNumber={currentSlide + 1}
+                    totalSlides={slides.length}
+                  />
+                  <div className="mt-4 flex items-center gap-4">
+                    <button
+                      type="button"
+                      onClick={() => setCurrentSlide(Math.max(0, currentSlide - 1))}
+                      disabled={currentSlide === 0}
+                      className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-600 transition-colors hover:text-zinc-800 disabled:cursor-not-allowed disabled:opacity-30"
+                      aria-label="Previous slide"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
+                    </button>
+                    <span className="min-w-[60px] text-center text-sm tabular-nums text-zinc-500">
+                      {currentSlide + 1} / {slides.length}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setCurrentSlide(Math.min(slides.length - 1, currentSlide + 1))}
+                      disabled={currentSlide >= slides.length - 1}
+                      className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-600 transition-colors hover:text-zinc-800 disabled:cursor-not-allowed disabled:opacity-30"
+                      aria-label="Next slide"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
+                    </button>
+                  </div>
+                </>
+              ) : null}
+            </main>
           </div>
         <ViewAudioBar
           shareToken={shareToken}
