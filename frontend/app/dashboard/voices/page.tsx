@@ -228,6 +228,7 @@ function AddVoiceModal({
   const [voiceName, setVoiceName] = useState("")
   const [controlInstruction, setControlInstruction] = useState("")
   const [file, setFile] = useState<File | null>(null)
+  const [voiceConsent, setVoiceConsent] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [quotaResult, setQuotaResult] = useState<QuotaResult | null>(null)
@@ -569,10 +570,28 @@ function AddVoiceModal({
               />
             </div>
 
+            {/* Voice cloning consent */}
+            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-zinc-200 px-4 py-3.5 transition-colors hover:bg-zinc-50">
+              <input
+                type="checkbox"
+                checked={voiceConsent}
+                onChange={(e) => setVoiceConsent(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-[#18181B] focus:ring-zinc-500"
+              />
+              <div>
+                <span className="text-sm font-medium text-[#18181B]">
+                  I confirm I have the right to use this voice
+                </span>
+                <p className="mt-0.5 text-xs leading-relaxed text-zinc-400">
+                  This voice sample is my own voice or I have explicit permission from the person to clone and use it. Using someone&apos;s voice without consent may violate our terms of service.
+                </p>
+              </div>
+            </label>
+
             <div className="flex items-center justify-between pt-2">
               <button
                 type="button"
-                onClick={() => { setStep("choose"); setFile(null); setVoiceName(""); }}
+                onClick={() => { setStep("choose"); setFile(null); setVoiceName(""); setVoiceConsent(false) }}
                 className="text-sm font-medium text-[#71717A] transition-colors hover:text-[#18181B]"
               >
                 Back
@@ -580,7 +599,7 @@ function AddVoiceModal({
               <button
                 type="button"
                 onClick={handleUploadClone}
-                disabled={!file || !voiceName.trim() || uploading}
+                disabled={!file || !voiceName.trim() || uploading || !voiceConsent}
                 className="inline-flex items-center gap-2 rounded-lg border border-[#18181B]/70 bg-[#18181B] px-4 py-2 text-sm font-medium text-white transition-all hover:border-[#18181B] hover:bg-[#27272A] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {uploading && <Loader2 className="h-4 w-4 animate-spin" />}
