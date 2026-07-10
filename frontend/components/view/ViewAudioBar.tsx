@@ -141,7 +141,19 @@ export function ViewAudioBar({
         sendTracking("completed", 100, secs)
       },
       onseek: () => {
-        setCurrentTime(Math.floor(howl.seek() as number))
+        const secs = Math.floor(howl.seek() as number)
+        setCurrentTime(secs)
+        currentTimeRef.current = secs
+        // Detect slide change on seek
+        const ms = secs * 1000
+        let match = 0
+        for (const t of slideTimingsRef.current) {
+          if (ms >= t.startMs && ms < t.endMs) { match = t.slideNumber; break }
+        }
+        if (match && match !== lastSlideRef.current) {
+          lastSlideRef.current = match
+          onSlideChangeRef.current?.(match)
+        }
       },
     })
     howlRef.current = howl
