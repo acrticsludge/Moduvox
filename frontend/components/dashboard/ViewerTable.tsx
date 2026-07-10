@@ -67,7 +67,27 @@ export function ViewerTable({
     return `${min}m ${sec}s`
   }
 
-  function formatDate(iso: string | null): string {
+  function StatusBadge({ status }: { status: Viewer["status"] }) {
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium shrink-0 ${
+        status === "completed"
+          ? "bg-green-100 text-green-700"
+          : status === "in_progress"
+            ? "bg-amber-100 text-amber-700"
+            : "bg-zinc-100 text-zinc-500"
+      }`}
+    >
+      {status === "completed"
+        ? "Completed"
+        : status === "in_progress"
+          ? "In Progress"
+          : "Not Viewed"}
+    </span>
+  )
+}
+
+function formatDate(iso: string | null): string {
     if (!iso) return "—"
     return new Date(iso).toLocaleDateString("en-US", {
       month: "short",
@@ -130,8 +150,8 @@ export function ViewerTable({
         </button>
       </div>
 
-      {/* Table */}
-      <div className="overflow-x-auto">
+      {/* Desktop table — hidden on small screens */}
+      <div className="hidden md:block overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-zinc-100">
@@ -149,21 +169,7 @@ export function ViewerTable({
                 <td className="px-5 py-3 font-medium text-[#18181B]">{viewer.name}</td>
                 <td className="px-5 py-3 text-zinc-500">{viewer.email}</td>
                 <td className="px-5 py-3">
-                  <span
-                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                      viewer.status === "completed"
-                        ? "bg-green-100 text-green-700"
-                        : viewer.status === "in_progress"
-                          ? "bg-amber-100 text-amber-700"
-                          : "bg-zinc-100 text-zinc-500"
-                    }`}
-                  >
-                    {viewer.status === "completed"
-                      ? "Completed"
-                      : viewer.status === "in_progress"
-                        ? "In Progress"
-                        : "Not Viewed"}
-                  </span>
+                  <StatusBadge status={viewer.status} />
                 </td>
                 <td className="px-5 py-3">
                   <div className="flex items-center gap-2">
@@ -179,13 +185,47 @@ export function ViewerTable({
                 <td className="px-5 py-3 text-zinc-500">
                   {viewer.time_spent_seconds > 0 ? formatTime(viewer.time_spent_seconds) : "—"}
                 </td>
-                <td className="px-5 py-3 text-zinc-500 text-xs">
+                <td className="px-5 py-3 text-xs text-zinc-500">
                   {formatDate(viewer.viewed_at || viewer.created_at)}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile card layout — shown only on small screens */}
+      <div className="divide-y divide-zinc-100 md:hidden">
+        {viewers.map((viewer) => (
+          <div key={viewer.id} className="px-4 py-3 space-y-2">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-[#18181B] truncate">{viewer.name}</p>
+                <p className="text-xs text-zinc-500 truncate">{viewer.email}</p>
+              </div>
+              <StatusBadge status={viewer.status} />
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <div className="h-1.5 flex-1 rounded-full bg-zinc-200">
+                    <div
+                      className="h-1.5 rounded-full bg-[#18181B]"
+                      style={{ width: `${viewer.progress_pct}%` }}
+                    />
+                  </div>
+                  <span className="text-xs text-zinc-400 shrink-0">{viewer.progress_pct}%</span>
+                </div>
+              </div>
+              <span className="text-xs text-zinc-500 shrink-0">
+                {viewer.time_spent_seconds > 0 ? formatTime(viewer.time_spent_seconds) : "—"}
+              </span>
+            </div>
+            <p className="text-[11px] text-zinc-400">
+              {formatDate(viewer.viewed_at || viewer.created_at)}
+            </p>
+          </div>
+        ))}
       </div>
     </div>
   )

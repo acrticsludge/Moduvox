@@ -155,7 +155,7 @@ function VoiceRow({
               type="button"
               onClick={handlePlaySample}
               disabled={loadingSample}
-              className="flex h-7 w-7 items-center justify-center rounded-full text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-[#18181B] disabled:opacity-40"
+              className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-[#18181B] disabled:opacity-40 sm:h-7 sm:w-7"
               aria-label={loadingSample ? "Loading" : playing ? "Stop" : "Play sample"}
             >
               {loadingSample ? (
@@ -175,7 +175,7 @@ function VoiceRow({
           <button
             type="button"
             onClick={() => onTest(voice)}
-            className="inline-flex items-center gap-1 text-xs font-medium text-zinc-400 transition-colors hover:text-[#18181B]"
+            className="inline-flex min-h-[44px] items-center gap-1 rounded-lg px-2 text-xs font-medium text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-[#18181B] sm:px-0"
           >
             <Volume2 className="h-3 w-3" strokeWidth={1.5} />
             <span className="hidden sm:inline">Test</span>
@@ -188,7 +188,7 @@ function VoiceRow({
           <button
             type="button"
             onClick={() => onDelete(voice)}
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-600"
+            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-600 sm:h-7 sm:w-7"
             aria-label="Delete voice"
           >
             <Trash2 className="h-3.5 w-3.5" />
@@ -358,7 +358,7 @@ function AddVoiceModal({
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#71717A] transition-colors hover:bg-zinc-100 hover:text-[#18181B]"
+            className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-[#71717A] transition-colors hover:bg-zinc-100 hover:text-[#18181B] sm:h-8 sm:w-8"
             aria-label="Close"
           >
             <span className="text-lg">✕</span>
@@ -771,13 +771,13 @@ export default function VoicesPage() {
   return (
     <>
       {/* Top bar */}
-      <div className="flex items-center justify-between border-b border-[var(--color-border-faint)] bg-white px-6 py-4">
+      <div className="flex items-center justify-between border-b border-[var(--color-border-faint)] bg-white px-4 py-3 sm:px-6 sm:py-4">
         <h1 className="text-lg font-semibold text-[#18181B]">My Voices</h1>
 
         <button
           type="button"
           onClick={() => setShowModal(true)}
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-[#71717A] transition-colors duration-150 hover:text-[#18181B]"
+          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-[#71717A] transition-colors duration-150 hover:bg-zinc-100 hover:text-[#18181B]"
         >
           <Plus className="h-4 w-4" />
           Add Voice
@@ -785,7 +785,7 @@ export default function VoicesPage() {
       </div>
 
       {/* Content */}
-      <div className="flex flex-1 px-6 py-8">
+      <div className="flex flex-1 px-4 py-6 sm:px-6 sm:py-8">
         {loading ? (
           <div className="w-full space-y-2">
             <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white">
