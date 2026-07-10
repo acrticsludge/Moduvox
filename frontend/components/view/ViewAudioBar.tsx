@@ -56,7 +56,13 @@ export function ViewAudioBar({
     const ms = secs * 1000
     let match = 0
     for (const t of slideTimingsRef.current) {
+      // < endMs so boundaries naturally advance to next slide
       if (ms >= t.startMs && ms < t.endMs) { match = t.slideNumber; break }
+    }
+    // Past the very end (audio finished) → show last slide
+    if (!match && slideTimingsRef.current.length > 0) {
+      const last = slideTimingsRef.current[slideTimingsRef.current.length - 1]
+      if (ms >= last.endMs) match = last.slideNumber
     }
     if (match && match !== lastSlideRef.current) {
       lastSlideRef.current = match
