@@ -13,6 +13,8 @@ type ViewSidebarProps = {
   viewerFirstViewed?: string
   isOpen?: boolean
   onClose?: () => void
+  currentSlide?: number
+  onSlideClick?: (slideNumber: number) => void
 }
 
 function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
@@ -38,7 +40,7 @@ function formatDuration(ms: number): string {
   return `${minutes}:${seconds.toString().padStart(2, "0")}`
 }
 
-export function ViewSidebar({ title, createdAt, slideCount, expiresAt, viewerFirstViewed, totalDurationMs, isOpen, onClose }: ViewSidebarProps) {
+export function ViewSidebar({ title, createdAt, slideCount, expiresAt, viewerFirstViewed, totalDurationMs, isOpen, onClose, currentSlide, onSlideClick }: ViewSidebarProps) {
   const [copied, setCopied] = useState(false)
 
   function handleCopyLink() {
@@ -60,8 +62,36 @@ export function ViewSidebar({ title, createdAt, slideCount, expiresAt, viewerFir
             value={createdAt ? new Date(createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}
           />
           <InfoRow icon={<Clock className="h-4 w-4" />} label="Duration" value={totalDurationMs !== undefined ? formatDuration(totalDurationMs) : "—"} />
-          <InfoRow icon={<Layers className="h-4 w-4" />} label="Slides" value={String(slideCount)} />
         </div>
+
+        {/* Slide list — clickable */}
+        {slideCount > 0 && (
+          <>
+            <hr className="my-3 border-zinc-100" />
+            <div className="space-y-1">
+              <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-zinc-400">Slides</h4>
+              <div className="max-h-[200px] space-y-0.5 overflow-y-auto">
+                {Array.from({ length: slideCount }, (_, i) => i + 1).map((sn) => (
+                  <button
+                    key={sn}
+                    type="button"
+                    onClick={() => onSlideClick?.(sn)}
+                    className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 ${
+                      (currentSlide ?? 0) + 1 === sn
+                        ? "bg-zinc-100 font-medium text-[#18181B]"
+                        : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-700"
+                    }`}
+                  >
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-[10px] font-medium text-zinc-500">
+                      {sn}
+                    </span>
+                    <span>Slide {sn}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
 
         <hr className="my-3 border-zinc-100" />
 

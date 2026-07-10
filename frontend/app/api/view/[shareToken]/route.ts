@@ -41,10 +41,11 @@ export const GET = withApiHandler(async (
   let sessionVerified = false
   let viewerData: { id: string; email_verified: boolean; created_at: string; viewed_at: string | null } | null = null
 
+  let viewerCompletedAt: string | null = null
   if (sessionToken) {
     const { data: viewer } = await supabase
       .from("viewers")
-      .select("id, email_verified, created_at, viewed_at")
+      .select("id, email_verified, created_at, viewed_at, completed_at")
       .eq("session_token", sessionToken)
       .eq("presentation_id", presentation.id)
       .single()
@@ -52,6 +53,7 @@ export const GET = withApiHandler(async (
     if (viewer?.email_verified) {
       sessionVerified = true
       viewerData = viewer
+      viewerCompletedAt = viewer.completed_at
     }
   }
 
@@ -72,9 +74,17 @@ export const GET = withApiHandler(async (
 
   // No gate (or session verified) â€” return minimal verified response
   let totalDurationMs = 0
+  let slideTimings: { slideNumber: number; startMs: number; endMs: number }[] = []
   try {
     const timings = await getAllSlideDurations(presentation.user_id, presentation.id, presentation.slide_count || 0)
     totalDurationMs = timings.reduce((sum, t) => sum + t.durationMs, 0)
+    // Build cumulative time map: each slide's start/end in ms
+    let acc = 0
+    slideTimings = timings.map((t) => {
+      const startMs = acc
+      acc += t.durationMs
+      return { slideNumber: t.slideNumber, startMs, endMs: acc }
+    })
   } catch {
     // non-critical
   }
@@ -101,8 +111,10 @@ export const GET = withApiHandler(async (
       total_duration_ms: totalDurationMs,
       audio_url: audioUrl,
       audio_version: presentation.audio_version ?? 0,
+      slide_timings: slideTimings,
       viewer_created_at: viewerData ? (viewerData.viewed_at || viewerData.created_at) : null,
       viewer_id: viewerData?.id || null,
+      first_watch_done: !!viewerCompletedAt,
     },
   })
 })

@@ -9,6 +9,7 @@ import { VerifyErrorScreen } from "@/components/view/VerifyErrorScreen"
 import { ViewNavbar } from "@/components/view/ViewNavbar"
 import { ViewFooter } from "@/components/view/ViewFooter"
 import { ViewSidebar } from "@/components/view/ViewSidebar"
+import type { ViewAudioBarHandle, SlideTiming } from "@/components/view/ViewAudioBar"
 
 const ViewSlide = dynamic(() => import("@/components/view/ViewSlide").then((mod) => mod.ViewSlide), {
   ssr: false,
@@ -108,9 +109,11 @@ export default function ViewPresentationPage() {
   const [slidesError, setSlidesError] = useState<string | null>(null)
   const [audioRefreshKey, setAudioRefreshKey] = useState(0)
   const [versionStatus, setVersionStatus] = useState<"synced" | "outdated" | null>(null)
-  const viewDataRef = useRef<{ title: string; created_at?: string; slide_count?: number; expires_at?: string | null; total_duration_ms?: number; audio_url?: string | null; audio_version?: number; viewer_created_at?: string | null; presentation_id?: string; viewer_id?: string | null } | null>(null)
+  const [firstWatch, setFirstWatch] = useState(true)
+  const viewDataRef = useRef<{ title: string; created_at?: string; slide_count?: number; expires_at?: string | null; total_duration_ms?: number; audio_url?: string | null; audio_version?: number; slide_timings?: SlideTiming[]; viewer_created_at?: string | null; presentation_id?: string; viewer_id?: string | null; first_watch_done?: boolean } | null>(null)
   const audioVersionRef = useRef(0)
   const sessionRef = useRef("")
+  const audioRef = useRef<ViewAudioBarHandle>(null)
 
   useEffect(() => {
     const sessionFromUrl = searchParams.get("session")
@@ -200,6 +203,7 @@ export default function ViewPresentationPage() {
       viewDataRef.current = data
       audioVersionRef.current = data.audio_version ?? 0
       setVersionStatus("synced")
+      if (data.first_watch_done !== undefined) setFirstWatch(!data.first_watch_done)
 
       if (data.has_password || data.email_gate_enabled) {
         // Gate still required — check localStorage as cache hint
@@ -272,6 +276,7 @@ export default function ViewPresentationPage() {
               viewDataRef.current = viewJson.data
               audioVersionRef.current = viewJson.data.audio_version ?? 0
               setVersionStatus("synced")
+              if (viewJson.data.first_watch_done !== undefined) setFirstWatch(!viewJson.data.first_watch_done)
               break
             }
           }
@@ -357,6 +362,33 @@ export default function ViewPresentationPage() {
     if (tok) fetchSlides(tok, shareToken)
     setAudioRefreshKey(k => k + 1)
     setVersionStatus("synced")
+  }
+
+  // Navigate to a slide — seeks audio to the slide's start time
+  function goToSlide(slideNumber: number) {
+    const sn = Math.max(1, Math.min(slideNumber, slides?.length || 1))
+    if (audioRef.current) {
+      audioRef.current.seekToSlide(sn)
+    }
+    // Also update currentSlide immediately for instant visual feedback
+    setCurrentSlide(sn - 1)
+    preloadSlides(sn, slides)
+  }
+
+  // Preload PDFs for slides around the current one (next 2, previous)
+  // Fetches into browser cache so react-pdf loads instantly when user navigates
+  function preloadSlides(currentSn: number, allSlides: { slideNumber: number; pdfUrl: string | null }[] | null) {
+    if (!allSlides) return
+    const preloadSn = new Set<number>()
+    for (let i = -1; i <= 2; i++) {
+      const sn = currentSn + i
+      if (sn >= 1 && sn <= allSlides.length) preloadSn.add(sn)
+    }
+    for (const s of allSlides) {
+      if (preloadSn.has(s.slideNumber) && s.pdfUrl && s.slideNumber !== currentSn) {
+        fetch(s.pdfUrl, { cache: "force-cache" }).catch(() => {})
+      }
+    }
   }
 
   function handleGateSuccess(data: { viewer_id: string; viewer_name: string; email: string; session_token?: string; email_sent?: boolean; already_verified?: boolean }) {
@@ -487,6 +519,8 @@ export default function ViewPresentationPage() {
               viewerFirstViewed={viewDataRef.current?.viewer_created_at || undefined}
               isOpen={sidebarOpen}
               onClose={() => setSidebarOpen(false)}
+              currentSlide={currentSlide}
+              onSlideClick={(sn) => goToSlide(sn)}
             />
             <main id="viewer-main-content" className="flex flex-1 flex-col items-center p-4 md:p-8">
               {slidesLoading ? (
@@ -525,7 +559,7 @@ export default function ViewPresentationPage() {
                   <div className="mt-4 flex items-center gap-4">
                     <button
                       type="button"
-                      onClick={() => setCurrentSlide(Math.max(0, currentSlide - 1))}
+                      onClick={() => goToSlide(currentSlide)}
                       disabled={currentSlide === 0}
                       className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-600 transition-colors hover:text-zinc-800 disabled:cursor-not-allowed disabled:opacity-30"
                       aria-label="Previous slide"
@@ -537,7 +571,7 @@ export default function ViewPresentationPage() {
                     </span>
                     <button
                       type="button"
-                      onClick={() => setCurrentSlide(Math.min(slides.length - 1, currentSlide + 1))}
+                      onClick={() => goToSlide(currentSlide + 2)}
                       disabled={currentSlide >= slides.length - 1}
                       className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-600 transition-colors hover:text-zinc-800 disabled:cursor-not-allowed disabled:opacity-30"
                       aria-label="Next slide"
@@ -549,7 +583,7 @@ export default function ViewPresentationPage() {
               ) : null}
             </main>
           </div>
-        <ViewAudioBar key={audioRefreshKey}
+        <ViewAudioBar key={audioRefreshKey} ref={audioRef}
           shareToken={shareToken}
           sessionToken={sessionToken}
           viewerId={state.viewerId}
@@ -558,6 +592,13 @@ export default function ViewPresentationPage() {
           audioUrl={viewDataRef.current?.audio_url || undefined}
           versionStatus={versionStatus}
           onRefresh={applyChanges}
+          slideTimings={viewDataRef.current?.slide_timings}
+          onSlideChange={(sn) => {
+            setCurrentSlide(sn - 1)
+            // Preload slides around the new one
+            preloadSlides(sn, slides)
+          }}
+          firstWatch={firstWatch}
         />
           <ViewFooter />
         </div>

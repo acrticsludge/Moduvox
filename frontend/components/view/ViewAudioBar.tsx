@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from "react"
 import { Howl } from "howler"
 import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Loader2 } from "lucide-react"
 import { Slider } from "@/components/ui/slider"
@@ -8,6 +8,12 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/comp
 
 const SPEEDS = [0.75, 1, 1.25, 1.5, 2] as const
 const PROGRESS_INTERVAL_MS = 30_000
+
+export type SlideTiming = { slideNumber: number; startMs: number; endMs: number }
+
+export interface ViewAudioBarHandle {
+  seekToSlide: (slideNumber: number) => void
+}
 
 type ViewAudioBarProps = {
   shareToken: string
@@ -18,9 +24,15 @@ type ViewAudioBarProps = {
   audioUrl?: string
   versionStatus?: "synced" | "outdated" | null
   onRefresh?: () => void
+  slideTimings?: SlideTiming[]
+  onSlideChange?: (slideNumber: number) => void
+  firstWatch?: boolean
 }
 
-export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationId, totalDurationMs, audioUrl, versionStatus, onRefresh }: ViewAudioBarProps) {
+export const ViewAudioBar = forwardRef<ViewAudioBarHandle, ViewAudioBarProps>(function ViewAudioBar({
+  shareToken, sessionToken, viewerId, presentationId, totalDurationMs, audioUrl,
+  versionStatus, onRefresh, slideTimings = [], onSlideChange, firstWatch = false,
+}, ref) {
   const howlRef = useRef<Howl | null>(null)
   const liveRef = useRef<HTMLDivElement>(null)
   const isSeeking = useRef(false)
@@ -29,6 +41,29 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
   const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const currentTimeRef = useRef(0)
   const durationRef = useRef(0)
+  const maxWatchedRef = useRef(0)
+  const lastSlideRef = useRef(0)
+  const onSlideChangeRef = useRef(onSlideChange)
+  onSlideChangeRef.current = onSlideChange
+
+  // Expose seekToSlide for the parent (click slide in sidebar, prev/next)
+  useImperativeHandle(ref, () => ({
+    seekToSlide(slideNumber: number) {
+      const howl = howlRef.current
+      if (!howl || howl.state() !== "loaded") return
+      const timing = slideTimings.find((t) => t.slideNumber === slideNumber)
+      if (!timing) return
+      const targetSec = timing.startMs / 1000
+      // On first watch, clamp to max watched position
+      const clamped = firstWatch ? Math.min(targetSec, maxWatchedRef.current) : targetSec
+      howl.seek(clamped)
+      setCurrentTime(clamped)
+      currentTimeRef.current = clamped
+      // Notify slide change immediately
+      lastSlideRef.current = slideNumber
+      onSlideChangeRef.current?.(slideNumber)
+    },
+  }))
 
   const [ready, setReady] = useState(false)
   const [playing, setPlaying] = useState(false)
@@ -116,7 +151,7 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
     }
   }, [resolvedUrl, totalDurationMs])
 
-  // RAF polling (replaces onTimeUpdate)
+  // RAF polling (replaces onTimeUpdate) — also detects slide changes
   function startPolling() {
     function poll() {
       const howl = howlRef.current
@@ -125,6 +160,18 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
         const secs = Math.floor(howl.seek() as number)
         setCurrentTime(secs)
         currentTimeRef.current = secs
+        // Track furthest position (for first-watch clamping)
+        if (secs > maxWatchedRef.current) maxWatchedRef.current = secs
+        // Detect slide change
+        const ms = secs * 1000
+        let match = 0
+        for (const t of slideTimings) {
+          if (ms >= t.startMs && ms < t.endMs) { match = t.slideNumber; break }
+        }
+        if (match && match !== lastSlideRef.current) {
+          lastSlideRef.current = match
+          onSlideChangeRef.current?.(match)
+        }
       }
       rafRef.current = requestAnimationFrame(poll)
     }
@@ -223,14 +270,21 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
     }
   }
 
+  function clampSeek(targetSec: number): number {
+    if (!firstWatch) return Math.max(0, targetSec)
+    // On first watch, can rewind anywhere but cannot skip ahead of furthest position
+    return Math.min(Math.max(0, targetSec), maxWatchedRef.current)
+  }
+
   function skipSeconds(offset: number) {
     const howl = howlRef.current
     if (!howl || howl.state() !== "loaded") return
     const cur = howl.seek() as number
     const dur = howl.duration() || 0
-    const newTime = Math.max(0, Math.min(dur, cur + offset))
+    const newTime = clampSeek(cur + offset)
     howl.seek(newTime)
     setCurrentTime(Math.floor(newTime))
+    currentTimeRef.current = Math.floor(newTime)
   }
 
   function handleSeek(value: number[]) {
@@ -240,8 +294,10 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
   function handleSeekEnd(value: number[]) {
     const howl = howlRef.current
     if (!howl || howl.state() !== "loaded") return
-    howl.seek(value[0])
-    setCurrentTime(value[0])
+    const clamped = clampSeek(value[0])
+    howl.seek(clamped)
+    setCurrentTime(clamped)
+    currentTimeRef.current = clamped
     isSeeking.current = false
   }
 
@@ -392,4 +448,4 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
       </div>
     </TooltipProvider>
   )
-}
+})
