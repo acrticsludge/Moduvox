@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { withApiHandler } from "@/lib/api-handler"
 
 export const GET = withApiHandler(async (
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) => {
   try {
@@ -34,12 +34,19 @@ export const GET = withApiHandler(async (
       return NextResponse.json({ error: "Presentation not found" }, { status: 404 })
     }
 
+    // Pagination
+    const { searchParams } = new URL(request.url)
+    const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1)
+    const limit = Math.min(200, Math.max(1, parseInt(searchParams.get("limit") ?? "50", 10) || 50))
+    const offset = (page - 1) * limit
+
     // Get viewers ordered by most recent first
-    const { data: viewers, error } = await supabase
+    const { data: viewers, error, count } = await supabase
       .from("viewers")
-      .select("id, viewer_name, viewer_email, email_verified, consent_granted, viewed_at, completed_at, time_spent_seconds, progress_pct, created_at")
+      .select("id, viewer_name, viewer_email, email_verified, consent_granted, viewed_at, completed_at, time_spent_seconds, progress_pct, created_at", { count: "exact" })
       .eq("presentation_id", presentationId)
       .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1)
 
     if (error) {
       console.error("Failed to fetch viewers:", error.message)
@@ -49,8 +56,6 @@ export const GET = withApiHandler(async (
     const result = (viewers || []).map((v) => {
       let status: "not_viewed" | "in_progress" | "completed" = "not_viewed"
       if (v.completed_at && (v.time_spent_seconds ?? 0) >= 30) {
-        // Only mark completed if the viewer actually listened for ≥30s.
-        // Short/stub audio (<30s) reaching its end should not count as finished.
         status = "completed"
       } else if (v.viewed_at) {
         status = "in_progress"
@@ -74,7 +79,7 @@ export const GET = withApiHandler(async (
     return NextResponse.json({
       data: {
         viewers: result,
-        total: result.length,
+        total: count ?? result.length,
       },
     })
   } catch {

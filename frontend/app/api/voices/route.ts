@@ -4,7 +4,7 @@ import { createPresetVoiceSchema } from "@/lib/validations/voice"
 import { checkPresetVoiceQuota, quotaBlockResponse } from "@/lib/quota"
 import { withApiHandler } from "@/lib/api-handler"
 
-export const GET = withApiHandler(async () => {
+export const GET = withApiHandler(async (request: Request) => {
   const supabase = await createClient()
 
   const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -12,19 +12,27 @@ export const GET = withApiHandler(async () => {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const { data, error } = await supabase
+  const { searchParams } = new URL(request.url)
+  const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1)
+  const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") ?? "50", 10) || 50))
+  const offset = (page - 1) * limit
+
+  const query = supabase
     .from("voices")
-    .select("id, name, type, preset_id, control_instruction, sample_path, preview_audio_path, sample_duration_seconds, emotion_default, is_active, created_at")
+    .select("id, name, type, preset_id, control_instruction, sample_path, preview_audio_path, sample_duration_seconds, emotion_default, is_active, created_at", { count: "exact" })
     .eq("user_id", user.id)
     .eq("is_active", true)
     .order("created_at", { ascending: false })
+    .range(offset, offset + limit - 1)
+
+  const { data, error, count } = await query
 
   if (error) {
     console.error("GET /api/voices:", error.message)
     return NextResponse.json({ error: "Failed to fetch voices" }, { status: 500 })
   }
 
-  return NextResponse.json({ data })
+  return NextResponse.json({ data, total: count ?? data.length })
 })
 
 export const POST = withApiHandler(async (request: Request) => {
