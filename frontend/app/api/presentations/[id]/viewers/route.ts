@@ -48,7 +48,9 @@ export const GET = withApiHandler(async (
 
     const result = (viewers || []).map((v) => {
       let status: "not_viewed" | "in_progress" | "completed" = "not_viewed"
-      if (v.completed_at) {
+      if (v.completed_at && (v.time_spent_seconds ?? 0) >= 30) {
+        // Only mark completed if the viewer actually listened for ≥30s.
+        // Short/stub audio (<30s) reaching its end should not count as finished.
         status = "completed"
       } else if (v.viewed_at) {
         status = "in_progress"

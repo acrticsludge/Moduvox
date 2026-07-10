@@ -82,7 +82,8 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
         setPlaying(false)
         stopPolling()
         stopProgressInterval()
-        sendTracking("completed", 100)
+        const secs = Math.round(currentTimeRef.current)
+        sendTracking("completed", 100, secs)
       },
       onseek: () => {
         setCurrentTime(Math.floor(howl.seek() as number))
