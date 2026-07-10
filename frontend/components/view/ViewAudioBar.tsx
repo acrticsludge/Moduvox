@@ -160,11 +160,12 @@ export function ViewAudioBar({
         sendTracking("completed", 100, secs)
       },
       onseek: () => {
+        // Don't detect slide here — seek callers (seekToSlide, handleSeekEnd,
+        // skipSeconds) already run detectSlide with the exact target time.
+        // onseek may fire with a stale position (HTML5 audio quirk).
         const secs = Math.floor(howl.seek() as number)
         setCurrentTime(secs)
         currentTimeRef.current = secs
-        // Backup slide detection — may fire late on some browsers
-        detectSlide(secs)
       },
     })
     howlRef.current = howl
