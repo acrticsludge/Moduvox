@@ -887,7 +887,7 @@ export function SlideEditor({
                 </div>
               )}
             </div>
-            <div className="absolute bottom-3 right-3 flex gap-2">
+            <div className="absolute bottom-3 right-3 flex flex-wrap justify-end gap-1.5">
               <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-[#71717A] shadow-sm transition-colors hover:text-[#18181B]">
                 <FileText className="h-3 w-3" />
                 Re-upload
@@ -935,7 +935,7 @@ export function SlideEditor({
                 className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-[#71717A] shadow-sm transition-colors hover:text-[#18181B]"
               >
                 <ExternalLink className="h-3 w-3" />
-                Open in full screen
+                Full screen
               </a>
             </div>
           </>
