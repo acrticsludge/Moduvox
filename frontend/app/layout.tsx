@@ -4,6 +4,7 @@ import { Analytics } from "@vercel/analytics/next";
 import Script from "next/script";
 import { Toaster } from "react-hot-toast";
 import { UnhandledRejectionHandler } from "@/components/UnhandledRejectionHandler";
+import { CookieConsentBanner } from "@/components/CookieConsentBanner";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -39,6 +40,7 @@ export default function RootLayout({
         <UnhandledRejectionHandler />
         <Toaster position="top-center" />
         {children}
+        <CookieConsentBanner />
         <Analytics />
         {process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID && (
           <>

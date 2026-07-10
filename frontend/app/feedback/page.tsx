@@ -636,7 +636,9 @@ export default function FeedbackPage() {
     }
 
     try {
-      const res = await fetch("/api/feedback", {
+      const cookieConsented = typeof window !== "undefined" && localStorage.getItem("moduvox_cookie_consent") === "accepted"
+      const feedbackUrl = `/api/feedback${cookieConsented ? "?cookie_consent=true" : ""}`
+      const res = await fetch(feedbackUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

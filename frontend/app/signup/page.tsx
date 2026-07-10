@@ -1,12 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { FieldError } from "@/components/ui/ErrorBanner"
 import { toastError } from "@/components/ui/CustomToast"
+
+declare global {
+  interface Window {
+    grecaptcha?: {
+      ready: (cb: () => void) => void
+      execute: (siteKey: string, opts: { action: string }) => Promise<string>
+    }
+  }
+}
 
 export default function SignupPage() {
   const [checkingAuth, setCheckingAuth] = useState(true);
@@ -18,6 +27,8 @@ export default function SignupPage() {
   const [success, setSuccess] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const recaptchaLoaded = useRef(false)
   const router = useRouter();
   const supabase = createClient();
 
@@ -34,6 +45,19 @@ export default function SignupPage() {
       return () => clearTimeout(timer)
     }
   }, [success, router])
+
+  // Load reCAPTCHA v3 script
+  useEffect(() => {
+    if (!process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY) return
+    if (recaptchaLoaded.current) return
+    if (document.querySelector('script[src*="recaptcha/api.js"]')) return
+    recaptchaLoaded.current = true
+    const script = document.createElement("script")
+    script.src = `https://www.google.com/recaptcha/api.js?render=${process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY}`
+    script.async = true
+    script.defer = true
+    document.head.appendChild(script)
+  }, [])
 
   // If already logged in, go to dashboard
   useEffect(() => {
@@ -57,10 +81,42 @@ export default function SignupPage() {
     if (!email.trim()) errors.email = "Email is required"
     if (!password) errors.password = "Password is required"
     else if (password.length < 6) errors.password = "Password must be at least 6 characters"
+    if (!acceptedTerms) errors.terms = "You must agree to the Terms of Service"
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors)
       setLoading(false)
       return
+    }
+
+    // Verify reCAPTCHA
+    if (process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY && window.grecaptcha) {
+      try {
+        const token = await new Promise<string>((resolve, reject) => {
+          window.grecaptcha!.ready(async () => {
+            try {
+              const t = await window.grecaptcha!.execute(
+                process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY!,
+                { action: "signup" },
+              )
+              resolve(t)
+            } catch (e) { reject(e) }
+          })
+        })
+        const verifyRes = await fetch("/api/auth/verify-captcha", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token }),
+        })
+        if (!verifyRes.ok) {
+          toastError("Security check failed. Please try again.")
+          setLoading(false)
+          return
+        }
+      } catch {
+        toastError("Security check failed. Please try again.")
+        setLoading(false)
+        return
+      }
     }
 
     const { data, error } = await supabase.auth.signUp({
@@ -80,6 +136,14 @@ export default function SignupPage() {
       toastError("An account with this email already exists. Please log in instead.");
       setLoading(false);
       return;
+    }
+
+    // Record ToS acceptance
+    if (data.session?.access_token) {
+      fetch("/api/auth/accept-terms", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${data.session.access_token}` },
+      }).catch(() => {})
     }
 
     // Success! Show green glow then redirect
@@ -185,6 +249,29 @@ export default function SignupPage() {
                   placeholder="At least 6 characters" />
                 <FieldError message={fieldErrors.password} />
               </div>
+              {/* ToS / Privacy agreement */}
+              <div className="space-y-1">
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={acceptedTerms}
+                    onChange={(e) => { setAcceptedTerms(e.target.checked); setFieldErrors((prev) => ({ ...prev, terms: "" })) }}
+                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-zinc-300 text-[#18181B] focus:ring-zinc-500"
+                  />
+                  <span className="text-sm leading-relaxed text-zinc-600">
+                    I agree to the{" "}
+                    <Link href="/terms" target="_blank" className="font-medium text-[#18181B] underline underline-offset-2 hover:text-zinc-900">
+                      Terms of Service
+                    </Link>{" "}
+                    and{" "}
+                    <Link href="/privacy" target="_blank" className="font-medium text-[#18181B] underline underline-offset-2 hover:text-zinc-900">
+                      Privacy Policy
+                    </Link>
+                  </span>
+                </label>
+                <FieldError message={fieldErrors.terms} />
+              </div>
+
               <button type="submit" disabled={loading}
                 className="flex w-full items-center justify-center gap-2 rounded-lg border border-[#18181B]/70 bg-[#18181B] px-4 py-2.5 text-sm font-medium text-white transition-all hover:border-[#18181B] hover:bg-[#27272A] active:scale-[0.98] disabled:opacity-50">
                 {loading ? <><Loader2 className="h-4 w-4 animate-spin" /> Creating account...</> : "Create account"}

@@ -127,8 +127,12 @@ export const POST = withApiHandler(async (request: Request) => {
       )
     }
 
-    // ── Success — set cooldown cookie ───────────────────────
+    // ── Success — set cooldown cookie (only if consented) ──
     const response = NextResponse.json({ data: { ok: true } }, { status: 201 })
+    const cookieConsent = new URL(request.url).searchParams.get("cookie_consent")
+    if (cookieConsent !== "true") {
+      return response // skip non-essential cookie without consent
+    }
     response.cookies.set(COOKIE_NAME, String(Date.now()), {
       maxAge: COOLDOWN_MS / 1000,
       path: "/",
