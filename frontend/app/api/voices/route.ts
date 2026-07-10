@@ -14,7 +14,7 @@ export const GET = withApiHandler(async () => {
 
   const { data, error } = await supabase
     .from("voices")
-    .select("*")
+    .select("id, name, type, preset_id, control_instruction, sample_path, preview_audio_path, sample_duration_seconds, emotion_default, is_active, created_at")
     .eq("user_id", user.id)
     .eq("is_active", true)
     .order("created_at", { ascending: false })

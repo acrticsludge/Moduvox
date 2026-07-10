@@ -13,7 +13,7 @@ export const GET = withApiHandler(async () => {
 
   const { data, error } = await supabase
     .from("projects")
-    .select("*")
+    .select("id, name, description, color, icon, created_at")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false })
 

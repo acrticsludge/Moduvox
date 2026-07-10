@@ -18,7 +18,7 @@ export const DELETE = withApiHandler(async (
   // Fetch the voice first to check ownership and get sample_path
   const { data: voice, error: fetchError } = await supabase
     .from("voices")
-    .select("*")
+    .select("id, user_id, sample_path")
     .eq("id", id)
     .single()
 
