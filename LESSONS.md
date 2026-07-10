@@ -1,3 +1,13 @@
+## 2026-07-10: [Bug] forwardRef + next/dynamic causes "Component is not a function" runtime error
+
+**What happened:** Wrapping a dynamically-imported component in `forwardRef` caused a runtime error: "Component is not a function". The dynamic import (`next/dynamic` with named export) resolved fine, but React couldn't render the `forwardRef`-wrapped component.
+
+**Root cause:** `next/dynamic` with a named export `.then(mod => mod.Component)` returns the raw `forwardRef` wrapper object, which some React/Next.js versions can't reconcile as a valid component in the dynamic import path.
+
+**Fix:** Replaced `forwardRef` + `useImperativeHandle` with a simple ref object prop pattern: the parent creates `useRef<SeekToSlideFn | null>(null)` and passes it as `seekToSlideRef`. The child sets `.current` to a plain function on mount. Same effect, zero forwardRef complexity.
+
+**Prevention:** Avoid `forwardRef` with `next/dynamic` named-export imports. Use ref object props instead — they're simpler and more portable.
+
 ## 2026-07-10: [Architecture] View page had no change detection — stale audio after edit page regen
 
 **What happened:** When the edit page regenerated audio, the view page (already open) kept playing the old combined.wav indefinitely. Viewers would hear stale content with no indication anything changed.

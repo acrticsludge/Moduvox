@@ -110,7 +110,9 @@ export function ViewAudioBar({
       html5: true,
       preload: true,
       onload: () => {
-        const d = totalDurationMs ? Math.floor(totalDurationMs / 1000) : Math.floor(howl.duration())
+        // Use howl.duration() as source of truth — the API-computed
+        // total_duration_ms may be stale if combined.wav wasn't rebuilt yet.
+        const d = Math.floor(howl.duration())
         setDuration(d)
         durationRef.current = d
         setReady(true)
