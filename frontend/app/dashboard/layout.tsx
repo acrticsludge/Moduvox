@@ -68,7 +68,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Mobile sidebar overlay */}
         {sidebarOpen && (
           <div
-            className="fixed inset-0 z-30 bg-[#18181B]/40 md:hidden"
+            className="fixed inset-0 z-40 bg-[#18181B]/40 md:hidden"
             onClick={() => setSidebarOpen(false)}
           />
         )}
@@ -77,13 +77,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {/* ========== SIDEBAR ========== */}
           <ErrorBoundary
             fallback={
-              <aside className="fixed bottom-0 left-0 top-16 z-30 flex w-56 flex-col border-r border-[var(--color-border-faint)] bg-white p-4 md:static">
+              <aside className="fixed bottom-0 left-0 top-16 z-40 flex w-56 flex-col border-r border-[var(--color-border-faint)] bg-white p-4 md:static">
                 <p className="text-sm text-[#71717A]">Sidebar unavailable</p>
               </aside>
             }
           >
           <aside
-            className={`fixed bottom-0 left-0 top-16 z-30 flex w-56 flex-col border-r border-[var(--color-border-faint)] bg-white transition-transform duration-300 md:static md:translate-x-0 ${
+            className={`fixed bottom-0 left-0 top-16 z-40 flex w-56 flex-col border-r border-[var(--color-border-faint)] bg-white transition-transform duration-300 md:static md:translate-x-0 ${
               sidebarOpen ? "translate-x-0" : "-translate-x-full"
             }`}
           >
