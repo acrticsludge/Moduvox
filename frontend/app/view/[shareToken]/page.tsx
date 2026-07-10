@@ -366,9 +366,10 @@ export default function ViewPresentationPage() {
   }
 
   // Navigate to a slide — seeks audio to the slide's start time
+  // force=true bypasses first-watch clamp so sidebar/prev-next always work
   function goToSlide(slideNumber: number) {
     const sn = Math.max(1, Math.min(slideNumber, slides?.length || 1))
-    seekToSlideRef.current?.(sn)
+    seekToSlideRef.current?.(sn, true)
     // Also update currentSlide immediately for instant visual feedback
     setCurrentSlide(sn - 1)
     preloadSlides(sn, slides)

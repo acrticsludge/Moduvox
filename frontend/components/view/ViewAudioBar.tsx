@@ -11,7 +11,7 @@ const PROGRESS_INTERVAL_MS = 30_000
 
 export type SlideTiming = { slideNumber: number; startMs: number; endMs: number }
 
-export type SeekToSlideFn = (slideNumber: number) => void
+export type SeekToSlideFn = (slideNumber: number, force?: boolean) => void
 
 type ViewAudioBarProps = {
   shareToken: string
@@ -71,14 +71,15 @@ export function ViewAudioBar({
   }
 
   // Expose seekToSlide for the parent via the ref object prop
-  const seekToSlide: SeekToSlideFn = (slideNumber: number) => {
+  const seekToSlide: SeekToSlideFn = (slideNumber: number, force?: boolean) => {
     const howl = howlRef.current
     if (!howl || howl.state() !== "loaded") return
     const timing = slideTimingsRef.current.find((t) => t.slideNumber === slideNumber)
     if (!timing) return
     const targetSec = timing.startMs / 1000
-    // On first watch, clamp to max watched position
-    const clamped = firstWatchRef.current ? Math.min(targetSec, maxWatchedRef.current) : targetSec
+    // force=true bypasses first-watch clamp (used by sidebar / prev-next navigation).
+    // force=false (default) clamps to maxWatched so seek-bar and skip buttons can't skip ahead.
+    const clamped = (firstWatchRef.current && !force) ? Math.min(targetSec, maxWatchedRef.current) : targetSec
     howl.seek(clamped)
     setCurrentTime(clamped)
     currentTimeRef.current = clamped
