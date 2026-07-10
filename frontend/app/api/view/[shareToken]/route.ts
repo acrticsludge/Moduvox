@@ -14,7 +14,7 @@ export const GET = withApiHandler(async (
 
   const { data: presentation } = await supabase
     .from("presentations")
-    .select("id, user_id, title, slide_count, password_hash, expires_at, email_gate_enabled, created_at, status")
+    .select("id, user_id, title, slide_count, password_hash, expires_at, email_gate_enabled, created_at, status, audio_version")
     .eq("share_token", shareToken)
     .single()
 
@@ -65,6 +65,7 @@ export const GET = withApiHandler(async (
         has_password: !!presentation.password_hash,
         email_gate_enabled: presentation.email_gate_enabled,
         created_at: presentation.created_at,
+        audio_version: presentation.audio_version ?? 0,
       },
     })
   }
@@ -99,6 +100,7 @@ export const GET = withApiHandler(async (
       expires_at: presentation.expires_at,
       total_duration_ms: totalDurationMs,
       audio_url: audioUrl,
+      audio_version: presentation.audio_version ?? 0,
       viewer_created_at: viewerData ? (viewerData.viewed_at || viewerData.created_at) : null,
       viewer_id: viewerData?.id || null,
     },

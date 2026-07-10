@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { generateWithPreset, generateWithClone } from "@/lib/voxcpm"
 import { isValidWav, detectFormat } from "@/lib/wav-utils"
 import { toWav } from "@/lib/audio-convert"
@@ -100,6 +101,14 @@ export const POST = withApiHandler(async (request: Request) => {
     // Invalidate the combined audio cache so it gets rebuilt from fresh per-slide WAVs
     const combinedKey = `${user.id}/audio/${presentation_id}/combined.wav`
     await deleteFile(combinedKey).catch(() => {})
+
+    // Bump audio_version so the view page can detect the change
+    try {
+      const admin = createAdminClient()
+      await admin.rpc("increment_audio_version", { p_presentation_id: presentation_id })
+    } catch (err) {
+      console.error("Failed to bump audio_version:", err)
+    }
 
     return NextResponse.json({ data: { slide_number } })
   } catch (err) {
