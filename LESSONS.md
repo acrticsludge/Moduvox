@@ -1,3 +1,13 @@
+## 2026-07-10: [Architecture] View page had no change detection — stale audio after edit page regen
+
+**What happened:** When the edit page regenerated audio, the view page (already open) kept playing the old combined.wav indefinitely. Viewers would hear stale content with no indication anything changed.
+
+**Root cause:** Three problems stacked: (1) the view page fetched all data once on mount with no polling, (2) no version marker existed to detect that audio was regenerated, (3) the ensure endpoint served existing combined.wav without checking freshness vs per-slide WAVs.
+
+**Fix:** Added `audio_version INTEGER DEFAULT 0` to presentations table + `increment_audio_version` RPC. The slide generation route bumps this on every regen. The view API returns it. The view page polls every 30s and shows a banner ("This presentation has been updated — Refresh to apply") when it changes. Clicking "Refresh" re-fetches slides and forces audio remount via a React key.
+
+**Prevention:** Any dual-context feature (edit + view) needs a version-based change detection mechanism. Ref-based state (viewDataRef) is invisible to React renders — use state for reactive UI and refs only for values that don't affect rendering.
+
 ## 2026-07-10: [Security] Daily email cap missing on gate route — Resend abuse vector
 
 **What happened:** The gate route had no per-presentation daily email cap. An attacker could submit different email addresses repeatedly and drain Resend credits.

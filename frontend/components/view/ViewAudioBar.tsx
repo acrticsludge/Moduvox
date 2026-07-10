@@ -42,12 +42,23 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
   // If audioUrl wasn't provided (combined.wav doesn't exist yet), call ensure endpoint
   useEffect(() => {
     if (resolvedUrl) return
+    if (!presentationId) return // no presentation to fetch audio for
+
+    let cancelled = false
     fetch(`/api/presentations/${presentationId}/audio/ensure?session=${sessionToken}`)
-      .then((r) => r.json())
+      .then(async (r) => {
+        if (!r.ok) throw new Error(`Ensure returned ${r.status}`)
+        const text = await r.text()
+        let json: unknown
+        try { json = JSON.parse(text) } catch { throw new Error("Ensure returned non-JSON") }
+        return json as { data?: { audioUrl?: string } }
+      })
       .then((json) => {
-        if (json.data?.audioUrl) setResolvedUrl(json.data.audioUrl)
+        if (!cancelled && json.data?.audioUrl) setResolvedUrl(json.data.audioUrl)
       })
       .catch((err) => { console.error("[ViewAudioBar] Audio fetch failed:", err) })
+
+    return () => { cancelled = true }
   }, [resolvedUrl, presentationId, sessionToken])
 
   // Howler initialization

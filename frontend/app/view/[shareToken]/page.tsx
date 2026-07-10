@@ -107,7 +107,7 @@ export default function ViewPresentationPage() {
   const [slidesLoading, setSlidesLoading] = useState(false)
   const [slidesError, setSlidesError] = useState<string | null>(null)
   const [audioRefreshKey, setAudioRefreshKey] = useState(0)
-  const [showRefreshBanner, setShowRefreshBanner] = useState(false)
+  const [versionStatus, setVersionStatus] = useState<"synced" | "outdated" | null>(null)
   const viewDataRef = useRef<{ title: string; created_at?: string; slide_count?: number; expires_at?: string | null; total_duration_ms?: number; audio_url?: string | null; audio_version?: number; viewer_created_at?: string | null; presentation_id?: string; viewer_id?: string | null } | null>(null)
   const audioVersionRef = useRef(0)
   const sessionRef = useRef("")
@@ -198,6 +198,8 @@ export default function ViewPresentationPage() {
 
       const data = json.data
       viewDataRef.current = data
+      audioVersionRef.current = data.audio_version ?? 0
+      setVersionStatus("synced")
 
       if (data.has_password || data.email_gate_enabled) {
         // Gate still required — check localStorage as cache hint
@@ -260,13 +262,22 @@ export default function ViewPresentationPage() {
       saveSession(shareToken, sessionToken)
 
       // Fetch presentation metadata for the sidebar (viewDataRef)
-      try {
-        const viewRes = await fetch(`/api/view/${shareToken}?session=${sessionToken}`)
-        if (viewRes.ok) {
-          const viewJson = await viewRes.json()
-          if (viewJson.data) viewDataRef.current = viewJson.data
-        }
-      } catch { /* ignore — sidebar will use fallback values */ }
+      // Retry a few times — the presentation may not be queryable yet
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const viewRes = await fetch(`/api/view/${shareToken}?session=${sessionToken}`)
+          if (viewRes.ok) {
+            const viewJson = await viewRes.json()
+            if (viewJson.data) {
+              viewDataRef.current = viewJson.data
+              audioVersionRef.current = viewJson.data.audio_version ?? 0
+              setVersionStatus("synced")
+              break
+            }
+          }
+        } catch { /* retry */ }
+        if (attempt < 2) await new Promise((r) => setTimeout(r, 1000))
+      }
 
       setState({
         type: "verified",
@@ -329,7 +340,7 @@ export default function ViewPresentationPage() {
         if (newVersion !== audioVersionRef.current) {
           audioVersionRef.current = newVersion
           viewDataRef.current = json.data
-          setShowRefreshBanner(true)
+          setVersionStatus("outdated")
         }
       } catch {
         // silent — polling errors should not disrupt the viewer
@@ -345,7 +356,7 @@ export default function ViewPresentationPage() {
     const tok = sessionRef.current
     if (tok) fetchSlides(tok, shareToken)
     setAudioRefreshKey(k => k + 1)
-    setShowRefreshBanner(false)
+    setVersionStatus("synced")
   }
 
   function handleGateSuccess(data: { viewer_id: string; viewer_name: string; email: string; session_token?: string; email_sent?: boolean; already_verified?: boolean }) {
@@ -455,26 +466,31 @@ export default function ViewPresentationPage() {
         <div className="flex min-h-screen flex-col bg-[#F9FAFB]">
           <ViewNavbar />
 
-          {/* Refresh banner — shown when audio_version changes on the edit page */}
-          {showRefreshBanner && (
-            <div className="flex items-center justify-center gap-3 border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-              <span>This presentation has been updated.</span>
-              <button
-                type="button"
-                onClick={applyChanges}
-                className="ml-1 rounded-md bg-amber-200/60 px-2.5 py-1 font-medium text-amber-900 transition-colors hover:bg-amber-200/90"
+          {/* Version status badge — inside the audio bar */}
+          {versionStatus && (
+            <div
+              className="mx-auto flex max-w-[1400px] items-center justify-end px-4 pb-1"
+            >
+              <div
+                className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] leading-none"
+                style={versionStatus === "synced"
+                  ? { borderColor: "#bbf7d0", backgroundColor: "#f0fdf4", color: "#166534" }
+                  : { borderColor: "#fde68a", backgroundColor: "#fffbeb", color: "#92400e" }}
               >
-                Refresh to apply
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowRefreshBanner(false)}
-                className="ml-auto rounded p-1 text-amber-600 transition-colors hover:bg-amber-200/60"
-                aria-label="Dismiss"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              </button>
+                {versionStatus === "synced" ? (
+                  <>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    <span>Up to date</span>
+                  </>
+                ) : (
+                  <>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                    <button type="button" onClick={applyChanges} className="underline decoration-dotted underline-offset-2 hover:decoration-solid leading-none">
+                      Changes detected — Refresh to apply
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
           )}
 
