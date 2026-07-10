@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
 import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 
 export const metadata: Metadata = {
   title: "Verify access — Moduvox",
@@ -28,7 +28,7 @@ export default async function VerifyPage({
     )
   }
 
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   // Find the presentation by share_token
   const { data: presentation } = await supabase

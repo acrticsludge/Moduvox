@@ -182,7 +182,20 @@ export const POST = withApiHandler(async (
     })
   }
 
-  // Upsert viewer â€” create or update in one shot
+  // Daily email cap: 20 magic link sends per presentation per 24h
+  // Counts viewers with verification_sent_at in the window as a proxy
+  // for emails sent (both count and cap set conservatively).
+  const { count: dailyEmailCount } = await supabase
+    .from("viewers")
+    .select("id", { count: "exact", head: true })
+    .eq("presentation_id", presentation.id)
+    .gte("verification_sent_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+
+  if (dailyEmailCount !== null && dailyEmailCount >= 20) {
+    return NextResponse.json({ error: "Too many requests. Please try again later." }, { status: 429 })
+  }
+
+  // Upsert viewer — create or update in one shot
   const newSessionToken = crypto.randomUUID()
 
   const { data: viewer, error: viewerError } = await supabase
@@ -245,17 +258,16 @@ export const POST = withApiHandler(async (
   }
 
   if (!emailSent) {
-    return NextResponse.json({
-      data: {
-        viewer_id: viewer.id,
-        viewer_name: viewer.viewer_name,
-        viewer_email: viewer.viewer_email,
-        email_sent: false,
-        message: !process.env.RESEND_API_KEY
-          ? "Email service not configured. Contact the presentation owner."
-          : "We couldn't send the verification email. Please try again.",
-      },
-    })
+    // Clean up orphaned viewer record — email never arrived so there's
+    // no way for the viewer to verify. The user can retry on the gate form.
+    await supabase.from("viewers").delete().eq("id", viewer.id).maybeSingle()
+
+    return NextResponse.json(
+      { error: !process.env.RESEND_API_KEY
+        ? "Email service not configured."
+        : "We couldn't send the verification email. Please try again." },
+      { status: 500 },
+    )
   }
 
   return NextResponse.json({

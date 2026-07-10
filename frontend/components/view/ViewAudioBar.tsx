@@ -7,6 +7,7 @@ import { Slider } from "@/components/ui/slider"
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip"
 
 const SPEEDS = [0.75, 1, 1.25, 1.5, 2] as const
+const PROGRESS_INTERVAL_MS = 30_000
 
 type ViewAudioBarProps = {
   shareToken: string
@@ -23,6 +24,9 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
   const isSeeking = useRef(false)
   const trackedOpened = useRef(false)
   const rafRef = useRef<number>(0)
+  const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const currentTimeRef = useRef(0)
+  const durationRef = useRef(0)
 
   const [ready, setReady] = useState(false)
   const [playing, setPlaying] = useState(false)
@@ -57,6 +61,7 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
       onload: () => {
         const d = totalDurationMs ? Math.floor(totalDurationMs / 1000) : Math.floor(howl.duration())
         setDuration(d)
+        durationRef.current = d
         setReady(true)
       },
       onloaderror: (_id: number, err: unknown) => {
@@ -66,14 +71,17 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
       onplay: () => {
         setPlaying(true)
         startPolling()
+        startProgressInterval()
       },
       onpause: () => {
         setPlaying(false)
         stopPolling()
+        stopProgressInterval()
       },
       onend: () => {
         setPlaying(false)
         stopPolling()
+        stopProgressInterval()
         sendTracking("completed", 100)
       },
       onseek: () => {
@@ -88,6 +96,7 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
     return () => {
       clearTimeout(fallbackTimer)
       stopPolling()
+      stopProgressInterval()
       howl.unload()
       howlRef.current = null
     }
@@ -99,7 +108,9 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
       const howl = howlRef.current
       if (!howl || !howl.playing()) return
       if (!isSeeking.current) {
-        setCurrentTime(Math.floor(howl.seek() as number))
+        const secs = Math.floor(howl.seek() as number)
+        setCurrentTime(secs)
+        currentTimeRef.current = secs
       }
       rafRef.current = requestAnimationFrame(poll)
     }
@@ -110,18 +121,43 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
     cancelAnimationFrame(rafRef.current)
   }
 
+  function startProgressInterval() {
+    stopProgressInterval()
+    progressIntervalRef.current = setInterval(() => {
+      const total = durationRef.current || 1
+      const current = currentTimeRef.current
+      const pct = Math.min(100, Math.round((current / total) * 100))
+      sendTracking("progress", pct, Math.round(current))
+    }, PROGRESS_INTERVAL_MS)
+  }
+
+  function stopProgressInterval() {
+    if (progressIntervalRef.current !== null) {
+      clearInterval(progressIntervalRef.current)
+      progressIntervalRef.current = null
+    }
+  }
+
   // Track "opened" once
   useEffect(() => {
     if (trackedOpened.current) return
     trackedOpened.current = true
-    sendTracking("opened")
+    sendTracking("opened", 0, 0)
   }, [])
 
-  // Track "closed" on tab close
+  // Track "closed" on tab hide — uses sendBeacon (not fetch) so it survives page unload
   useEffect(() => {
     function handleVisibility() {
       if (document.visibilityState === "hidden") {
-        const body = JSON.stringify({ session_token: sessionToken, event_type: "closed" })
+        const total = durationRef.current || 1
+        const current = currentTimeRef.current
+        const pct = Math.min(100, Math.round((current / total) * 100))
+        const body = JSON.stringify({
+          session_token: sessionToken,
+          event_type: "closed",
+          progress_pct: pct,
+          time_spent_seconds: current,
+        })
         navigator.sendBeacon(`/api/view/${shareToken}/track`, body)
       }
     }
@@ -148,12 +184,17 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
     if (liveRef.current) liveRef.current.textContent = playing ? "Playing" : "Paused"
   }, [playing])
 
-  async function sendTracking(eventType: string, progressPct?: number) {
+  async function sendTracking(eventType: string, progressPct?: number, timeSpentSeconds?: number) {
     try {
       await fetch(`/api/view/${shareToken}/track`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session_token: sessionToken, event_type: eventType, progress_pct: progressPct }),
+        body: JSON.stringify({
+          session_token: sessionToken,
+          event_type: eventType,
+          progress_pct: progressPct,
+          time_spent_seconds: timeSpentSeconds,
+        }),
       })
     } catch (err) { console.error("[ViewAudioBar] Tracking failed:", err) }
   }

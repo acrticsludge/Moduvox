@@ -34,7 +34,7 @@ export const passwordOnlyGateSchema = z.object({
 
 export const trackEventSchema = z.object({
   session_token: z.string().uuid(),
-  event_type: z.enum(["opened", "slide_viewed", "completed", "closed"]),
+  event_type: z.enum(["opened", "slide_viewed", "completed", "closed", "progress"]),
   slide_number: z.number().int().positive().optional(),
   progress_pct: z.number().min(0).max(100).optional(),
   time_spent_seconds: z.number().int().min(0).optional(),
