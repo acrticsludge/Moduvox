@@ -110,6 +110,7 @@ export default function ViewPresentationPage() {
   const [audioRefreshKey, setAudioRefreshKey] = useState(0)
   const [versionStatus, setVersionStatus] = useState<"synced" | "outdated" | null>(null)
   const [firstWatch, setFirstWatch] = useState(true)
+  const [realDurationMs, setRealDurationMs] = useState<number | undefined>(undefined)
   const viewDataRef = useRef<{ title: string; created_at?: string; slide_count?: number; expires_at?: string | null; total_duration_ms?: number; audio_url?: string | null; audio_version?: number; slide_timings?: SlideTiming[]; viewer_created_at?: string | null; presentation_id?: string; viewer_id?: string | null; first_watch_done?: boolean } | null>(null)
   const audioVersionRef = useRef(0)
   const sessionRef = useRef("")
@@ -513,7 +514,7 @@ export default function ViewPresentationPage() {
               createdAt={viewDataRef.current?.created_at}
               slideCount={viewDataRef.current?.slide_count || 0}
               expiresAt={viewDataRef.current?.expires_at || null}
-              totalDurationMs={viewDataRef.current?.total_duration_ms}
+              totalDurationMs={realDurationMs ?? viewDataRef.current?.total_duration_ms}
               viewerFirstViewed={viewDataRef.current?.viewer_created_at || undefined}
               isOpen={sidebarOpen}
               onClose={() => setSidebarOpen(false)}
@@ -597,6 +598,7 @@ export default function ViewPresentationPage() {
             preloadSlides(sn, slides)
           }}
           firstWatch={firstWatch}
+          onDurationReady={(sec) => setRealDurationMs(sec * 1000)}
         />
           <ViewFooter />
         </div>

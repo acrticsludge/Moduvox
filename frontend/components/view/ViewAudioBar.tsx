@@ -26,12 +26,13 @@ type ViewAudioBarProps = {
   onSlideChange?: (slideNumber: number) => void
   firstWatch?: boolean
   seekToSlideRef?: React.MutableRefObject<SeekToSlideFn | null>
+  onDurationReady?: (durationSec: number) => void
 }
 
 export function ViewAudioBar({
   shareToken, sessionToken, viewerId, presentationId, totalDurationMs, audioUrl,
   versionStatus, onRefresh, slideTimings = [], onSlideChange, firstWatch = false,
-  seekToSlideRef,
+  seekToSlideRef, onDurationReady,
 }: ViewAudioBarProps) {
   const howlRef = useRef<Howl | null>(null)
   const liveRef = useRef<HTMLDivElement>(null)
@@ -116,6 +117,7 @@ export function ViewAudioBar({
         setDuration(d)
         durationRef.current = d
         setReady(true)
+        onDurationReady?.(d)
       },
       onloaderror: (_id: number, err: unknown) => {
         console.error("Howler load error:", err)

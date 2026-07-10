@@ -98,9 +98,10 @@ export const POST = withApiHandler(async (request: Request) => {
     const uploadResult = await uploadFile(storagePath, audioBuffer, "audio/wav")
     if (!uploadResult.success) throw new Error(`Failed to save audio: ${uploadResult.error}`)
 
-    // Invalidate the combined audio cache so it gets rebuilt from fresh per-slide WAVs
+    // Delete old combined.wav — ensure endpoint will regenerate from fresh per-slide WAVs
     const combinedKey = `${user.id}/audio/${presentation_id}/combined.wav`
-    await deleteFile(combinedKey).catch(() => {})
+    const delResult = await deleteFile(combinedKey)
+    if (!delResult.success) console.error("Failed to delete stale combined.wav:", delResult.error)
 
     // Bump audio_version so the view page can detect the change
     try {

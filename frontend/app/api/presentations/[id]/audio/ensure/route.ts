@@ -43,17 +43,9 @@ export const GET = withApiHandler(async (
     const audioPrefix = `${userId}/audio/${presentationId}/`
     const combinedKey = `${audioPrefix}combined.wav`
 
-    // Check if combined.wav already exists in R2
-    const existingFiles = await listFiles(audioPrefix)
-    const exists = existingFiles.success && existingFiles.data.some((f) => f.Key === combinedKey)
-    if (exists) {
-      const audioUrl = await createDownloadUrl(combinedKey, 3600)
-      if (audioUrl) {
-        return NextResponse.json({ data: { audioUrl } })
-      }
-    }
-
-    // Generate combined.wav from per-slide WAVs in R2
+    // ALWAYS regenerate combined.wav from current per-slide WAVs.
+    // We never serve a cached/stale combined.wav because the per-slide
+    // WAVs may have been regenerated since it was built.
     const slidesPrefix = `${audioPrefix}slides/`
     const allFiles = await listFiles(slidesPrefix)
 
@@ -89,8 +81,8 @@ export const GET = withApiHandler(async (
 
     const combined = concatWavBuffers(wavBuffers)
 
-    // Upload combined.wav to R2
-    await uploadFile(combinedKey, combined, "audio/wav")
+    // Fire-and-forget upload to R2 for future use (download, other viewers)
+    uploadFile(combinedKey, combined, "audio/wav").catch(() => {})
 
     const audioUrl = await createDownloadUrl(combinedKey, 3600)
     return NextResponse.json({
