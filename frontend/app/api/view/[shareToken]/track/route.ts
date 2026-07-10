@@ -53,7 +53,7 @@ export const POST = withApiHandler(async (
   // Validate session_token matches a viewer
   const { data: viewer } = await supabase
     .from("viewers")
-    .select("id, viewed_at")
+    .select("id, viewed_at, completed_at, progress_pct")
     .eq("session_token", parsed.data.session_token)
     .eq("presentation_id", presentation.id)
     .eq("email_verified", true)
@@ -98,12 +98,22 @@ export const POST = withApiHandler(async (
     viewerUpdates.progress_pct = 100
   }
 
-  if (parsed.data.progress_pct !== undefined && parsed.data.progress_pct > 0) {
-    viewerUpdates.progress_pct = parsed.data.progress_pct
-  }
+  // Only overwrite progress/time if viewer hasn't already completed.
+  // A delayed closed event (sendBeacon) arriving after the completed event
+  // must not regress progress_pct from 100 to a stale value.
+  const alreadyCompleted = viewer.completed_at !== null
+  if (!alreadyCompleted) {
+    if (parsed.data.progress_pct !== undefined && parsed.data.progress_pct > 0) {
+      // Only store if higher than current (prevents stale events from regressing)
+      const current = viewer.progress_pct ?? 0
+      if (parsed.data.progress_pct > current) {
+        viewerUpdates.progress_pct = parsed.data.progress_pct
+      }
+    }
 
-  if (parsed.data.time_spent_seconds !== undefined) {
-    viewerUpdates.time_spent_seconds = parsed.data.time_spent_seconds
+    if (parsed.data.time_spent_seconds !== undefined) {
+      viewerUpdates.time_spent_seconds = parsed.data.time_spent_seconds
+    }
   }
 
   if (Object.keys(viewerUpdates).length > 0) {
