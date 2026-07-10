@@ -59,7 +59,7 @@ export function PptxUploadZone({ onFileAccepted }: { onFileAccepted?: (file: Fil
   }
 
   return (
-    <div className="flex flex-1 items-center justify-center p-8">
+    <div className="flex flex-1 items-center justify-center p-4 sm:p-8">
       {!file ? (
         <div
           onDrop={handleDrop}
@@ -104,7 +104,7 @@ export function PptxUploadZone({ onFileAccepted }: { onFileAccepted?: (file: Fil
           <button
             type="button"
             onClick={clearFile}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-[#71717A] hover:bg-zinc-100 hover:text-[#18181B]"
+            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-[#71717A] hover:bg-zinc-100 hover:text-[#18181B] sm:h-8 sm:w-8"
           >
             <X className="h-4 w-4" />
           </button>
