@@ -466,34 +466,6 @@ export default function ViewPresentationPage() {
         <div className="flex min-h-screen flex-col bg-[#F9FAFB]">
           <ViewNavbar />
 
-          {/* Version status badge — inside the audio bar */}
-          {versionStatus && (
-            <div
-              className="mx-auto flex max-w-[1400px] items-center justify-end px-4 pb-1"
-            >
-              <div
-                className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] leading-none"
-                style={versionStatus === "synced"
-                  ? { borderColor: "#bbf7d0", backgroundColor: "#f0fdf4", color: "#166534" }
-                  : { borderColor: "#fde68a", backgroundColor: "#fffbeb", color: "#92400e" }}
-              >
-                {versionStatus === "synced" ? (
-                  <>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                    <span>Up to date</span>
-                  </>
-                ) : (
-                  <>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-                    <button type="button" onClick={applyChanges} className="underline decoration-dotted underline-offset-2 hover:decoration-solid leading-none">
-                      Changes detected — Refresh to apply
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          )}
-
           <div className="flex flex-1">
             {/* Mobile sidebar toggle */}
             {!sidebarOpen && (
@@ -584,6 +556,8 @@ export default function ViewPresentationPage() {
           presentationId={viewDataRef.current?.presentation_id || ""}
           totalDurationMs={viewDataRef.current?.total_duration_ms}
           audioUrl={viewDataRef.current?.audio_url || undefined}
+          versionStatus={versionStatus}
+          onRefresh={applyChanges}
         />
           <ViewFooter />
         </div>

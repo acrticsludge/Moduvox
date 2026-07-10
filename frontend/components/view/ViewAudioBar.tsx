@@ -16,9 +16,11 @@ type ViewAudioBarProps = {
   presentationId: string
   totalDurationMs?: number
   audioUrl?: string
+  versionStatus?: "synced" | "outdated" | null
+  onRefresh?: () => void
 }
 
-export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationId, totalDurationMs, audioUrl }: ViewAudioBarProps) {
+export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationId, totalDurationMs, audioUrl, versionStatus, onRefresh }: ViewAudioBarProps) {
   const howlRef = useRef<Howl | null>(null)
   const liveRef = useRef<HTMLDivElement>(null)
   const isSeeking = useRef(false)
@@ -360,6 +362,29 @@ export function ViewAudioBar({ shareToken, sessionToken, viewerId, presentationI
               </div>
             )}
           </div>
+
+          {/* Version status badge — inline in the audio bar, vertically centered */}
+          {versionStatus && (
+            <div className="ml-auto flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] leading-none"
+              style={versionStatus === "synced"
+                ? { borderColor: "#bbf7d0", backgroundColor: "#f0fdf4", color: "#166534" }
+                : { borderColor: "#fde68a", backgroundColor: "#fffbeb", color: "#92400e" }}
+            >
+              {versionStatus === "synced" ? (
+                <>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                  <span>Up to date</span>
+                </>
+              ) : (
+                <>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                  <button type="button" onClick={onRefresh} className="underline decoration-dotted underline-offset-2 hover:decoration-solid leading-none">
+                    Changes detected — Refresh
+                  </button>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         {/* ARIA live region */}
