@@ -113,8 +113,8 @@ export default function ProjectDetailPage() {
   return (
     <>
       {/* Top bar */}
-      <div className="flex items-center justify-between border-b border-[var(--color-border-faint)] bg-white px-6 py-4">
-        <div className="flex items-center gap-2 text-sm">
+      <div className="flex items-center justify-between border-b border-[var(--color-border-faint)] bg-white px-4 py-3 sm:px-6 sm:py-4">
+        <div className="flex items-center gap-1.5 text-sm sm:gap-2">
           <a
             href="/dashboard"
             className="font-medium text-[#71717A] transition-colors hover:text-[#18181B]"
@@ -136,24 +136,24 @@ export default function ProjectDetailPage() {
       </div>
 
       {/* Project info */}
-      <div className="border-b border-[var(--color-border-faint)] px-6 py-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+      <div className="border-b border-[var(--color-border-faint)] px-4 py-5 sm:px-6 sm:py-6">
+        <div className="flex items-start justify-between gap-4 sm:items-center">
+          <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
             <div
-              className="flex h-14 w-14 items-center justify-center rounded-2xl"
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl sm:h-14 sm:w-14"
               style={{ backgroundColor: project.color }}
             >
-              <IconComp className="h-7 w-7 text-zinc-700" />
+              <IconComp className="h-6 w-6 text-zinc-700 sm:h-7 sm:w-7" />
             </div>
-            <div>
-              <h1 className="text-xl font-semibold text-[#18181B]">{project.name}</h1>
+            <div className="min-w-0">
+              <h1 className="text-lg font-semibold text-[#18181B] sm:text-xl">{project.name}</h1>
               {project.description && (
-                <p className="mt-0.5 text-sm text-[#71717A]">{project.description}</p>
+                <p className="mt-0.5 truncate text-sm text-[#71717A]">{project.description}</p>
               )}
-              <div className="mt-1 flex items-center gap-3 text-sm text-[#71717A]">
+              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm text-[#71717A]">
                 <span>{presentations.length} {presentations.length === 1 ? "presentation" : "presentations"}</span>
-                <span className="text-zinc-300">·</span>
-                <span>Created {formatDate(project.created_at)}</span>
+                <span className="hidden sm:inline text-zinc-300">·</span>
+                <span className="hidden sm:inline">Created {formatDate(project.created_at)}</span>
               </div>
             </div>
           </div>
@@ -161,7 +161,7 @@ export default function ProjectDetailPage() {
           <button
             type="button"
             onClick={() => setShowEdit(true)}
-            className="flex h-9 w-9 items-center justify-center rounded-lg text-[#71717A] transition-colors hover:bg-zinc-100 hover:text-[#18181B]"
+            className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg text-[#71717A] transition-colors hover:bg-zinc-100 hover:text-[#18181B] sm:h-9 sm:w-9"
           >
             <Pencil className="h-4 w-4" />
           </button>
@@ -192,8 +192,8 @@ export default function ProjectDetailPage() {
           </div>
         </div>
       ) : (
-        <div className="flex-1 px-6 py-6">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="flex-1 px-4 py-5 sm:px-6 sm:py-6">
+          <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
             {presentations.map((p) => (
               <div
                 key={p.id}

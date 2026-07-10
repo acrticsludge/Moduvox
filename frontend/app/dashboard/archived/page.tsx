@@ -69,7 +69,7 @@ export default function ArchivedPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-1 flex-col px-6 py-6">
+      <div className="flex flex-1 flex-col px-4 py-5 sm:px-6 sm:py-6">
         <div className="mx-auto w-full max-w-3xl">
           <div className="mb-6 flex items-center gap-3">
             <div className="h-10 w-10 rounded-xl bg-zinc-100 animate-pulse" />
@@ -98,7 +98,7 @@ export default function ArchivedPage() {
   return (
     <>
       {/* Top bar */}
-      <div className="flex items-center justify-between border-b border-[var(--color-border-faint)] bg-white px-6 py-4">
+      <div className="flex items-center justify-between border-b border-[var(--color-border-faint)] bg-white px-4 py-3 sm:px-6 sm:py-4">
         <div className="flex items-center gap-2 text-sm">
           <a
             href="/dashboard"
@@ -112,8 +112,8 @@ export default function ArchivedPage() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 px-6 py-6">
-        <div className="mx-auto max-w-3xl">
+      <div className="flex-1 px-4 py-5 sm:px-6 sm:py-6">
+        <div className="mx-auto w-full max-w-3xl">
           <div className="mb-6 flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100">
               <Archive className="h-5 w-5 text-amber-700" />

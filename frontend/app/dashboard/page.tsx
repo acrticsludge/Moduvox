@@ -52,8 +52,8 @@ export default function DashboardPage() {
 
   if (state.status === "loading") {
     return (
-      <div className="flex-1 px-6 py-6">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="flex-1 px-4 py-5 sm:px-6 sm:py-6">
+        <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3, 4, 5, 6].map((i) => (
             <div key={i} className="rounded-xl border border-zinc-200 bg-white">
               <div className="h-1 rounded-t-xl bg-zinc-100" />
@@ -79,13 +79,13 @@ export default function DashboardPage() {
 
   return (
     <>
-      <div className="flex items-center justify-between border-b border-[var(--color-border-faint)] bg-white px-6 py-4">
+      <div className="flex items-center justify-between border-b border-[var(--color-border-faint)] bg-white px-4 py-3 sm:px-6 sm:py-4">
         <h1 className="text-lg font-semibold text-[#18181B]">All Projects</h1>
 
         <button
           type="button"
           onClick={() => setShowCreate(true)}
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-[#71717A] transition-colors duration-150 hover:text-[#18181B]"
+          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-[#71717A] transition-colors duration-150 hover:bg-zinc-100 hover:text-[#18181B]"
         >
           <Plus className="h-4 w-4" />
           New Project
@@ -93,7 +93,7 @@ export default function DashboardPage() {
       </div>
 
       {state.status === "empty" ? (
-        <div className="flex flex-1 items-center justify-center px-6">
+        <div className="flex flex-1 items-center justify-center px-4 sm:px-6">
           <div className="mx-auto max-w-sm text-center">
             <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-zinc-100">
               <FolderKanban className="h-7 w-7 text-[#71717A]" />
@@ -115,8 +115,8 @@ export default function DashboardPage() {
           </div>
         </div>
       ) : (
-        <div className="flex-1 px-6 py-6">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="flex-1 px-4 py-5 sm:px-6 sm:py-6">
+          <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
             {state.projects.map((project) => (
               <ProjectCard key={project.id} project={project} />
             ))}

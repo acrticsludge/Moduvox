@@ -149,7 +149,7 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-1 px-6 py-8">
+      <div className="flex flex-1 px-4 py-6 sm:px-6 sm:py-8">
         <div className="mx-auto w-full max-w-lg space-y-5">
           <div>
             <div className="mb-1.5 h-4 w-10 rounded bg-zinc-100 animate-pulse" />
@@ -169,7 +169,7 @@ export default function SettingsPage() {
   return (
     <>
       {/* Top bar */}
-      <div className="border-b border-[var(--color-border-faint)] bg-white px-6 py-4">
+      <div className="border-b border-[var(--color-border-faint)] bg-white px-4 py-3 sm:px-6 sm:py-4">
         <h1 className="text-lg font-semibold text-[#18181B]">Settings</h1>
         <div className="mt-3 flex gap-1">
           {(["profile", "security", "api-keys"] as const).map((t) => (
@@ -190,7 +190,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Content */}
-      <div className="flex flex-1 px-6 py-8">
+      <div className="flex flex-1 px-4 py-6 sm:px-6 sm:py-8">
         <div className="mx-auto w-full max-w-lg shadow-red-500/10">
           <ErrorBanner message={error} className="mb-4" />
 
