@@ -31,26 +31,24 @@ function Calendar({
         head_row: "flex",
         head_cell: "text-zinc-400 rounded-md w-9 font-normal text-[0.8rem]",
         row: "flex w-full mt-2",
-        cell: cn(
+        day: cn(
           "relative p-0 text-center text-sm focus-within:relative focus-within:z-20 [&:has([aria-selected])]:bg-zinc-100",
           props.mode === "range"
             ? "[&:has(>.day-range-end)]:rounded-r-md [&:has(>.day-range-start)]:rounded-l-md first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md"
             : "[&:has([aria-selected])]:rounded-md",
         ),
-        day: cn(
+        day_button: cn(
           "h-9 w-9 p-0 font-normal aria-selected:opacity-100 inline-flex items-center justify-center rounded-md transition-colors hover:bg-zinc-100 text-zinc-700",
         ),
-        day_range_end: "day-range-end",
-        day_range_start: "day-range-start",
-        day_selected:
+        selected:
           "bg-[#18181B] text-white hover:bg-[#18181B] hover:text-white focus:bg-[#18181B] focus:text-white rounded-md",
-        day_today: "bg-zinc-100 text-[#18181B] font-semibold",
-        day_outside:
-          "day-outside text-zinc-300 aria-selected:bg-zinc-100 aria-selected:text-zinc-500",
-        day_disabled: "text-zinc-300 opacity-50",
-        day_range_middle:
+        today: "bg-zinc-100 text-[#18181B] font-semibold",
+        outside:
+          "text-zinc-300 aria-selected:bg-zinc-100 aria-selected:text-zinc-500",
+        disabled: "text-zinc-300 opacity-50",
+        range_middle:
           "aria-selected:bg-zinc-100 aria-selected:text-zinc-700",
-        day_hidden: "invisible",
+        hidden: "invisible",
         ...classNames,
       }}
       {...props}

@@ -360,33 +360,35 @@ const [expireDate, setExpireDate] = useState<Date | undefined>(undefined)
         )}
         <div className="flex items-center gap-2">
           <Popover>
-            <PopoverTrigger asChild>
-              <button
-                type="button"
-                className={cn(
-                  "flex flex-1 items-center gap-2 rounded-lg border px-3 py-1.5 text-sm transition-colors",
-                  expireDate
-                    ? "border-zinc-300 text-[#18181B]"
-                    : "border-zinc-300 text-zinc-400 hover:border-zinc-400",
-                )}
-              >
-                <CalendarIcon className="h-4 w-4 shrink-0 text-zinc-500" />
-                <span className="flex-1 text-left">
-                  {expireDate
-                    ? `${format(expireDate, "MMM d, yyyy")} at ${expireTime}`
-                    : "Pick a date and time"}
-                </span>
-                {expireDate && (
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); setExpireDate(undefined); setExpireTime("23:59") }}
-                    className="rounded p-0.5 text-zinc-400 hover:text-zinc-600"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </button>
-            </PopoverTrigger>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className={cn(
+                    "flex flex-1 items-center gap-2 rounded-lg border px-3 py-1.5 text-sm transition-colors",
+                    expireDate
+                      ? "border-zinc-300 text-[#18181B]"
+                      : "border-zinc-300 text-zinc-400 hover:border-zinc-400",
+                  )}
+                >
+                  <CalendarIcon className="h-4 w-4 shrink-0 text-zinc-500" />
+                  <span className="flex-1 text-left">
+                    {expireDate
+                      ? `${format(expireDate, "MMM d, yyyy")} at ${expireTime}`
+                      : "Pick a date and time"}
+                  </span>
+                  {expireDate && (
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      onClick={(e) => { e.stopPropagation(); setExpireDate(undefined); setExpireTime("23:59") }}
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); setExpireDate(undefined); setExpireTime("23:59") } }}
+                      className="rounded p-0.5 text-zinc-400 hover:text-zinc-600 cursor-pointer"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </span>
+                  )}
+                </button>
+              </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
               <Calendar
                 mode="single"
