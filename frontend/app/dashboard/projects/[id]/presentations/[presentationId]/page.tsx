@@ -64,6 +64,7 @@ export default function PresentationCreatePage() {
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle")
   const [dirty, setDirty] = useState(false)
   const [restoring, setRestoring] = useState(false)
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -220,20 +221,22 @@ export default function PresentationCreatePage() {
   if (loading) {
     return (
       <>
-        <div className="absolute bottom-0 left-0 top-0 z-30 w-80 animate-pulse border-r border-[var(--color-border-faint)] bg-white p-5">
-          <div className="space-y-6">
-            <div className="space-y-2">
-              <div className="h-4 w-12 rounded bg-zinc-200" />
-              <div className="h-9 w-full rounded-lg bg-zinc-100" />
-            </div>
-            <div className="space-y-2">
-              <div className="h-4 w-32 rounded bg-zinc-200" />
-              <div className="h-[100px] w-full rounded-lg bg-zinc-100" />
+        <div className="hidden md:block">
+          <div className="absolute bottom-0 left-0 top-0 z-30 w-80 animate-pulse border-r border-[var(--color-border-faint)] bg-white p-5">
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <div className="h-4 w-12 rounded bg-zinc-200" />
+                <div className="h-9 w-full rounded-lg bg-zinc-100" />
+              </div>
+              <div className="space-y-2">
+                <div className="h-4 w-32 rounded bg-zinc-200" />
+                <div className="h-[100px] w-full rounded-lg bg-zinc-100" />
+              </div>
             </div>
           </div>
         </div>
-        <div className="ml-80 mr-[380px] flex flex-1 flex-col">
-          <div className="flex animate-pulse items-center justify-between border-b border-[var(--color-border-faint)] bg-white px-6 py-4">
+        <div className="ml-0 mr-0 flex flex-1 flex-col md:ml-80 md:mr-[380px]">
+          <div className="flex animate-pulse flex-wrap items-center gap-2 border-b border-[var(--color-border-faint)] bg-white px-4 py-3 md:flex-nowrap md:px-6 md:py-4">
             <div className="flex items-center gap-2">
               <div className="h-4 w-20 rounded bg-zinc-200" />
               <div className="h-3.5 w-3.5 rounded bg-zinc-200" />
@@ -246,25 +249,26 @@ export default function PresentationCreatePage() {
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-600" />
           </div>
         </div>
-        <div className="absolute bottom-0 right-0 top-0 z-20 w-[380px] animate-pulse border-l border-[var(--color-border-faint)] bg-white p-6">
-          <div className="flex flex-col gap-5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5">
-                <div className="h-4 w-10 rounded bg-zinc-200" />
-                <div className="h-6 w-12 rounded border border-zinc-200 bg-zinc-50" />
-                <div className="h-4 w-16 rounded bg-zinc-200" />
+        <div className="hidden md:block">
+          <div className="absolute bottom-0 right-0 top-0 z-20 w-[380px] animate-pulse border-l border-[var(--color-border-faint)] bg-white p-6">
+            <div className="flex flex-col gap-5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <div className="h-4 w-10 rounded bg-zinc-200" />
+                  <div className="h-6 w-12 rounded border border-zinc-200 bg-zinc-50" />
+                </div>
+                <div className="flex gap-1">
+                  <div className="h-7 w-7 rounded bg-zinc-100" />
+                  <div className="h-7 w-7 rounded bg-zinc-100" />
+                </div>
               </div>
-              <div className="flex gap-1">
-                <div className="h-7 w-7 rounded bg-zinc-100" />
-                <div className="h-7 w-7 rounded bg-zinc-100" />
+              <div className="h-10 w-full rounded-lg bg-zinc-100" />
+              <div className="space-y-2">
+                <div className="h-4 w-28 rounded bg-zinc-200" />
+                <div className="h-[120px] w-full rounded-lg bg-zinc-100" />
               </div>
+              <div className="h-9 w-full rounded-lg bg-zinc-100" />
             </div>
-            <div className="h-10 w-full rounded-lg bg-zinc-100" />
-            <div className="space-y-2">
-              <div className="h-4 w-28 rounded bg-zinc-200" />
-              <div className="h-[120px] w-full rounded-lg bg-zinc-100" />
-            </div>
-            <div className="h-9 w-full rounded-lg bg-zinc-100" />
           </div>
         </div>
       </>
@@ -289,64 +293,109 @@ export default function PresentationCreatePage() {
 
   return (
     <>
-      {/* Sidebar */}
-      <CreatePageSidebar
-        className="absolute bottom-0 left-0 top-0 z-30"
-        selectedVoiceId={selectedVoiceId}
-        onVoiceChange={handleVoiceChange}
-        controlInstructions={controlInstructions}
-        onControlInstructionsChange={handleControlInstructionsChange}
-        ultimateMode={ultimateMode}
-        onUltimateModeChange={handleUltimateModeChange}
-      />
+      {/* Mobile sidebar toggle */}
+      {!mobileSidebarOpen && (
+        <button
+          type="button"
+          onClick={() => setMobileSidebarOpen(true)}
+          className="fixed left-3 top-20 z-20 inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-zinc-200 bg-white shadow-sm text-zinc-500 transition-colors hover:text-zinc-800 md:hidden"
+          aria-label="Open voice settings"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+        </button>
+      )}
+
+      {/* Mobile sidebar drawer */}
+      {mobileSidebarOpen && (
+        <div className="fixed inset-0 z-50 md:hidden">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setMobileSidebarOpen(false)} />
+          <div className="absolute bottom-0 left-0 right-0 z-10 max-h-[80vh] overflow-y-auto rounded-t-2xl border-t border-zinc-200 bg-white shadow-xl animate-slide-up">
+            <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-3">
+              <span className="text-sm font-semibold text-zinc-500">Voice Settings</span>
+              <button
+                type="button"
+                onClick={() => setMobileSidebarOpen(false)}
+                className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-600"
+                aria-label="Close voice settings"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+            <div className="p-5">
+              <CreatePageSidebar
+                className=""
+                selectedVoiceId={selectedVoiceId}
+                onVoiceChange={handleVoiceChange}
+                controlInstructions={controlInstructions}
+                onControlInstructionsChange={handleControlInstructionsChange}
+                ultimateMode={ultimateMode}
+                onUltimateModeChange={handleUltimateModeChange}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Desktop sidebar */}
+      <div className="hidden md:block">
+        <CreatePageSidebar
+          className="absolute bottom-0 left-0 top-0 z-30"
+          selectedVoiceId={selectedVoiceId}
+          onVoiceChange={handleVoiceChange}
+          controlInstructions={controlInstructions}
+          onControlInstructionsChange={handleControlInstructionsChange}
+          ultimateMode={ultimateMode}
+          onUltimateModeChange={handleUltimateModeChange}
+        />
+      </div>
 
       {/* Content */}
-      <div className="ml-80 mr-[380px] flex flex-1 flex-col">
+      <div className="ml-0 mr-0 flex flex-1 flex-col md:ml-80 md:mr-[380px]">
         {/* Top bar */}
-        <div className="flex items-center justify-between border-b border-[var(--color-border-faint)] bg-white px-6 py-4">
-          <div className="flex items-center gap-2 text-sm">
+        <div className="flex flex-wrap items-start gap-2 border-b border-[var(--color-border-faint)] bg-white px-4 py-3 md:flex-nowrap md:items-center md:px-6 md:py-4">
+          <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden text-sm md:gap-2">
             <a
               href="/dashboard"
-              className="font-medium text-[#71717A] transition-colors hover:text-[#18181B]"
+              className="shrink-0 font-medium text-[#71717A] transition-colors hover:text-[#18181B]"
             >
               All Projects
             </a>
-            <ChevronRight className="h-3.5 w-3.5 text-zinc-300" />
+            <ChevronRight className="h-3 w-3 shrink-0 text-zinc-300 md:h-3.5 md:w-3.5" />
             <a
               href={`/dashboard/projects/${presentation.project_id}`}
-              className="font-medium text-[#71717A] transition-colors hover:text-[#18181B]"
+              className="shrink-0 truncate font-medium text-[#71717A] transition-colors hover:text-[#18181B]"
             >
               {projectName || "Project"}
             </a>
-            <ChevronRight className="h-3.5 w-3.5 text-zinc-300" />
-            <span className="font-medium text-[#18181B]">{presentation.title}</span>
+            <ChevronRight className="h-3 w-3 shrink-0 text-zinc-300 md:h-3.5 md:w-3.5" />
+            <span className="truncate font-medium text-[#18181B]">{presentation.title}</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             {saveStatus === "saving" && (
-              <span className="flex items-center gap-1.5 text-xs text-zinc-400">
+              <span className="flex items-center gap-1 text-xs text-zinc-400 md:gap-1.5">
                 <span className="h-1.5 w-1.5 rounded-full bg-zinc-300" />
-                Saving…
+                <span className="hidden sm:inline">Saving…</span>
               </span>
             )}
             {saveStatus === "saved" && (
-              <span className="flex items-center gap-1.5 text-xs text-green-600">
+              <span className="flex items-center gap-1 text-xs text-green-600 md:gap-1.5">
                 <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
-                Saved
+                <span className="hidden sm:inline">Saved</span>
               </span>
             )}
             {saveStatus === "error" && (
-              <span className="flex items-center gap-1.5 text-xs text-red-500">
+              <span className="flex items-center gap-1 text-xs text-red-500 md:gap-1.5">
                 <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
-                Save failed
+                <span className="hidden sm:inline">Save failed</span>
               </span>
             )}
 
             {/* Action buttons */}
-            <div className="ml-4 flex items-center gap-1 border-l border-zinc-200 pl-4">
+            <div className="flex items-center gap-1 border-l border-zinc-200 pl-2 md:ml-4 md:pl-4">
               <button
                 type="button"
                 onClick={() => setShowRename(true)}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-[#71717A] transition-colors hover:bg-zinc-100 hover:text-[#18181B]"
+                className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-[#71717A] transition-colors hover:bg-zinc-100 hover:text-[#18181B] md:h-8 md:w-8"
                 aria-label="Rename"
               >
                 <Pencil className="h-4 w-4" />
@@ -356,7 +405,7 @@ export default function PresentationCreatePage() {
                   type="button"
                   onClick={handleRestore}
                   disabled={restoring}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-[#71717A] transition-colors hover:bg-zinc-100 hover:text-[#18181B] disabled:opacity-40"
+                  className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-[#71717A] transition-colors hover:bg-zinc-100 hover:text-[#18181B] disabled:opacity-40 md:h-8 md:w-8"
                   aria-label="Restore"
                 >
                   {restoring ? (
@@ -369,7 +418,7 @@ export default function PresentationCreatePage() {
                 <button
                   type="button"
                   onClick={() => setShowArchiveConfirm(true)}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-[#71717A] transition-colors hover:bg-zinc-100 hover:text-[#18181B]"
+                  className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-[#71717A] transition-colors hover:bg-zinc-100 hover:text-[#18181B] md:h-8 md:w-8"
                   aria-label="Archive"
                 >
                   <Archive className="h-4 w-4" />
@@ -379,7 +428,7 @@ export default function PresentationCreatePage() {
                 <button
                   type="button"
                   onClick={() => setShowDelete(true)}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-[#71717A] transition-colors hover:bg-red-50 hover:text-red-600"
+                  className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-[#71717A] transition-colors hover:bg-red-50 hover:text-red-600 md:h-8 md:w-8"
                   aria-label="Delete"
                 >
                   <Trash2 className="h-4 w-4" />
@@ -477,7 +526,7 @@ export default function PresentationCreatePage() {
 
       {/* Right panel placeholder — shown when SlideEditor isn't rendering yet */}
       {presentation?.status !== "archived" && mode === "upload" && (
-        <div className="absolute bottom-0 right-0 top-0 z-20 flex w-[380px] flex-col items-center justify-center border-l border-[var(--color-border-faint)] bg-white px-6">
+        <div className="hidden md:flex absolute bottom-0 right-0 top-0 z-20 w-[380px] flex-col items-center justify-center border-l border-[var(--color-border-faint)] bg-white px-6">
           <p className="text-center text-sm text-[#71717A]">
             Upload a presentation to access narration and audio tools
           </p>
