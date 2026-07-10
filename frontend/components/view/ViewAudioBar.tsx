@@ -51,6 +51,19 @@ export function ViewAudioBar({
   const firstWatchRef = useRef(firstWatch)
   firstWatchRef.current = firstWatch
 
+  // Detect which slide a given time (in seconds) falls in and notify if changed
+  function detectSlide(secs: number) {
+    const ms = secs * 1000
+    let match = 0
+    for (const t of slideTimingsRef.current) {
+      if (ms >= t.startMs && ms < t.endMs) { match = t.slideNumber; break }
+    }
+    if (match && match !== lastSlideRef.current) {
+      lastSlideRef.current = match
+      onSlideChangeRef.current?.(match)
+    }
+  }
+
   // Expose seekToSlide for the parent via the ref object prop
   const seekToSlide: SeekToSlideFn = (slideNumber: number) => {
     const howl = howlRef.current
@@ -63,7 +76,7 @@ export function ViewAudioBar({
     howl.seek(clamped)
     setCurrentTime(clamped)
     currentTimeRef.current = clamped
-    // Notify slide change immediately
+    // Notify slide change immediately (don't wait for onseek — it may fire late)
     lastSlideRef.current = slideNumber
     onSlideChangeRef.current?.(slideNumber)
   }
@@ -144,16 +157,8 @@ export function ViewAudioBar({
         const secs = Math.floor(howl.seek() as number)
         setCurrentTime(secs)
         currentTimeRef.current = secs
-        // Detect slide change on seek
-        const ms = secs * 1000
-        let match = 0
-        for (const t of slideTimingsRef.current) {
-          if (ms >= t.startMs && ms < t.endMs) { match = t.slideNumber; break }
-        }
-        if (match && match !== lastSlideRef.current) {
-          lastSlideRef.current = match
-          onSlideChangeRef.current?.(match)
-        }
+        // Backup slide detection — may fire late on some browsers
+        detectSlide(secs)
       },
     })
     howlRef.current = howl
@@ -181,16 +186,8 @@ export function ViewAudioBar({
         currentTimeRef.current = secs
         // Track furthest position (for first-watch clamping)
         if (secs > maxWatchedRef.current) maxWatchedRef.current = secs
-        // Detect slide change
-        const ms = secs * 1000
-        let match = 0
-        for (const t of slideTimings) {
-          if (ms >= t.startMs && ms < t.endMs) { match = t.slideNumber; break }
-        }
-        if (match && match !== lastSlideRef.current) {
-          lastSlideRef.current = match
-          onSlideChangeRef.current?.(match)
-        }
+        // Detect slide change during playback
+        detectSlide(secs)
       }
       rafRef.current = requestAnimationFrame(poll)
     }
@@ -304,6 +301,7 @@ export function ViewAudioBar({
     howl.seek(newTime)
     setCurrentTime(Math.floor(newTime))
     currentTimeRef.current = Math.floor(newTime)
+    detectSlide(Math.floor(newTime))
   }
 
   function handleSeek(value: number[]) {
@@ -318,6 +316,7 @@ export function ViewAudioBar({
     setCurrentTime(clamped)
     currentTimeRef.current = clamped
     isSeeking.current = false
+    detectSlide(clamped)
   }
 
   function cycleSpeed() {
