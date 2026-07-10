@@ -1,6 +1,6 @@
 export function EditorMockup() {
   return (
-    <div className="w-[500px] overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-xl">
+    <div className="w-full max-w-[500px] overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-xl">
       {/* Title bar */}
       <div className="flex items-center gap-1.5 border-b border-zinc-200 px-4 py-3">
         <span className="h-2.5 w-2.5 rounded-full bg-zinc-300" />

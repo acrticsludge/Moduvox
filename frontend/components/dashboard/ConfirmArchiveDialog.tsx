@@ -43,7 +43,7 @@ export function ConfirmArchiveDialog({
           type="button"
           onClick={onClose}
           disabled={archiving}
-          className="float-right flex h-6 w-6 items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600 disabled:opacity-30"
+          className="float-right flex min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600 disabled:opacity-30 sm:h-6 sm:w-6"
           aria-label="Close"
         >
           <X className="h-4 w-4" />

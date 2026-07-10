@@ -107,7 +107,7 @@ export function AudioPlayer({
         type="button"
         onClick={togglePlay}
         disabled={loading}
-        className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-[#18181B] text-white transition-colors hover:bg-[#27272A] disabled:opacity-50"
+        className="flex min-h-[44px] min-w-[44px] flex-shrink-0 items-center justify-center rounded-full bg-[#18181B] text-white transition-colors hover:bg-[#27272A] disabled:opacity-50 sm:h-9 sm:w-9"
         aria-label={playing ? "Pause" : "Play"}
       >
         {loading ? (

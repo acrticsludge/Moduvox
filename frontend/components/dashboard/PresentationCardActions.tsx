@@ -37,7 +37,7 @@ export function PresentationCardActions({
       <button
         type="button"
         onClick={(e) => { e.stopPropagation(); setOpen(!open) }}
-        className="flex h-8 w-8 items-center justify-center rounded-lg text-[#71717A] max-md:opacity-100 md:opacity-0 transition-all md:group-hover:opacity-100 hover:bg-zinc-100 hover:text-[#18181B]"
+        className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-[#71717A] max-md:opacity-100 md:opacity-0 transition-all md:group-hover:opacity-100 hover:bg-zinc-100 hover:text-[#18181B] sm:h-8 sm:w-8"
         aria-label="Presentation actions"
       >
         <MoreVertical className="h-4 w-4" />
