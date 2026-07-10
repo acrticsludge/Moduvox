@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { createDownloadUrl, fileExists } from "@/lib/r2"
+import { createDownloadUrl, listFiles } from "@/lib/r2"
 import { withApiHandler } from "@/lib/api-handler"
 
 export const GET = withApiHandler(async (
@@ -37,12 +37,19 @@ export const GET = withApiHandler(async (
   }
 
   const slideCount = presentation.slide_count || 0
-  const slides: { slideNumber: number; pdfUrl: string | null }[] = []
 
+  // Batch: single listFiles call to get all existing PDFs at once (avoids N+1 HEAD requests)
+  const pdfPrefix = `${presentation.user_id}/pdf/${presentation.id}/`
+  const existingFiles = await listFiles(pdfPrefix)
+  const existingKeys = new Set(
+    (existingFiles.success ? existingFiles.data.map((f: any) => f.Key) : []) as string[],
+  )
+
+  const slides: { slideNumber: number; pdfUrl: string | null }[] = []
   for (let i = 1; i <= slideCount; i++) {
-    const key = `${presentation.user_id}/pdf/${presentation.id}/slide-${i}.pdf`
-    const exists = await fileExists(key)
-    if (exists.success && exists.data) {
+    const key = `${pdfPrefix}slide-${i}.pdf`
+    if (existingKeys.has(key)) {
+      // createDownloadUrl signs locally (no network call) — safe in loop
       const pdfUrl = await createDownloadUrl(key, 604800) // 7 days
       slides.push({ slideNumber: i, pdfUrl })
     } else {
