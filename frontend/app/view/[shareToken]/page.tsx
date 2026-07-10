@@ -9,7 +9,7 @@ import { VerifyErrorScreen } from "@/components/view/VerifyErrorScreen"
 import { ViewNavbar } from "@/components/view/ViewNavbar"
 import { ViewFooter } from "@/components/view/ViewFooter"
 import { ViewSidebar } from "@/components/view/ViewSidebar"
-import type { ViewAudioBarHandle, SlideTiming } from "@/components/view/ViewAudioBar"
+import type { SlideTiming, SeekToSlideFn } from "@/components/view/ViewAudioBar"
 
 const ViewSlide = dynamic(() => import("@/components/view/ViewSlide").then((mod) => mod.ViewSlide), {
   ssr: false,
@@ -113,7 +113,7 @@ export default function ViewPresentationPage() {
   const viewDataRef = useRef<{ title: string; created_at?: string; slide_count?: number; expires_at?: string | null; total_duration_ms?: number; audio_url?: string | null; audio_version?: number; slide_timings?: SlideTiming[]; viewer_created_at?: string | null; presentation_id?: string; viewer_id?: string | null; first_watch_done?: boolean } | null>(null)
   const audioVersionRef = useRef(0)
   const sessionRef = useRef("")
-  const audioRef = useRef<ViewAudioBarHandle>(null)
+  const seekToSlideRef = useRef<SeekToSlideFn | null>(null)
 
   useEffect(() => {
     const sessionFromUrl = searchParams.get("session")
@@ -367,9 +367,7 @@ export default function ViewPresentationPage() {
   // Navigate to a slide — seeks audio to the slide's start time
   function goToSlide(slideNumber: number) {
     const sn = Math.max(1, Math.min(slideNumber, slides?.length || 1))
-    if (audioRef.current) {
-      audioRef.current.seekToSlide(sn)
-    }
+    seekToSlideRef.current?.(sn)
     // Also update currentSlide immediately for instant visual feedback
     setCurrentSlide(sn - 1)
     preloadSlides(sn, slides)
@@ -583,7 +581,7 @@ export default function ViewPresentationPage() {
               ) : null}
             </main>
           </div>
-        <ViewAudioBar key={audioRefreshKey} ref={audioRef}
+        <ViewAudioBar key={audioRefreshKey} seekToSlideRef={seekToSlideRef}
           shareToken={shareToken}
           sessionToken={sessionToken}
           viewerId={state.viewerId}

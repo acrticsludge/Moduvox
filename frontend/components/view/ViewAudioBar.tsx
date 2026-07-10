@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Howl } from "howler"
 import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Loader2 } from "lucide-react"
 import { Slider } from "@/components/ui/slider"
@@ -11,9 +11,7 @@ const PROGRESS_INTERVAL_MS = 30_000
 
 export type SlideTiming = { slideNumber: number; startMs: number; endMs: number }
 
-export interface ViewAudioBarHandle {
-  seekToSlide: (slideNumber: number) => void
-}
+export type SeekToSlideFn = (slideNumber: number) => void
 
 type ViewAudioBarProps = {
   shareToken: string
@@ -27,12 +25,14 @@ type ViewAudioBarProps = {
   slideTimings?: SlideTiming[]
   onSlideChange?: (slideNumber: number) => void
   firstWatch?: boolean
+  seekToSlideRef?: React.MutableRefObject<SeekToSlideFn | null>
 }
 
-export const ViewAudioBar = forwardRef<ViewAudioBarHandle, ViewAudioBarProps>(function ViewAudioBar({
+export function ViewAudioBar({
   shareToken, sessionToken, viewerId, presentationId, totalDurationMs, audioUrl,
   versionStatus, onRefresh, slideTimings = [], onSlideChange, firstWatch = false,
-}, ref) {
+  seekToSlideRef,
+}: ViewAudioBarProps) {
   const howlRef = useRef<Howl | null>(null)
   const liveRef = useRef<HTMLDivElement>(null)
   const isSeeking = useRef(false)
@@ -45,25 +45,28 @@ export const ViewAudioBar = forwardRef<ViewAudioBarHandle, ViewAudioBarProps>(fu
   const lastSlideRef = useRef(0)
   const onSlideChangeRef = useRef(onSlideChange)
   onSlideChangeRef.current = onSlideChange
+  const slideTimingsRef = useRef(slideTimings)
+  slideTimingsRef.current = slideTimings
+  const firstWatchRef = useRef(firstWatch)
+  firstWatchRef.current = firstWatch
 
-  // Expose seekToSlide for the parent (click slide in sidebar, prev/next)
-  useImperativeHandle(ref, () => ({
-    seekToSlide(slideNumber: number) {
-      const howl = howlRef.current
-      if (!howl || howl.state() !== "loaded") return
-      const timing = slideTimings.find((t) => t.slideNumber === slideNumber)
-      if (!timing) return
-      const targetSec = timing.startMs / 1000
-      // On first watch, clamp to max watched position
-      const clamped = firstWatch ? Math.min(targetSec, maxWatchedRef.current) : targetSec
-      howl.seek(clamped)
-      setCurrentTime(clamped)
-      currentTimeRef.current = clamped
-      // Notify slide change immediately
-      lastSlideRef.current = slideNumber
-      onSlideChangeRef.current?.(slideNumber)
-    },
-  }))
+  // Expose seekToSlide for the parent via the ref object prop
+  const seekToSlide: SeekToSlideFn = (slideNumber: number) => {
+    const howl = howlRef.current
+    if (!howl || howl.state() !== "loaded") return
+    const timing = slideTimingsRef.current.find((t) => t.slideNumber === slideNumber)
+    if (!timing) return
+    const targetSec = timing.startMs / 1000
+    // On first watch, clamp to max watched position
+    const clamped = firstWatchRef.current ? Math.min(targetSec, maxWatchedRef.current) : targetSec
+    howl.seek(clamped)
+    setCurrentTime(clamped)
+    currentTimeRef.current = clamped
+    // Notify slide change immediately
+    lastSlideRef.current = slideNumber
+    onSlideChangeRef.current?.(slideNumber)
+  }
+  if (seekToSlideRef) seekToSlideRef.current = seekToSlide
 
   const [ready, setReady] = useState(false)
   const [playing, setPlaying] = useState(false)
@@ -448,4 +451,4 @@ export const ViewAudioBar = forwardRef<ViewAudioBarHandle, ViewAudioBarProps>(fu
       </div>
     </TooltipProvider>
   )
-})
+}
