@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { submitFeedbackSchema, CATEGORY_LABELS } from "@/lib/validations/feedback"
 import type { FeedbackCategory } from "@/lib/validations/feedback"
 import { withApiHandler } from "@/lib/api-handler"
+import { sendEmail } from "@/lib/email"
+import { FeedbackNotificationEmail } from "@/emails/feedback-notification"
 
 const COOLDOWN_MS = 12 * 60 * 60 * 1000
 const COOKIE_NAME = "feedback_submitted_at"
@@ -81,50 +83,27 @@ export const POST = withApiHandler(async (request: Request) => {
       || request.headers.get("x-real-ip")
       || "unknown"
 
-    // Build email content
-    const categoryLabel = CATEGORY_LABELS[parsed.data.category as FeedbackCategory]
-    const stars = "★".repeat(parsed.data.rating) + "☆".repeat(5 - parsed.data.rating)
-    const email = parsed.data.email || null
-    const contactInfo = email
-      ? `Email: ${email}\nCan contact: ${parsed.data.can_contact ? "Yes" : "No"}`
-      : "Email: Not provided (anonymous)"
-
-    const text = [
-      `New feedback submitted`,
-      ``,
-      `Category: ${categoryLabel}`,
-      `Rating: ${parsed.data.rating}/5`,
-      `Name: ${parsed.data.name}`,
-      contactInfo,
-      ``,
-      `Message:`,
-      parsed.data.message,
-      ``,
-      `IP: ${ipAddress}`,
-    ].join("\n")
-
     // ── Send email ──────────────────────────────────────────
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${process.env.RESEND_API_KEY || ""}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: process.env.RESEND_FROM_EMAIL || "Moduvox <alerts@pulsemonitor.dev>",
-        to: ["anubhavrai100@gmail.com"],
-        subject: `New feedback: ${categoryLabel} ${stars}`,
-        text,
-      }),
+    const categoryLabel = CATEGORY_LABELS[parsed.data.category as FeedbackCategory]
+    const emailResult = await sendEmail({
+      to: "anubhavrai100@gmail.com",
+      subject: `New feedback from ${parsed.data.name} — ${categoryLabel} (${parsed.data.rating}/5)`,
+      template: (
+        <FeedbackNotificationEmail
+          category={parsed.data.category}
+          rating={parsed.data.rating}
+          name={parsed.data.name}
+          email={parsed.data.email ?? undefined}
+          message={parsed.data.message}
+          canContact={parsed.data.can_contact}
+          ip={ipAddress}
+        />
+      ),
     })
 
-    if (!res.ok) {
-      const errText = await res.text().catch(() => "")
-      console.error("POST /api/feedback: Resend API error", res.status, errText)
-      return NextResponse.json(
-        { error: "Failed to send feedback. Please try again later." },
-        { status: 500 },
-      )
+    if (!emailResult.success) {
+      console.error("POST /api/feedback: Failed to send email:", emailResult.error)
+      // Don't return error — feedback was still processed
     }
 
     // ── Success — set cooldown cookie (only if consented) ──

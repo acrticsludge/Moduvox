@@ -3,6 +3,8 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { magicLinkGateSchema, passwordGateSchema } from "@/lib/validations/share"
 import bcrypt from "bcryptjs"
 import { withApiHandler } from "@/lib/api-handler"
+import { sendEmail } from "@/lib/email"
+import { MagicLinkEmail } from "@/emails/magic-link"
 
 export const POST = withApiHandler(async (
   request: Request,
@@ -227,37 +229,19 @@ export const POST = withApiHandler(async (
   const verificationUrl = `${origin}/view/${shareToken}/verify?vt=${viewer.session_token}`
 
   // Send magic link email via Resend
-  let emailSent = false
-  try {
-    const resendPayload = {
-      to: [viewer.viewer_email],
-      subject: "Verify your email to watch this presentation",
-      text: `Hi ${viewer.viewer_name},\n\nClick this link to verify your email and start watching:\n${verificationUrl}\n\nThis link expires in 15 minutes.\n\nâ€” Moduvox`,
-    }
+  const emailResult = await sendEmail({
+    to: viewer.viewer_email,
+    subject: `You're invited to view "${presentation.title}"`,
+    template: (
+      <MagicLinkEmail
+        viewerName={viewer.viewer_name}
+        verificationUrl={verificationUrl}
+        presentationTitle={presentation.title}
+      />
+    ),
+  })
 
-    const emailRes = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${process.env.RESEND_API_KEY || ""}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: process.env.RESEND_FROM_EMAIL || "Moduvox <alerts@pulsemonitor.dev>",
-        ...resendPayload,
-      }),
-    })
-
-    if (emailRes.ok) {
-      emailSent = true
-    } else {
-      const errBody = await emailRes.text().catch(() => "unknown")
-      console.error("Resend API error:", emailRes.status, errBody)
-    }
-  } catch (err) {
-    console.error("Failed to send magic link email:", err)
-  }
-
-  if (!emailSent) {
+  if (!emailResult.success) {
     // Clean up orphaned viewer record — email never arrived so there's
     // no way for the viewer to verify. The user can retry on the gate form.
     await supabase.from("viewers").delete().eq("id", viewer.id).maybeSingle()
