@@ -2,9 +2,9 @@ import express from "express";
 import { z } from "zod";
 import { PDFDocument } from "pdf-lib";
 import { execSync } from "child_process";
-import { createWriteStream, existsSync, mkdirSync, rmSync } from "fs";
+import { createWriteStream, existsSync, mkdirSync, readdirSync, rmSync } from "fs";
 import { readFile } from "fs/promises";
-import { join } from "path";
+import { basename, join } from "path";
 import { pipeline } from "stream/promises";
 import fetch from "node-fetch";
 import { createClient } from "@supabase/supabase-js";
@@ -142,8 +142,9 @@ app.post("/convert", auth, async (req, res) => {
 
     console.log("[convert] Converting PPTX -> PDF via LibreOffice");
     try {
+      // Run LibreOffice from the tmp dir so output lands there even if --outdir is flaky
       execSync(
-        `soffice --headless --convert-to pdf --outdir ${TMP_DIR} ${tmpInput}`,
+        `cd ${TMP_DIR} && soffice --headless --norestore --convert-to pdf --outdir ${TMP_DIR} input.pptx`,
         {
           timeout: 180_000,
           stdio: "pipe",
@@ -155,14 +156,25 @@ app.post("/convert", auth, async (req, res) => {
       throw new Error(`LibreOffice conversion failed: ${libreErr.message}`);
     }
 
-    if (!existsSync(tmpOutput)) {
-      console.error(`[convert] Expected output not found at ${tmpOutput}`);
+    // Find any PDF in the output dir — LO output naming varies by version
+    const pdfFiles = readdirSync(TMP_DIR).filter(
+      (f) => f.endsWith(".pdf") && f !== basename(tmpOutput),
+    );
+    console.log(`[convert] PDFs in output dir: ${JSON.stringify(pdfFiles)}`);
+    if (pdfFiles.length === 0 && !existsSync(tmpOutput)) {
+      console.error(`[convert] No PDF found in ${TMP_DIR}`);
       throw new Error("LibreOffice did not produce output PDF");
     }
-    console.log(`[convert] Output PDF exists: ${tmpOutput} (${(await readFile(tmpOutput)).length} bytes)`);
+
+    // Use the discovered PDF if the expected path is missing
+    const actualPdfPath = existsSync(tmpOutput)
+      ? tmpOutput
+      : join(TMP_DIR, pdfFiles[0]);
+
+    console.log(`[convert] Output PDF: ${actualPdfPath} (${(await readFile(actualPdfPath)).length} bytes)`);
 
     console.log("[convert] Reading PDF and splitting into pages");
-    const sourcePdfBytes = await readFile(tmpOutput);
+    const sourcePdfBytes = await readFile(actualPdfPath);
     const sourcePdf = await PDFDocument.load(sourcePdfBytes);
 
     const actualPageCount = sourcePdf.getPageCount();

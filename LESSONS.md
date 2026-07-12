@@ -1,3 +1,13 @@
+## 2026-07-12: [Bug] LibreOffice produces PDF at unpredictable filename in Docker
+
+**What happened:** `soffice --headless --convert-to pdf --outdir /tmp/convert input.pptx` reported success but the expected `/tmp/convert/input.pdf` didn't exist, causing "LibreOffice did not produce output PDF" errors.
+
+**Root cause:** LibreOffice output filename behavior varies by version and platform. Some versions produce `input.pptx.pdf` (append &keep;.pdf) instead of `input.pdf` (replace extension). Additionally, `--outdir` is unreliable in some LO builds — output goes to the CWD instead.
+
+**Fix:** (1) `cd` into the tmp directory before running soffice so output lands there even if `--outdir` is ignored. (2) Added `--norestore` to avoid LO recovery dialog. (3) After conversion, scan the output directory for any `.pdf` file instead of assuming the filename. (4) Use the discovered file regardless of name (`input.pdf` or `input.pptx.pdf`).
+
+**Prevention:** Never assume LibreOffice output filename — always scan the output directory for PDFs after conversion. Always `cd` into the output directory as a fallback for `--outdir`. Pin the LibreOffice version in Docker if consistent naming is critical.
+
 ## 2026-07-12: [DX] Renaming route.ts to route.tsx requires deleting .next cache
 
 **What happened:** Renaming an API route file from `.ts` to `.tsx` (to support JSX) caused a "SyntaxError: Invalid or unexpected token" runtime error in the running dev server. The error came from stale Turbopack output in `.next/`.
