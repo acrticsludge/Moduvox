@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import { Play, Loader2, ExternalLink, FileText, ChevronRight, X, Share2 } from "lucide-react"
+import { Play, Loader2, ExternalLink, FileText, ChevronRight, X, Share2, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
@@ -12,6 +12,7 @@ import { ReUploadModal } from "./ReUploadModal"
 import { RegenerateModal, type RegenStep } from "./RegenerateModal"
 import { AudioPlayer } from "./AudioPlayer"
 import { SharePresentationModal } from "./SharePresentationModal"
+import { SlidePdfViewer } from "@/components/shared/SlidePdfViewer"
 
 export function SlideEditor({
   voiceSelected,
@@ -70,9 +71,11 @@ export function SlideEditor({
   const [internalAudioGenerated, setInternalAudioGenerated] = useState(false)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState("")
-  const [viewerUrl, setViewerUrl] = useState<string | null>(null)
-  const [baseViewerUrl, setBaseViewerUrl] = useState<string>("")
   const [slideInput, setSlideInput] = useState("")
+  const [pdfUrls, setPdfUrls] = useState<(string | null)[]>([])
+  const [conversionStatus, setConversionStatus] = useState<"uploading" | "converting" | "ready" | "error">("uploading")
+  const [conversionError, setConversionError] = useState("")
+  const [pollAttempts, setPollAttempts] = useState(0)
   const [showSlideInfo, setShowSlideInfo] = useState(false)
   const [internalNarrations, setInternalNarrations] = useState<Record<number, string>>({})
   const [showReUpload, setShowReUpload] = useState(false)
@@ -82,8 +85,6 @@ export function SlideEditor({
   const [reUploadParsing, setReUploadParsing] = useState(false)
   const [reUploading, setReUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
-  const [viewerLoading, setViewerLoading] = useState(false)
-  const [iframeError, setIframeError] = useState(false)
   const [internalChangedSlides, setInternalChangedSlides] = useState<number[]>([])
   const [showRegenModal, setShowRegenModal] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
@@ -112,6 +113,41 @@ export function SlideEditor({
   const currentIndex = externalCurrentSlide ?? internalIndex
   const changedSlides = externalChangedSlides ?? internalChangedSlides
   const total = slides.length
+
+  const POLL_INTERVAL = 2000
+  const MAX_POLL_ATTEMPTS = 150
+
+  const pollForPdfs = useCallback(async (presId: string, slideCount: number) => {
+    let attempts = 0
+    const poll = async () => {
+      if (attempts >= MAX_POLL_ATTEMPTS) {
+        setConversionStatus("error")
+        setConversionError("Conversion timed out. Please try again.")
+        return
+      }
+      attempts++
+      setPollAttempts(attempts)
+
+      try {
+        const res = await fetch(`/api/presentations/${presId}/slides`)
+        const json = await res.json()
+        if (json.data?.completed) {
+          const urls: (string | null)[] = []
+          for (const slide of json.data.slides) {
+            urls[slide.slideNumber - 1] = slide.pdfUrl
+          }
+          setPdfUrls(urls)
+          setConversionStatus("ready")
+          setLoading(false)
+          return
+        }
+      } catch {
+        // Silently retry on network errors
+      }
+      setTimeout(poll, POLL_INTERVAL)
+    }
+    poll()
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -180,45 +216,24 @@ export function SlideEditor({
         }
       }
 
-      // Generate viewer URL from storage path (now with slide count)
-      let signedViewerUrl = ""
+      // Confirm upload and start PDF conversion
       if (path) {
         try {
           const slideCount = parsedSlides?.length ?? 1
-          // Only trigger PDF conversion on actual file upload, not on page restore
           const confirmRes = await fetch(`/api/presentations/${presentationId}/upload/confirm`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ path, slideCount, skipConversion: !file }),
+            body: JSON.stringify({ path, slideCount }),
           })
-          const confirmJson = await confirmRes.json()
-          if (confirmJson.data?.viewerUrl) {
-            signedViewerUrl = confirmJson.data.viewerUrl
-            const encodedUrl = encodeURIComponent(signedViewerUrl)
-            setBaseViewerUrl(encodedUrl)
-            if (!cancelled) {
-              const slideIdx = (externalCurrentSlide ?? 0) + 1
-              setViewerUrl(`https://view.officeapps.live.com/op/embed.aspx?src=${encodedUrl}&wdSlideIndex=${slideIdx}`)
-            }
+          if (!confirmRes.ok) {
+            if (!cancelled) setLoadError("Failed to confirm upload.")
+          } else if (!cancelled) {
+            // Start polling for PDF conversion
+            setConversionStatus("converting")
+            pollForPdfs(presentationId, slideCount)
           }
         } catch {
-          if (!cancelled) setLoadError("Failed to generate viewer link.")
-        }
-      }
-
-      // Fallback: download PPTX from signed URL and parse it (if not already parsed)
-      if (!parsedSlides && signedViewerUrl) {
-        try {
-          const blobRes = await fetch(signedViewerUrl)
-          const blob = await blobRes.blob()
-          const parsed = await parsePptxText(new File([blob], "slides.pptx"))
-          if (!cancelled) {
-            setSlides(parsed)
-            onSlideDataChange?.(parsed)
-            setInternalIndex(externalCurrentSlide ?? 0)
-          }
-        } catch {
-          if (!cancelled) setLoadError("Failed to download presentation preview.")
+          if (!cancelled) setLoadError("Failed to confirm upload.")
         }
       }
 
@@ -556,14 +571,6 @@ export function SlideEditor({
     setInternalIndex(idx)
     onCurrentSlideChange?.(idx)
     setSlideInput(String(idx + 1))
-    // Reload Office viewer at the target slide
-    if (baseViewerUrl) {
-      setViewerLoading(true)
-      setIframeError(false)
-      setViewerUrl(
-        `https://view.officeapps.live.com/op/embed.aspx?src=${baseViewerUrl}&wdSlideIndex=${idx + 1}`,
-      )
-    }
   }
 
   function handleSlideJump(e: React.FormEvent) {
@@ -608,15 +615,14 @@ export function SlideEditor({
       setSlides([])
       setInternalIndex(0)
       onCurrentSlideChange?.(0)
-      setViewerUrl(null)
-      setBaseViewerUrl("")
+      setPdfUrls([])
+      setConversionStatus("uploading")
+      setConversionError("")
       onSlideDataChange?.([])
       setInternalChangedSlides([])
       onChangedSlidesChange?.([])
       setGenerationFailed(false)
       setGeneratingNarrations(false)
-      setViewerLoading(false)
-      setIframeError(false)
       setSlideInput("1")
 
       setInternalAudioUrl(null)
@@ -747,11 +753,9 @@ export function SlideEditor({
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ path: json.data.path, slideCount: reSlideCount }),
                   })
-                  const confirmJson = await confirmRes.json()
-                  if (confirmJson.data?.viewerUrl) {
-                    const encodedUrl = encodeURIComponent(confirmJson.data.viewerUrl)
-                    setBaseViewerUrl(encodedUrl)
-                    setViewerUrl(`https://view.officeapps.live.com/op/embed.aspx?src=${encodedUrl}&wdSlideIndex=1`)
+                  if (confirmRes.ok) {
+                    setConversionStatus("converting")
+                    pollForPdfs(presentationId, reSlideCount)
                   }
                 }
               } catch (err) { console.error("[SlideEditor] Operation failed:", err) }
@@ -862,7 +866,7 @@ export function SlideEditor({
   return (
     <>
       <div className="flex flex-1 flex-col">
-      {/* Left — Office Online viewer showing the actual PPTX */}
+      {/* Left — PDF-based slide viewer */}
       <div className="relative flex flex-1 flex-col bg-zinc-100">
         {/* Processing overlay during re-upload */}
         {reUploading ? (
@@ -870,22 +874,89 @@ export function SlideEditor({
             <Loader2 className="h-6 w-6 animate-spin text-[#71717A]" />
             <p className="text-sm text-[#71717A]">Processing PPTX...</p>
           </div>
-        ) : viewerUrl && !iframeError ? (
-          <>
-            <div className="relative flex-1">
-              <iframe
-                src={viewerUrl}
-                className="h-full w-full"
-                style={{ minHeight: "60vh" }}
-                title="Presentation preview"
-                onLoad={() => { setViewerLoading(false); setIframeError(false) }}
-                onError={() => setIframeError(true)}
-              />
-              {viewerLoading && !reUploading && (
-                <div className="absolute inset-0 flex items-center justify-center bg-zinc-100">
-                  <Loader2 className="h-5 w-5 animate-spin text-[#71717A]" />
+        ) : conversionStatus === "uploading" || conversionStatus === "converting" ? (
+          <div className="flex h-full min-h-[60vh] flex-col items-center justify-center gap-6 px-4">
+            {/* Step 1: Uploading */}
+            <div className="flex items-center gap-3">
+              {conversionStatus === "uploading" ? (
+                <Loader2 className="h-5 w-5 animate-spin text-zinc-400" />
+              ) : (
+                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-green-500">
+                  <Check className="h-3 w-3 text-white" />
                 </div>
               )}
+              <div>
+                <p className={`text-sm font-medium ${conversionStatus === "uploading" ? "text-zinc-700" : "text-zinc-500"}`}>
+                  Uploading to storage
+                </p>
+                {conversionStatus === "uploading" && uploadProgress > 0 && (
+                  <p className="text-xs text-zinc-400">{uploadProgress}%</p>
+                )}
+              </div>
+            </div>
+
+            {/* Step 2: Converting */}
+            <div className="flex items-center gap-3">
+              {conversionStatus === "converting" ? (
+                <Loader2 className="h-5 w-5 animate-spin text-zinc-400" />
+              ) : (
+                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-green-500">
+                  <Check className="h-3 w-3 text-white" />
+                </div>
+              )}
+              <div>
+                <p className={`text-sm font-medium ${conversionStatus === "converting" ? "text-zinc-700" : "text-zinc-500"}`}>
+                  Converting to PDF
+                </p>
+                {conversionStatus === "converting" && (
+                  <p className="text-xs text-zinc-400">
+                    ~{Math.min(Math.round(pollAttempts * 2), 60)} seconds elapsed
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Linear progress bar */}
+            <div className="h-1.5 w-64 overflow-hidden rounded-full bg-zinc-200">
+              <div
+                className="h-full rounded-full bg-zinc-600 transition-all duration-500"
+                style={{
+                  width: conversionStatus === "uploading"
+                    ? `${Math.max(uploadProgress, 10)}%`
+                    : "90%",
+                }}
+              />
+            </div>
+
+            <p className="text-xs text-zinc-400">This should take about 15–30 seconds</p>
+          </div>
+        ) : conversionStatus === "error" ? (
+          <div className="flex h-full min-h-[60vh] flex-col items-center justify-center gap-3 p-8">
+            <p className="text-sm text-amber-600">Failed to convert presentation.</p>
+            <p className="text-xs text-zinc-400">{conversionError || "The conversion server may be unavailable."}</p>
+            <button
+              type="button"
+              onClick={() => {
+                setConversionStatus("uploading")
+                setConversionError("")
+                setPollAttempts(0)
+                // Re-trigger upload flow
+                window.location.reload()
+              }}
+              className="mt-2 rounded-lg border border-zinc-200 bg-white px-4 py-2 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-50"
+            >
+              Retry
+            </button>
+          </div>
+        ) : pdfUrls.length > 0 ? (
+          <>
+            <div className="relative flex flex-1 items-center justify-center p-4">
+              <SlidePdfViewer
+                pdfUrl={pdfUrls[currentIndex] ?? null}
+                onLoadError={() => {
+                  console.error(`[Editor] Failed to load PDF for slide ${currentIndex + 1}`)
+                }}
+              />
             </div>
             <div className="absolute bottom-3 right-3 flex flex-wrap justify-end gap-1.5">
               <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-[#71717A] shadow-sm transition-colors hover:text-[#18181B]">
@@ -928,31 +999,26 @@ export function SlideEditor({
                   "Remove PPT"
                 )}
               </button>
-              <a
-                href={viewerUrl.replace("embed.aspx", "view.aspx")}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-[#71717A] shadow-sm transition-colors hover:text-[#18181B]"
-              >
-                <ExternalLink className="h-3 w-3" />
-                Full screen
-              </a>
+              {pdfUrls[currentIndex] && (
+                <a
+                  href={pdfUrls[currentIndex]!}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-[#71717A] shadow-sm transition-colors hover:text-[#18181B]"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                  Full screen
+                </a>
+              )}
             </div>
           </>
-        ) : iframeError ? (
-          <div className="flex h-full min-h-[60vh] flex-col items-center justify-center gap-2 p-8">
-            <p className="text-sm text-amber-600">Failed to load presentation preview.</p>
-            <p className="text-xs text-[#71717A]">Try refreshing or re-uploading the file.</p>
-          </div>
         ) : (
           <div className="flex h-full min-h-[60vh] items-center justify-center">
-            <p className="text-sm text-[#71717A]">
-              Upload processed. Slide preview unavailable.
-            </p>
+            <p className="text-sm text-[#71717A]">Presentation could not be loaded.</p>
           </div>
         )}
       </div>
-      </div>{/* end wrapper */}
+      </div>{/* end left viewer wrapper */}
 
       {/* Desktop right panel */}
       <div className="absolute bottom-0 right-0 top-0 z-20 hidden w-[380px] flex-col gap-5 overflow-y-auto border-l border-[var(--color-border-faint)] bg-white p-6 lg:flex hide-scrollbar">
