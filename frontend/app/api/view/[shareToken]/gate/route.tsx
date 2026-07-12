@@ -232,6 +232,7 @@ export const POST = withApiHandler(async (
   const emailResult = await sendEmail({
     to: viewer.viewer_email,
     subject: `You're invited to view "${presentation.title}"`,
+    auditType: "magic_link",
     template: (
       <MagicLinkEmail
         viewerName={viewer.viewer_name}

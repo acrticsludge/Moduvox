@@ -45,6 +45,8 @@ export async function POST(request: Request) {
     const result = await sendEmail({
       to: user.email,
       subject: `Welcome to Moduvox, ${user.name}!`,
+      auditType: "welcome",
+      auditUserId: userId,
       template: <WelcomeEmail userName={user.name} dashboardUrl={dashboardUrl} />,
     })
 

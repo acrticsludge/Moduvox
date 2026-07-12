@@ -28,6 +28,8 @@ export async function GET(request: Request) {
         sendEmail({
           to: user.email,
           subject: `Welcome to Moduvox, ${user.user_metadata?.full_name || "there"}!`,
+          auditType: "welcome",
+          auditUserId: user.id,
           template: (
             <WelcomeEmail
               userName={user.user_metadata?.full_name || "there"}

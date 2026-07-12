@@ -107,6 +107,7 @@ export const POST = withApiHandler(async (request: Request) => {
     const emailResult = await sendEmail({
       to: "anubhavrai100@gmail.com",
       subject: `New feedback from ${parsed.data.name} — ${categoryLabel} (${parsed.data.rating}/5)`,
+      auditType: "feedback_notification",
       template: (
         <FeedbackNotificationEmail
           category={parsed.data.category}
