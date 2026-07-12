@@ -17,12 +17,41 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://moduvox.pulsemonitor.dev"
+
 export const metadata: Metadata = {
-  title: "Moduvox - Your slides. Your voice. No recording.",
+  title: {
+    default: "Moduvox - Your slides. Your voice. No recording.",
+    template: "%s | Moduvox",
+  },
   description:
     "Upload a PPTX and a voice sample. Moduvox generates a complete narrated presentation in your voice, with viewer tracking.",
   icons: {
     icon: "/favicon.svg",
+  },
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    siteName: "Moduvox",
+    url: siteUrl,
+    title: "Moduvox - Your slides. Your voice. No recording.",
+    description:
+      "Upload a PPTX and a voice sample. Moduvox generates a complete narrated presentation in your voice, with viewer tracking.",
+    images: [
+      {
+        url: `${siteUrl}/og`,
+        width: 1200,
+        height: 630,
+        alt: "Moduvox - narrated presentations with AI voice cloning",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Moduvox - Your slides. Your voice. No recording.",
+    description:
+      "Upload a PPTX and a voice sample. Moduvox generates a complete narrated presentation in your voice, with viewer tracking.",
+    images: [`${siteUrl}/og`],
   },
 };
 
