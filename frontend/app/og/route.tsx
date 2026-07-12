@@ -14,15 +14,15 @@ export async function GET() {
           alignItems: "center",
           justifyContent: "center",
           background: "#F9FAFB",
-          fontFamily: "Geist, system-ui, sans-serif",
+          fontFamily: "Geist, Inter, system-ui, sans-serif",
         }}
       >
-        {/* Play icon */}
+        {/* Play icon — 80x80 charcoal rounded square, rx=15 */}
         <div
           style={{
             width: 80,
             height: 80,
-            borderRadius: 16,
+            borderRadius: 15,
             background: "#18181B",
             display: "flex",
             alignItems: "center",
@@ -30,12 +30,12 @@ export async function GET() {
             marginBottom: 32,
           }}
         >
-          <svg width="36" height="36" viewBox="0 0 24 24" fill="white">
-            <polygon points="8,5 19,12 8,19" />
+          <svg width="36" height="36" viewBox="0 0 32 32" fill="white">
+            <path d="M12 10L22 16L12 22V10Z" />
           </svg>
         </div>
 
-        {/* Title */}
+        {/* Headline */}
         <div
           style={{
             fontSize: 56,
@@ -51,13 +51,15 @@ export async function GET() {
           Your slides. Your voice. No recording.
         </div>
 
-        {/* Tagline */}
+        {/* Subtitle */}
         <div
           style={{
             fontSize: 24,
+            fontWeight: 400,
             color: "#71717A",
             textAlign: "center",
             maxWidth: 600,
+            lineHeight: 1.4,
           }}
         >
           Upload a PPTX. Clone your voice. Get a complete narrated presentation with viewer tracking.
