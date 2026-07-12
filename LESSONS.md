@@ -1,3 +1,13 @@
+## 2026-07-12: [DX] Renaming route.ts to route.tsx requires deleting .next cache
+
+**What happened:** Renaming an API route file from `.ts` to `.tsx` (to support JSX) caused a "SyntaxError: Invalid or unexpected token" runtime error in the running dev server. The error came from stale Turbopack output in `.next/`.
+
+**Root cause:** Next.js Turbopack caches compiled output per file path. When the extension changes, the old compiled `.ts` output remains cached and the new `.tsx` path gets an incomplete compilation. The loader chain detects the `.tsx` but tries to process JSX through the `.ts` pipeline, producing invalid JavaScript.
+
+**Fix:** Delete `.next/` directory and restart the dev server. The fresh compilation correctly handles the `.tsx` extension and JSX syntax.
+
+**Prevention:** When renaming files (especially `.ts` ↔ `.tsx`), delete `.next/` cache before testing. Better yet: decide the extension upfront — if a file contains JSX, create it as `.tsx` from the start.
+
 ## 2026-07-10: [Bug] forwardRef + next/dynamic causes "Component is not a function" runtime error
 
 **What happened:** Wrapping a dynamically-imported component in `forwardRef` caused a runtime error: "Component is not a function". The dynamic import (`next/dynamic` with named export) resolved fine, but React couldn't render the `forwardRef`-wrapped component.
