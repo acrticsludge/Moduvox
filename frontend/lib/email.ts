@@ -3,7 +3,7 @@ import { render } from "@react-email/render"
 
 
 const resend = new Resend(process.env.RESEND_API_KEY)
-const FROM = "Moduvox <alerts@pulsemonitor.dev>"
+const FROM = process.env.RESEND_FROM_EMAIL || "Moduvox <alerts@pulsemonitor.dev>"
 
 type SendEmailParams = {
   to: string

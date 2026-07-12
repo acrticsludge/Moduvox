@@ -3,7 +3,6 @@ import {
   Container,
   Head,
   Heading,
-  Hr,
   Html,
   Preview,
   Section,
@@ -29,7 +28,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 function RatingStars({ rating }: { rating: number }) {
   return (
-    <span className="text-[16px]" style={{ lineHeight: "1" }}>
+    <span role="img" aria-label={`${rating} out of 5 stars`} style={{ lineHeight: 1 }}>
       {Array.from({ length: 5 }, (_, i) =>
         i < rating ? "\u2605" : "\u2606",
       ).join("")}
@@ -49,48 +48,75 @@ export function FeedbackNotificationEmail({
   const categoryLabel = CATEGORY_LABELS[category] || category
 
   return (
-    <Html>
-      <Head />
+    <Html lang="en">
+      <Head>
+        <meta name="color-scheme" content="light dark" />
+        <meta name="supported-color-schemes" content="light dark" />
+      </Head>
       <Preview>New feedback from {name}</Preview>
       <Tailwind>
         <Body className="bg-[#F9FAFB] font-sans py-8 px-4">
           <Container className="max-w-[480px] mx-auto">
-            {/* Header — Moduvox wordmark */}
+            {/* Header */}
             <Section className="text-center py-4">
               <Text className="text-[16px] font-semibold text-[#71717A] tracking-tight m-0">
                 Moduvox
               </Text>
             </Section>
 
-            {/* Main card */}
+            {/* Card */}
             <Section className="bg-white rounded-xl border border-[#E4E4E7] px-10 py-8">
-              {/* Headline */}
               <Heading className="text-[22px] font-semibold text-[#18181B] leading-tight m-0 mb-6">
                 New Feedback
               </Heading>
 
-              {/* Feedback details sub-card */}
-              <Section className="bg-[#F9FAFB] border border-[#E4E4E7] rounded-lg p-4 space-y-4">
-                {/* Row 1: Category badge + contact status */}
-                <div className="flex justify-between items-center">
-                  <span className="bg-[#F3F4F6] text-[#18181B] text-[12px] font-medium px-2.5 py-1 rounded-full uppercase tracking-wider">
-                    {categoryLabel}
-                  </span>
-                  {canContact && (
-                    <span className="text-[#16A34A] text-[12px] font-medium">
-                      ✓ OK to contact
-                    </span>
-                  )}
-                </div>
+              {/* Sub-card */}
+              <Section
+                style={{
+                  backgroundColor: "#F9FAFB",
+                  border: "1px solid #E4E4E7",
+                  borderRadius: 8,
+                  padding: 16,
+                }}
+              >
+                {/* Row 1: Badge + contact */}
+                <table cellPadding="0" cellSpacing="0" role="presentation" style={{ width: "100%", marginBottom: 16 }}>
+                  <tr>
+                    <td align="left" style={{ width: "50%" }}>
+                      <span
+                        style={{
+                          backgroundColor: "#F3F4F6",
+                          color: "#18181B",
+                          fontSize: 12,
+                          fontWeight: 500,
+                          padding: "2px 10px",
+                          borderRadius: 9999,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.05em",
+                          display: "inline-block",
+                        }}
+                      >
+                        {categoryLabel}
+                      </span>
+                    </td>
+                    <td align="right" style={{ width: "50%" }}>
+                      {canContact && (
+                        <span style={{ color: "#16A34A", fontSize: 12, fontWeight: 500 }}>
+                          ✓ OK to contact
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                </table>
 
                 {/* Row 2: Name + email + rating */}
-                <div className="border-b border-[#E4E4E7] pb-3">
-                  <div className="flex flex-wrap items-baseline gap-x-2 mb-1">
-                    <span className="text-[#18181B] font-semibold text-[15px]">
+                <div style={{ borderBottom: "1px solid #E4E4E7", paddingBottom: 12, marginBottom: 16 }}>
+                  <div style={{ marginBottom: 4 }}>
+                    <span style={{ color: "#18181B", fontWeight: 600, fontSize: 15 }}>
                       {name}
                     </span>
                     {email && (
-                      <span className="text-[#71717A] text-[15px]">
+                      <span style={{ color: "#71717A", fontSize: 15, marginLeft: 8 }}>
                         {email}
                       </span>
                     )}
@@ -99,38 +125,46 @@ export function FeedbackNotificationEmail({
                 </div>
 
                 {/* Row 3: Message */}
-                <div className="bg-[#FAFAFA] border border-[#E4E4E7] rounded p-3">
+                <div
+                  style={{
+                    backgroundColor: "#FAFAFA",
+                    border: "1px solid #E4E4E7",
+                    borderRadius: 8,
+                    padding: 12,
+                    marginBottom: 8,
+                  }}
+                >
                   <Text className="text-[#18181B] text-[15px] leading-relaxed m-0">
                     {message}
                   </Text>
                 </div>
 
                 {/* Row 4: Metadata */}
-                <div className="flex items-center gap-1.5 pt-0.5">
-                  <Text className="text-[#A1A1AA] text-[11px] m-0">
-                    IP: {ip}
-                  </Text>
-                </div>
+                <Text className="text-[#A1A1AA] text-[11px] m-0">
+                  IP: {ip}
+                </Text>
               </Section>
             </Section>
 
             {/* Footer */}
             <Section className="text-center px-10 pb-6 mt-6 pt-4">
               <Text className="text-[11px] text-[#A1A1AA] m-0">
-                Moduvox — Feedback notification
+                Moduvox — Turn slides into narrated videos
               </Text>
               <div className="flex justify-center gap-4 mt-2">
                 <a
-                  href="https://pulsemonitor.dev/privacy"
-                  className="text-[11px] text-[#A1A1AA] no-underline"
+                  href="https://moduvox.pulsemonitor.dev/privacy"
+                  style={{ textDecoration: "none", color: "#A1A1AA" }}
+                  className="text-[11px] no-underline"
                 >
-                  Privacy
+                  <span style={{ color: "#A1A1AA" }}>Privacy</span>
                 </a>
                 <a
-                  href="https://pulsemonitor.dev/terms"
-                  className="text-[11px] text-[#A1A1AA] no-underline"
+                  href="https://moduvox.pulsemonitor.dev/terms"
+                  style={{ textDecoration: "none", color: "#A1A1AA" }}
+                  className="text-[11px] no-underline"
                 >
-                  Terms
+                  <span style={{ color: "#A1A1AA" }}>Terms</span>
                 </a>
               </div>
             </Section>

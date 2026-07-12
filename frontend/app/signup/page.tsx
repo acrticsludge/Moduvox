@@ -122,7 +122,7 @@ export default function SignupPage() {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { name } },
+      options: { data: { full_name: name } },
     });
 
     if (error) {

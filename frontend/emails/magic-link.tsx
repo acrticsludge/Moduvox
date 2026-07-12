@@ -4,7 +4,6 @@ import {
   Container,
   Head,
   Heading,
-  Hr,
   Html,
   Preview,
   Section,
@@ -24,28 +23,48 @@ export function MagicLinkEmail({
   presentationTitle,
 }: MagicLinkEmailProps) {
   return (
-    <Html>
-      <Head />
-      <Preview>You're invited to view &ldquo;{presentationTitle}&rdquo;</Preview>
+    <Html lang="en">
+      <Head>
+        <meta name="color-scheme" content="light dark" />
+        <meta name="supported-color-schemes" content="light dark" />
+      </Head>
+      <Preview>
+        You're invited to view &ldquo;{presentationTitle}&rdquo;
+      </Preview>
       <Tailwind>
         <Body className="bg-[#F9FAFB] font-sans py-8 px-4">
           <Container className="max-w-[480px] mx-auto">
-            {/* Header — Moduvox wordmark */}
+            {/* Header */}
             <Section className="text-center py-4">
               <Text className="text-[16px] font-semibold text-[#71717A] tracking-tight m-0">
                 Moduvox
               </Text>
             </Section>
 
-            {/* Main card */}
+            {/* Card */}
             <Section className="bg-white rounded-xl border border-[#E4E4E7] px-10 py-8 text-center">
               {/* Play icon */}
-              <Section className="mb-6">
-                <div className="w-12 h-12 bg-[#18181B] rounded-lg flex items-center justify-center mx-auto">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
-                    <polygon points="8,5 19,12 8,19" />
-                  </svg>
-                </div>
+              <Section className="mb-6" align="center">
+                <table
+                  cellPadding="0"
+                  cellSpacing="0"
+                  role="presentation"
+                  style={{ margin: "0 auto" }}
+                >
+                  <tr>
+                    <td
+                      align="center"
+                      style={{
+                        width: 48,
+                        height: 48,
+                        borderRadius: 8,
+                        backgroundColor: "#18181B",
+                      }}
+                    >
+                      <span style={{ color: "white", fontSize: 20, lineHeight: "48px" }}>▶</span>
+                    </td>
+                  </tr>
+                </table>
               </Section>
 
               {/* Headline */}
@@ -56,7 +75,8 @@ export function MagicLinkEmail({
               {/* Body */}
               <Text className="text-[15px] text-[#71717A] leading-6 m-0 mb-6">
                 Hi {viewerName},
-                <br /><br />
+                <br />
+                <br />
                 You've been invited to view{' '}
                 <span className="font-semibold text-[#18181B]">
                   &ldquo;{presentationTitle}&rdquo;
@@ -66,16 +86,16 @@ export function MagicLinkEmail({
               </Text>
 
               {/* CTA */}
-              <Section className="mb-6">
+              <Section className="mb-6" align="center">
                 <Button
-                  className="inline-flex items-center justify-center bg-[#18181B] text-white text-[13px] font-medium px-6 py-3 rounded-lg no-underline"
+                  className="inline-block bg-[#18181B] text-white text-[13px] font-medium px-6 py-3 rounded-lg no-underline"
                   href={verificationUrl}
                 >
                   Verify Email →
                 </Button>
               </Section>
 
-              {/* Footnote with top border */}
+              {/* Footnote */}
               <Section className="border-t border-[#E4E4E7] pt-4 mt-4">
                 <Text className="text-[13px] text-[#71717A] m-0">
                   This link expires in 15 minutes. If you didn't request
@@ -91,16 +111,18 @@ export function MagicLinkEmail({
               </Text>
               <div className="flex justify-center gap-4 mt-2">
                 <a
-                  href="https://pulsemonitor.dev/privacy"
-                  className="text-[11px] text-[#A1A1AA] no-underline"
+                  href="https://moduvox.pulsemonitor.dev/privacy"
+                  style={{ textDecoration: "none", color: "#A1A1AA" }}
+                  className="text-[11px] no-underline"
                 >
-                  Privacy
+                  <span style={{ color: "#A1A1AA" }}>Privacy</span>
                 </a>
                 <a
-                  href="https://pulsemonitor.dev/terms"
-                  className="text-[11px] text-[#A1A1AA] no-underline"
+                  href="https://moduvox.pulsemonitor.dev/terms"
+                  style={{ textDecoration: "none", color: "#A1A1AA" }}
+                  className="text-[11px] no-underline"
                 >
-                  Terms
+                  <span style={{ color: "#A1A1AA" }}>Terms</span>
                 </a>
               </div>
             </Section>

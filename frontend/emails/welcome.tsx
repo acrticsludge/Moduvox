@@ -4,7 +4,6 @@ import {
   Container,
   Head,
   Heading,
-  Hr,
   Html,
   Preview,
   Section,
@@ -52,49 +51,85 @@ function Step({
   description: string
 }) {
   return (
-    <div className="flex gap-4">
-      <div className="w-6 h-6 bg-[#18181B] rounded-full flex items-center justify-center shrink-0 mt-0.5">
-        <span className="text-white text-[12px] font-bold">{number}</span>
-      </div>
-      <div>
-        <Text className="text-[15px] font-semibold text-[#18181B] m-0">
-          {title}
-        </Text>
-        <Text className="text-[13px] text-[#71717A] m-0 mt-0.5">
-          {description}
-        </Text>
-      </div>
-    </div>
+    <table cellPadding="0" cellSpacing="0" role="presentation" style={{ width: "100%", marginBottom: 16 }}>
+      <tr>
+        <td style={{ width: 24, verticalAlign: "top", paddingTop: 2 }}>
+          <table
+            cellPadding="0"
+            cellSpacing="0"
+            role="presentation"
+            style={{
+              width: 24,
+              height: 24,
+              borderRadius: "50%",
+              backgroundColor: "#18181B",
+            }}
+          >
+            <tr>
+              <td align="center" style={{ color: "white", fontSize: 12, fontWeight: 700 }}>
+                {number}
+              </td>
+            </tr>
+          </table>
+        </td>
+        <td style={{ paddingLeft: 16 }}>
+          <Text className="text-[15px] font-semibold text-[#18181B] m-0">
+            {title}
+          </Text>
+          <Text className="text-[13px] text-[#71717A] m-0 mt-0.5">
+            {description}
+          </Text>
+        </td>
+      </tr>
+    </table>
   )
 }
 
 export function WelcomeEmail({
   userName,
-  dashboardUrl = "https://pulsemonitor.dev/dashboard",
+  dashboardUrl = "https://moduvox.pulsemonitor.dev/dashboard",
 }: WelcomeEmailProps) {
   return (
-    <Html>
-      <Head />
+    <Html lang="en">
+      <Head>
+        <meta name="color-scheme" content="light dark" />
+        <meta name="supported-color-schemes" content="light dark" />
+      </Head>
       <Preview>Welcome to Moduvox, {userName}!</Preview>
       <Tailwind>
         <Body className="bg-[#F9FAFB] font-sans py-8 px-4">
           <Container className="max-w-[480px] mx-auto">
-            {/* Header — Moduvox wordmark */}
+            {/* Header */}
             <Section className="text-center py-4">
               <Text className="text-[16px] font-semibold text-[#71717A] tracking-tight m-0">
                 Moduvox
               </Text>
             </Section>
 
-            {/* Main card */}
+            {/* Card */}
             <Section className="bg-white rounded-xl border border-[#E4E4E7] px-10 py-8">
               {/* Checkmark icon */}
-              <Section className="text-center mb-6">
-                <div className="w-12 h-12 bg-[#18181B] rounded-lg flex items-center justify-center mx-auto">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                </div>
+              <Section className="text-center mb-6" align="center">
+                <table
+                  cellPadding="0"
+                  cellSpacing="0"
+                  role="presentation"
+                  style={{ margin: "0 auto" }}
+                >
+                  <tr>
+                    <td
+                      align="center"
+                      style={{
+                        width: 48,
+                        height: 48,
+                        borderRadius: 8,
+                        backgroundColor: "#18181B",
+                      }}
+                    >
+                      <span style={{ color: "white", fontSize: 20, lineHeight: "48px" }}>✓</span>
+                    </td>
+                  </tr>
+                </table>
               </Section>
 
               {/* Welcome heading */}
@@ -109,23 +144,23 @@ export function WelcomeEmail({
               </Section>
 
               {/* Steps */}
-              <Section className="mb-6 space-y-4">
+              <Section className="mb-6">
                 {steps.map((step) => (
                   <Step key={step.number} {...step} />
                 ))}
               </Section>
 
               {/* CTA */}
-              <Section className="text-center pt-4">
+              <Section className="text-center pt-4" align="center">
                 <Button
-                  className="inline-flex items-center justify-center bg-[#18181B] text-white text-[13px] font-medium px-8 py-3 rounded-lg no-underline"
+                  className="inline-block bg-[#18181B] text-white text-[13px] font-medium px-8 py-3 rounded-lg no-underline"
                   href={dashboardUrl}
                 >
                   Go to Dashboard →
                 </Button>
               </Section>
 
-              {/* Divider + help note */}
+              {/* Help note */}
               <Section className="mt-6 pt-4 border-t border-[#E4E4E7] text-center">
                 <Text className="text-[13px] text-[#71717A] m-0">
                   Need help? Reply to this email — we're happy to help.
@@ -139,21 +174,22 @@ export function WelcomeEmail({
                 Moduvox — Turn slides into narrated videos
               </Text>
               <Text className="text-[11px] text-[#A1A1AA] m-0 mt-2">
-                If you didn't sign up for Moduvox, you can ignore this
-                email.
+                If you didn't sign up for Moduvox, you can ignore this email.
               </Text>
               <div className="flex justify-center gap-4 mt-2">
                 <a
-                  href="https://pulsemonitor.dev/privacy"
-                  className="text-[11px] text-[#A1A1AA] no-underline"
+                  href="https://moduvox.pulsemonitor.dev/privacy"
+                  style={{ textDecoration: "none", color: "#A1A1AA" }}
+                  className="text-[11px] no-underline"
                 >
-                  Privacy
+                  <span style={{ color: "#A1A1AA" }}>Privacy</span>
                 </a>
                 <a
-                  href="https://pulsemonitor.dev/terms"
-                  className="text-[11px] text-[#A1A1AA] no-underline"
+                  href="https://moduvox.pulsemonitor.dev/terms"
+                  style={{ textDecoration: "none", color: "#A1A1AA" }}
+                  className="text-[11px] no-underline"
                 >
-                  Terms
+                  <span style={{ color: "#A1A1AA" }}>Terms</span>
                 </a>
               </div>
             </Section>
