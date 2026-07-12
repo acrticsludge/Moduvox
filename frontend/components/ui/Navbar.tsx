@@ -61,10 +61,10 @@ export function Navbar() {
         {/* Left: logo */}
         <a
           href="/"
-          className="text-2xl font-semibold tracking-tight text-[#18181B]"
+          className="flex items-center"
           aria-label="Moduvox home"
         >
-          Moduvox
+          <img src="/logo-wordmark.svg" alt="Moduvox" className="h-7" />
         </a>
 
           {/* Right: desktop links + CTA */}
@@ -135,9 +135,7 @@ export function Navbar() {
         aria-hidden={!drawerOpen}
       >
         <div className="flex items-center justify-between">
-          <span className="text-2xl font-semibold tracking-tight text-[#18181B]">
-            Moduvox
-          </span>
+          <img src="/logo-wordmark.svg" alt="Moduvox" className="h-7" />
           <button
             type="button"
             onClick={() => setDrawerOpen(false)}
