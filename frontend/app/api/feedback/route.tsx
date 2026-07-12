@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { submitFeedbackSchema, CATEGORY_LABELS } from "@/lib/validations/feedback"
 import type { FeedbackCategory } from "@/lib/validations/feedback"
 import { withApiHandler } from "@/lib/api-handler"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { sendEmail } from "@/lib/email"
 import { FeedbackNotificationEmail } from "@/emails/feedback-notification"
 
@@ -20,7 +21,7 @@ function getCookie(name: string, header: string | null): string | null {
 
 export const POST = withApiHandler(async (request: Request) => {
   try {
-    // ── Rate limit check ────────────────────────────────────
+    // ── Rate limit check (cookie-based, best-effort) ──────────
     const existing = getCookie(COOKIE_NAME, request.headers.get("cookie"))
     if (existing) {
       const submittedAt = Number(existing)
@@ -59,6 +60,7 @@ export const POST = withApiHandler(async (request: Request) => {
       if (!recaptchaToken) {
         return NextResponse.json({ error: "Security verification failed." }, { status: 403 })
       }
+
       const verifyRes = await fetch("https://www.google.com/recaptcha/api/siteverify", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -83,7 +85,24 @@ export const POST = withApiHandler(async (request: Request) => {
       || request.headers.get("x-real-ip")
       || "unknown"
 
-    // ── Send email ──────────────────────────────────────────
+    // ── Persist to database ───────────────────────────────────
+    const supabase = createAdminClient()
+    const { error: dbError } = await supabase.from("feedback").insert({
+      name: parsed.data.name,
+      email: parsed.data.email || "",
+      category: parsed.data.category,
+      rating: parsed.data.rating,
+      message: parsed.data.message,
+      can_contact: parsed.data.can_contact,
+      ip_address: ipAddress,
+    })
+
+    if (dbError) {
+      console.error("POST /api/feedback: DB insert failed:", dbError.message)
+      return NextResponse.json({ error: "Failed to save feedback" }, { status: 500 })
+    }
+
+    // ── Send email notification (best-effort) ─────────────────
     const categoryLabel = CATEGORY_LABELS[parsed.data.category as FeedbackCategory]
     const emailResult = await sendEmail({
       to: "anubhavrai100@gmail.com",
@@ -102,15 +121,15 @@ export const POST = withApiHandler(async (request: Request) => {
     })
 
     if (!emailResult.success) {
-      console.error("POST /api/feedback: Failed to send email:", emailResult.error)
-      // Don't return error — feedback was still processed
+      // Feedback is already in DB — email failure is non-critical
+      console.error("POST /api/feedback: Email send failed (data preserved):", emailResult.error)
     }
 
     // ── Success — set cooldown cookie (only if consented) ──
     const response = NextResponse.json({ data: { ok: true } }, { status: 201 })
     const cookieConsent = new URL(request.url).searchParams.get("cookie_consent")
     if (cookieConsent !== "true") {
-      return response // skip non-essential cookie without consent
+      return response
     }
     response.cookies.set(COOKIE_NAME, String(Date.now()), {
       maxAge: COOLDOWN_MS / 1000,
