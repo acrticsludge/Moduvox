@@ -18,8 +18,6 @@ export const POST = withApiHandler(async (
   const body = await request.json()
   const filePath = body.path as string
   const slideCount = (body.slideCount as number) ?? 1
-  const skipConversion = body.skipConversion === true
-
   if (!filePath) {
     return NextResponse.json({ error: "No file path provided" }, { status: 400 })
   }
@@ -58,20 +56,11 @@ export const POST = withApiHandler(async (
     .update({ status: "ready" })
     .eq("id", presentationId)
 
-  // Generate a signed URL for the Office viewer (1 hour)
-  const viewerUrl = await createDownloadUrl(filePath, 3600)
-
-  if (!viewerUrl) {
-    return NextResponse.json({ error: "Failed to generate viewer URL" }, { status: 500 })
-  }
-
-  // ── Fire PDF conversion in background (skip on page restore) ──
+  // ── Fire PDF conversion in background ──
   const workerUrl = process.env.RENDER_WORKER_URL
   const apiKey = process.env.RENDER_WORKER_API_KEY
 
-  if (skipConversion) {
-    console.log("[upload] skipConversion=true — not firing PDF worker (page restore)")
-  } else if (!workerUrl || !apiKey) {
+  if (!workerUrl || !apiKey) {
     console.error("[upload] RENDER_WORKER_URL or RENDER_WORKER_API_KEY not set — skipping PDF conversion")
   } else {
     // Derive userId/presentationId from filePath: {userId}/{presentationId}.pptx
@@ -110,6 +99,6 @@ export const POST = withApiHandler(async (
   }
 
   return NextResponse.json({
-    data: { viewerUrl },
+    data: { status: "processing" },
   })
 })
