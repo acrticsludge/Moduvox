@@ -4,7 +4,7 @@ import { withApiHandler } from "@/lib/api-handler"
 import { logAuditFromRequest } from "@/lib/audit"
 
 export const POST = withApiHandler(async (
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string; slide: string }> }
 ) => {
   const supabase = await createClient()
