@@ -112,6 +112,10 @@ CREATE TABLE voices (
   control_instruction TEXT,
   emotion_default TEXT DEFAULT 'calm',
   is_active BOOLEAN DEFAULT true,
+  consent_granted BOOLEAN NOT NULL DEFAULT false,
+  consent_timestamp TIMESTAMPTZ,
+  consent_ip TEXT,
+  consent_user_agent TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );

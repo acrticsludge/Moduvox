@@ -331,6 +331,8 @@ function AddVoiceModal({
         body: JSON.stringify({
           path,
           name: voiceName.trim(),
+          emotion_default: emotionDefault,
+          consent: voiceConsent,
         }),
       })
       const confirmJson = await confirmRes.json()

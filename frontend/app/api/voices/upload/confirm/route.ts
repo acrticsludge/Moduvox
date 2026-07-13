@@ -2,10 +2,18 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { deleteFile } from "@/lib/r2"
 import { withApiHandler } from "@/lib/api-handler"
+import { z } from "zod"
+
+const confirmSchema = z.object({
+  path: z.string().min(1),
+  name: z.string().min(1).max(100),
+  emotion_default: z.string().optional(),
+  consent: z.literal(true, { errorMap: () => ({ message: "Consent is required" }) }),
+})
 
 /**
  * Called after the browser uploads a voice sample to R2 via presigned URL.
- * Creates the voice record in the database.
+ * Creates the voice record in the database with consent metadata.
  */
 export const POST = withApiHandler(async (request: Request) => {
   const supabase = await createClient()
@@ -15,20 +23,30 @@ export const POST = withApiHandler(async (request: Request) => {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  let body: { path?: string; name?: string; emotion_default?: string }
+  let body: z.infer<typeof confirmSchema>
   try {
     body = await request.json()
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
   }
 
-  const { path: filePath, name, emotion_default: emotionDefault } = body
-
-  if (!filePath || !name?.trim()) {
-    return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+  const parsed = confirmSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Validation failed", details: parsed.error.flatten().fieldErrors },
+      { status: 422 }
+    )
   }
 
-  // Create voice record
+  const { path: filePath, name, emotion_default: emotionDefault, consent } = parsed.data
+
+  // Extract client metadata for audit trail
+  const forwardedFor = request.headers.get("x-forwarded-for")
+  const realIp = request.headers.get("x-real-ip")
+  const ip = forwardedFor?.split(",")[0]?.trim() || realIp || "unknown"
+  const userAgent = request.headers.get("user-agent") || "unknown"
+
+  // Create voice record with consent metadata
   const { data: voice, error: dbError } = await supabase
     .from("voices")
     .insert({
@@ -38,6 +56,10 @@ export const POST = withApiHandler(async (request: Request) => {
       sample_path: filePath,
       sample_duration_seconds: null,
       emotion_default: emotionDefault ?? "calm",
+      consent_granted: consent,
+      consent_timestamp: new Date().toISOString(),
+      consent_ip: ip,
+      consent_user_agent: userAgent,
     })
     .select()
     .single()
