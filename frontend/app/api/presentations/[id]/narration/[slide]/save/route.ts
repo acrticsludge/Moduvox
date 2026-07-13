@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { withApiHandler } from "@/lib/api-handler"
 import { z } from "zod"
 import { sha256Hex } from "@/lib/crypto"
+import { logAuditFromRequest } from "@/lib/audit"
 
 const saveSchema = z.object({
   narration_text: z.string(),
@@ -100,6 +101,15 @@ export const POST = withApiHandler(async (
     console.error("Save narration version:", error.message)
     return NextResponse.json({ error: "Failed to save" }, { status: 500 })
   }
+
+  // Audit log
+  await logAuditFromRequest(request, {
+    presentation_id: presentationId,
+    slide_number: slideNumber,
+    action: 'narration_edited',
+    new_state: { content_hash: contentHash, narration_text: narration_text },
+    metadata: { voice_id: voice_id ?? null },
+  })
 
   return NextResponse.json({ data: version })
 })

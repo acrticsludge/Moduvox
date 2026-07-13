@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { deleteFile } from "@/lib/r2"
 import { updatePresentationSchema } from "@/lib/validations/presentation"
 import { withApiHandler } from "@/lib/api-handler"
+import { logAuditFromRequest } from "@/lib/audit"
 
 export const PATCH = withApiHandler(async (
   request: Request,
@@ -94,6 +95,17 @@ export const PATCH = withApiHandler(async (
     return NextResponse.json({ error: "Something went wrong" }, { status: 500 })
   }
 
+  // Audit log
+  const action = parsed.data.status && parsed.data.status !== currentStatus
+    ? `presentation_${parsed.data.status === 'archived' ? 'archived' : 'updated'}`
+    : 'presentation_updated'
+  await logAuditFromRequest(request, {
+    presentation_id: presentationId,
+    action,
+    previous_state: { status: currentStatus, title: existing?.title },
+    new_state: { status: data.status, title: data.title },
+  })
+
   return NextResponse.json({ data })
 })
 
@@ -136,6 +148,12 @@ export const DELETE = withApiHandler(async (
     console.error("DELETE /api/presentations/[id]:", error.message)
     return NextResponse.json({ error: "Something went wrong" }, { status: 500 })
   }
+
+  // Audit log
+  await logAuditFromRequest(request, {
+    presentation_id: presentationId,
+    action: 'presentation_deleted',
+  })
 
   return NextResponse.json({ data: { id: presentationId } })
 })

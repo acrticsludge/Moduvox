@@ -4,6 +4,8 @@ import { withApiHandler } from "@/lib/api-handler"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sha256Hex } from "@/lib/crypto"
+import { logAuditFromRequest } from "@/lib/audit"
+import { logAuditFromRequest } from "@/lib/audit"
 
 type SlideInput = {
   number: number
@@ -233,6 +235,13 @@ ${slideBlocks.join("\n\n")}`
       console.error("Narration version persistence failed:", err)
       // Don't fail the generation - version persistence is best-effort
     }
+
+    // ── Audit log ────────────────────────────────────────────
+    await logAuditFromRequest(request, {
+      presentation_id: presentationId,
+      action: 'narration_generated',
+      metadata: { slide_count: Object.keys(narrations).length, voice_id: voiceId ?? null },
+    })
 
     return NextResponse.json({
       data: {

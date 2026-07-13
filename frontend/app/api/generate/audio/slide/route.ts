@@ -7,6 +7,8 @@ import { isValidWav, detectFormat } from "@/lib/wav-utils"
 import { toWav } from "@/lib/audio-convert"
 import { downloadFileAsBuffer, deleteFile, uploadFile } from "@/lib/r2"
 import { withApiHandler } from "@/lib/api-handler"
+import { logAuditFromRequest } from "@/lib/audit"
+import { logAuditFromRequest } from "@/lib/audit"
 
 const slideSchema = z.object({
   slide_number: z.number().int().min(1),
@@ -110,6 +112,14 @@ export const POST = withApiHandler(async (request: Request) => {
     } catch (err) {
       console.error("Failed to bump audio_version:", err)
     }
+
+    // Audit log
+    await logAuditFromRequest(request, {
+      presentation_id,
+      slide_number,
+      action: 'audio_generated',
+      metadata: { voice_id: voice_id ?? null },
+    })
 
     return NextResponse.json({ data: { slide_number } })
   } catch (err) {

@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { withApiHandler } from "@/lib/api-handler"
+import { logAuditFromRequest } from "@/lib/audit"
 
 export const POST = withApiHandler(async (
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string; slide: string }> }
 ) => {
   const supabase = await createClient()
@@ -44,6 +45,12 @@ export const POST = withApiHandler(async (
   if (error || !version) {
     return NextResponse.json({ error: "No pending version to approve" }, { status: 400 })
   }
+
+  await logAuditFromRequest(request, {
+    presentation_id: presentationId,
+    slide_number: slideNumber,
+    action: 'approved',
+  })
 
   return NextResponse.json({ data: version })
 })

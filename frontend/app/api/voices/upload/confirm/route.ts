@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { deleteFile } from "@/lib/r2"
 import { withApiHandler } from "@/lib/api-handler"
 import { z } from "zod"
+import { logAuditFromRequest } from "@/lib/audit"
 
 const confirmSchema = z.object({
   path: z.string().min(1),
@@ -69,6 +70,12 @@ export const POST = withApiHandler(async (request: Request) => {
     await deleteFile(filePath)
     return NextResponse.json({ error: "Failed to save voice" }, { status: 500 })
   }
+
+  await logAuditFromRequest(request, {
+    presentation_id: voice.id, // voice id as reference
+    action: 'voice_consent_recorded',
+    metadata: { voice_name: voice.name, voice_type: 'cloned' },
+  })
 
   return NextResponse.json({ data: voice }, { status: 201 })
 })

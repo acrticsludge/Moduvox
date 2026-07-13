@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createPresentationSchema } from "@/lib/validations/presentation"
 import { checkPresentationQuota, checkDailyPresentationQuota, quotaBlockResponse } from "@/lib/quota"
 import { withApiHandler } from "@/lib/api-handler"
+import { logAuditFromRequest } from "@/lib/audit"
 
 export const POST = withApiHandler(async (request: Request) => {
   const supabase = await createClient()
@@ -66,6 +67,12 @@ export const POST = withApiHandler(async (request: Request) => {
     console.error("POST /api/presentations:", error.message)
     return NextResponse.json({ error: "Failed to create presentation" }, { status: 500 })
   }
+
+  await logAuditFromRequest(request, {
+    presentation_id: data.id,
+    action: 'presentation_created',
+    new_state: { title: data.title, project_id: data.project_id },
+  })
 
   return NextResponse.json({ data }, { status: 201 })
 })
