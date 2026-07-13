@@ -218,22 +218,29 @@ export function SlideEditor({
 
       // Confirm upload and start PDF conversion
       if (path) {
-        try {
-          const slideCount = parsedSlides?.length ?? 1
-          const confirmRes = await fetch(`/api/presentations/${presentationId}/upload/confirm`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ path, slideCount }),
-          })
-          if (!confirmRes.ok) {
+        const slideCount = parsedSlides?.length ?? 1
+
+        if (file) {
+          // Fresh upload: confirm upload and trigger worker conversion
+          try {
+            const confirmRes = await fetch(`/api/presentations/${presentationId}/upload/confirm`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ path, slideCount }),
+            })
+            if (!confirmRes.ok) {
+              if (!cancelled) setLoadError("Failed to confirm upload.")
+            } else if (!cancelled) {
+              setConversionStatus("converting")
+              pollForPdfs(presentationId, slideCount)
+            }
+          } catch {
             if (!cancelled) setLoadError("Failed to confirm upload.")
-          } else if (!cancelled) {
-            // Start polling for PDF conversion
-            setConversionStatus("converting")
-            pollForPdfs(presentationId, slideCount)
           }
-        } catch {
-          if (!cancelled) setLoadError("Failed to confirm upload.")
+        } else {
+          // Reload with existing storage path: skip confirm, check for PDFs directly
+          setConversionStatus("converting")
+          pollForPdfs(presentationId, slideCount)
         }
       }
 
@@ -874,41 +881,55 @@ export function SlideEditor({
             <Loader2 className="h-6 w-6 animate-spin text-[#71717A]" />
             <p className="text-sm text-[#71717A]">Processing PPTX...</p>
           </div>
-        ) : conversionStatus === "uploading" || conversionStatus === "converting" ? (
-          <div className="flex h-full min-h-[60vh] flex-col items-center justify-center gap-6 px-4">
+        ) : conversionStatus === "uploading" && file ? (
+          /* Fresh upload: show upload + convert progress */
+          <div className="mx-auto flex w-[340px] flex-col items-center justify-center gap-6">
             {/* Step 1: Uploading */}
             <div className="flex items-center gap-3">
-              {conversionStatus === "uploading" ? (
-                <Loader2 className="h-5 w-5 animate-spin text-zinc-400" />
-              ) : (
-                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-green-500">
-                  <Check className="h-3 w-3 text-white" />
-                </div>
-              )}
+              <Loader2 className="h-5 w-5 animate-spin text-[#18181B]" />
               <div>
-                <p className={`text-sm font-medium ${conversionStatus === "uploading" ? "text-zinc-700" : "text-zinc-500"}`}>
+                <p className="text-sm font-medium text-[#18181B]">
                   Uploading to storage
                 </p>
-                {conversionStatus === "uploading" && uploadProgress > 0 && (
+                {uploadProgress > 0 && (
                   <p className="text-xs text-zinc-400">{uploadProgress}%</p>
                 )}
               </div>
             </div>
 
-            {/* Step 2: Converting */}
-            <div className="flex items-center gap-3">
-              {conversionStatus === "converting" ? (
-                <Loader2 className="h-5 w-5 animate-spin text-zinc-400" />
-              ) : (
+            {/* Linear progress bar */}
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-200">
+              <div
+                className="h-full rounded-full bg-zinc-600 transition-all duration-500"
+                style={{ width: `${Math.max(uploadProgress, 10)}%` }}
+              />
+            </div>
+
+            <p className="text-xs text-zinc-400">Uploading your presentation…</p>
+          </div>
+        ) : conversionStatus === "converting" ? (
+          /* Converting (fresh upload) or loading (reload) — stable width */
+          <div className="mx-auto flex w-[340px] flex-col items-center justify-center gap-5">
+            {/* Step 1: Uploading (already done) */}
+            {file && (
+              <div className="flex items-center gap-3">
                 <div className="flex h-5 w-5 items-center justify-center rounded-full bg-green-500">
                   <Check className="h-3 w-3 text-white" />
                 </div>
-              )}
-              <div>
-                <p className={`text-sm font-medium ${conversionStatus === "converting" ? "text-zinc-700" : "text-zinc-500"}`}>
-                  Converting to PDF
+                <p className="text-sm font-medium text-zinc-500">
+                  Uploaded to storage
                 </p>
-                {conversionStatus === "converting" && (
+              </div>
+            )}
+
+            {/* Step 2: Converting / Loading */}
+            <div className="flex items-center gap-3">
+              <Loader2 className="h-5 w-5 animate-spin text-zinc-400" />
+              <div>
+                <p className="text-sm font-medium text-zinc-700">
+                  {file ? "Converting to PDF" : "Loading slides"}
+                </p>
+                {file && (
                   <p className="text-xs text-zinc-400">
                     ~{Math.min(Math.round(pollAttempts * 2), 60)} seconds elapsed
                   </p>
@@ -917,18 +938,17 @@ export function SlideEditor({
             </div>
 
             {/* Linear progress bar */}
-            <div className="h-1.5 w-64 overflow-hidden rounded-full bg-zinc-200">
-              <div
-                className="h-full rounded-full bg-zinc-600 transition-all duration-500"
-                style={{
-                  width: conversionStatus === "uploading"
-                    ? `${Math.max(uploadProgress, 10)}%`
-                    : "90%",
-                }}
-              />
-            </div>
-
-            <p className="text-xs text-zinc-400">This should take about 15–30 seconds</p>
+            {file && (
+              <>
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-200">
+                  <div
+                    className="h-full animate-pulse rounded-full bg-zinc-600"
+                    style={{ width: "90%" }}
+                  />
+                </div>
+                <p className="text-xs text-zinc-400">This should take about 15–30 seconds</p>
+              </>
+            )}
           </div>
         ) : conversionStatus === "error" ? (
           <div className="flex h-full min-h-[60vh] flex-col items-center justify-center gap-3 p-8">
