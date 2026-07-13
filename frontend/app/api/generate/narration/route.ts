@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { GoogleGenerativeAI } from "@google/generative-ai"
 import { withApiHandler } from "@/lib/api-handler"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { sha256Hex } from "@/lib/crypto"
 
 type SlideInput = {
   number: number
@@ -68,7 +70,7 @@ export const POST = withApiHandler(async (request: Request) => {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { slides, instructions, slideInstructions } = await request.json()
+    const { slides, instructions, slideInstructions, presentationId, voiceId, voiceDescription, ultimateMode } = await request.json()
 
     if (!slides || !Array.isArray(slides) || slides.length === 0) {
       return NextResponse.json({ error: "Slides array is required" }, { status: 400 })
@@ -76,6 +78,22 @@ export const POST = withApiHandler(async (request: Request) => {
 
     if (slides.length > 30) {
       return NextResponse.json({ error: "Maximum 30 slides per presentation" }, { status: 400 })
+    }
+
+    if (!presentationId) {
+      return NextResponse.json({ error: "presentationId is required" }, { status: 400 })
+    }
+
+    // Verify ownership
+    const { data: presentation } = await supabase
+      .from("presentations")
+      .select("id")
+      .eq("id", presentationId)
+      .eq("user_id", user.id)
+      .single()
+
+    if (!presentation) {
+      return NextResponse.json({ error: "Presentation not found" }, { status: 404 })
     }
 
     // ── Check for user's own Gemini key ─────────────────────
@@ -160,6 +178,60 @@ ${slideBlocks.join("\n\n")}`
     // Warn if some slides were skipped (partial response)
     if (missing.length > 0) {
       console.warn(`Gemini skipped ${missing.length}/${slides.length} slides:`, missing.map((s) => s.number))
+    }
+
+    // ── Persist narration versions ──────────────────────────
+    try {
+      const admin = createAdminClient()
+
+      // Get voice metadata if voiceId provided
+      let voiceType = null, voiceName = null, controlInstruction = null
+      if (voiceId) {
+        const { data: voice } = await admin
+          .from("voices")
+          .select("type, name, control_instruction")
+          .eq("id", voiceId)
+          .eq("user_id", user.id)
+          .single()
+        if (voice) {
+          voiceType = voice.type
+          voiceName = voice.name
+          controlInstruction = voice.control_instruction
+        }
+      }
+
+      const versionRows = await Promise.all(
+        Object.entries(narrations).map(async ([slideNumStr, narrationText]) => {
+          const slideNumber = parseInt(slideNumStr, 10)
+          const contentHash = await sha256Hex(narrationText)
+          return {
+            presentation_id: presentationId,
+            slide_number: slideNumber,
+            content_hash: contentHash,
+            narration_text: narrationText,
+            voice_id: voiceId ?? null,
+            voice_type: voiceType,
+            voice_name: voiceName,
+            control_instruction: controlInstruction,
+            ultimate_mode: ultimateMode ?? false,
+            status: "draft" as const,
+            generated_by: user.id,
+          }
+        })
+      )
+
+      // Upsert to handle re-generation (on conflict of presentation_id, slide_number, generated_at)
+      // We use a unique constraint on (presentation_id, slide_number, generated_at) so we insert new row each time
+      const { error: insertError } = await admin
+        .from("narration_versions")
+        .insert(versionRows)
+
+      if (insertError) {
+        console.error("Failed to persist narration versions:", insertError.message)
+      }
+    } catch (err) {
+      console.error("Narration version persistence failed:", err)
+      // Don't fail the generation - version persistence is best-effort
     }
 
     return NextResponse.json({

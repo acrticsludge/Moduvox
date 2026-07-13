@@ -5,6 +5,7 @@ import { Play, Loader2, ExternalLink, FileText, ChevronRight, X, Share2, Check }
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
+import { createClient } from "@/lib/supabase/client"
 import { parsePptxText, type ParsedSlide } from "@/lib/pptx-renderer"
 import { compareSlides, type SlideDiff } from "@/lib/pptx-renderer"
 import { toastSuccess, toastError } from "@/components/ui/CustomToast"
@@ -13,6 +14,14 @@ import { RegenerateModal, type RegenStep } from "./RegenerateModal"
 import { AudioPlayer } from "./AudioPlayer"
 import { SharePresentationModal } from "./SharePresentationModal"
 import { SlidePdfViewer } from "@/components/shared/SlidePdfViewer"
+
+type Voice = {
+  id: string
+  name: string
+  type: "preset" | "cloned"
+  preset_id: string | null
+  control_instruction: string | null
+}
 
 export function SlideEditor({
   voiceSelected,
@@ -100,8 +109,32 @@ export function SlideEditor({
   const [generationSummary, setGenerationSummary] = useState<{ success: number; failed: number } | null>(null)
   const [isInitialGenerate, setIsInitialGenerate] = useState(false)
   const [showMobilePanel, setShowMobilePanel] = useState(false)
+  const [voices, setVoices] = useState<Voice[]>([])
+  const [voicesLoading, setVoicesLoading] = useState(true)
   const originalNarrationsRef = useRef<Record<number, string>>({})
   const generatedWithVoiceRef = useRef<{ voiceId: string | null; description: string; ultimateMode: boolean } | null>(null)
+
+  // Fetch user voices
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser()
+      .then(({ data: { user } }) => {
+        if (!user) { setVoicesLoading(false); return }
+        return supabase
+          .from("voices")
+          .select("id, name, type, preset_id, control_instruction")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .then(({ data }) => {
+            if (data) setVoices(data as Voice[])
+            setVoicesLoading(false)
+          })
+      })
+      .catch((err) => {
+        console.error("[SlideEditor] Voices fetch failed:", err)
+        setVoicesLoading(false)
+      })
+  }, [])
 
   const audioUrl = externalAudioUrl ?? internalAudioUrl
   const [removingPpt, setRemovingPpt] = useState(false)
@@ -311,6 +344,12 @@ export function SlideEditor({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           slides: targetSlides.map((s) => ({ number: s.number, title: s.title, bullets: s.bullets })),
+          presentationId,
+          voiceId: selectedVoiceId || undefined,
+          voiceType: selectedVoiceId ? (voices.find(v => v.id === selectedVoiceId)?.type || "preset") : undefined,
+          voiceName: selectedVoiceId ? voices.find(v => v.id === selectedVoiceId)?.name : undefined,
+          controlInstruction: controlInstructions || undefined,
+          ultimateMode: ultimateMode ?? false,
         }),
       })
       const json = await res.json()
