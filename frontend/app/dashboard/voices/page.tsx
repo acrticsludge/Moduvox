@@ -1,12 +1,13 @@
 "use client"
 
 import { useEffect, useState, useRef } from "react"
-import { Plus, Mic, Trash2, Music, Loader2, Volume2, Play } from "lucide-react"
+import { Plus, Mic, Trash2, Music, Loader2, Volume2, Play, Upload } from "lucide-react"
 import { toastError } from "@/components/ui/CustomToast"
 import dynamic from "next/dynamic"
 
 const DeleteVoiceDialog = dynamic(() => import("@/components/dashboard/DeleteVoiceDialog").then(mod => mod.DeleteVoiceDialog), { ssr: false })
 const WaitlistDialog = dynamic(() => import("@/components/dashboard/WaitlistDialog").then(mod => mod.WaitlistDialog), { ssr: false })
+import { VoiceRecorder } from "@/components/dashboard/VoiceRecorder"
 import type { QuotaResult } from "@/lib/quota"
 
 // ── Types ────────────────────────────────────────────
@@ -227,6 +228,7 @@ function AddVoiceModal({
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null)
   const [voiceName, setVoiceName] = useState("")
   const [controlInstruction, setControlInstruction] = useState("")
+  const [cloneTab, setCloneTab] = useState<"upload" | "record">("upload")
   const [file, setFile] = useState<File | null>(null)
   const [voiceConsent, setVoiceConsent] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -514,47 +516,110 @@ function AddVoiceModal({
           </div>
         )}
 
-        {/* Step: Upload clone */}
+        {/* Step: Clone voice */}
         {step === "clone" && (
           <div className="space-y-4">
-            {/* File upload */}
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-[#18181B]">
-                Voice sample
-              </label>
-              <div
-                onClick={() => fileRef.current?.click()}
-                className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-zinc-200 p-6 transition-colors hover:border-zinc-300"
+            {/* Tab bar */}
+            <div className="flex rounded-lg border border-zinc-200 bg-zinc-100 p-0.5">
+              <button
+                type="button"
+                onClick={() => { setCloneTab("upload"); setFile(null) }}
+                className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-all ${
+                  cloneTab === "upload"
+                    ? "bg-white text-[#18181B] shadow-sm"
+                    : "text-zinc-500 hover:text-zinc-700"
+                }`}
               >
-                {file ? (
-                  <div className="text-center">
-                    <Mic className="mx-auto mb-2 h-6 w-6 text-[#71717A]" />
-                    <p className="text-sm font-medium text-[#18181B]">{file.name}</p>
-                    <p className="text-xs text-zinc-400">
-                      {(file.size / 1024 / 1024).toFixed(1)} MB
-                    </p>
-                  </div>
-                ) : (
-                  <div className="text-center">
-                    <Mic className="mx-auto mb-2 h-6 w-6 text-[#71717A]" />
-                    <p className="text-sm font-medium text-[#18181B]">
-                      Click to upload
-                    </p>
-                    <p className="text-xs text-zinc-400">
-                      WAV, MP3, or M4A · 30 to 50 seconds · Max 10MB
-                    </p>
-                  </div>
-                )}
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept="audio/*"
-                  className="hidden"
-                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                />
-              </div>
+                <Upload className="h-4 w-4" />
+                Upload
+              </button>
+              <button
+                type="button"
+                onClick={() => { setCloneTab("record"); setFile(null) }}
+                className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-all ${
+                  cloneTab === "record"
+                    ? "bg-white text-[#18181B] shadow-sm"
+                    : "text-zinc-500 hover:text-zinc-700"
+                }`}
+              >
+                <Mic className="h-4 w-4" />
+                Record
+              </button>
             </div>
 
+            {/* Upload tab */}
+            {cloneTab === "upload" && (
+              <>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-[#18181B]">
+                    Voice sample
+                  </label>
+                  <div
+                    onClick={() => fileRef.current?.click()}
+                    className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-zinc-200 p-6 transition-colors hover:border-zinc-300"
+                  >
+                    {file ? (
+                      <div className="text-center">
+                        <Mic className="mx-auto mb-2 h-6 w-6 text-[#71717A]" />
+                        <p className="text-sm font-medium text-[#18181B]">{file.name}</p>
+                        <p className="text-xs text-zinc-400">
+                          {(file.size / 1024 / 1024).toFixed(1)} MB
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="text-center">
+                        <Upload className="mx-auto mb-2 h-6 w-6 text-[#71717A]" />
+                        <p className="text-sm font-medium text-[#18181B]">
+                          Click to upload
+                        </p>
+                        <p className="text-xs text-zinc-400">
+                          WAV, MP3, MP4, or M4A · 15 to 50 seconds · Max 10MB
+                        </p>
+                      </div>
+                    )}
+                    <input
+                      ref={fileRef}
+                      type="file"
+                      accept="audio/*"
+                      className="hidden"
+                      onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                    />
+                  </div>
+                </div>
+
+                {/* Upload tips */}
+                <div className="rounded-xl border border-zinc-200 bg-zinc-50/50 p-3.5">
+                  <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                    Tips for best results
+                  </p>
+                  <ul className="space-y-1 text-xs leading-relaxed text-zinc-500">
+                    <li className="flex items-start gap-1.5">
+                      <span className="mt-0.5 block h-1 w-1 shrink-0 rounded-full bg-zinc-300" />
+                      Use a <strong className="text-zinc-600">clear recording</strong> with minimal background noise
+                    </li>
+                    <li className="flex items-start gap-1.5">
+                      <span className="mt-0.5 block h-1 w-1 shrink-0 rounded-full bg-zinc-300" />
+                      Record at <strong className="text-zinc-600">15-30 seconds</strong> for fastest processing
+                    </li>
+                    <li className="flex items-start gap-1.5">
+                      <span className="mt-0.5 block h-1 w-1 shrink-0 rounded-full bg-zinc-300" />
+                      Speak in a <strong className="text-zinc-600">natural, consistent tone</strong>
+                    </li>
+                    <li className="flex items-start gap-1.5">
+                      <span className="mt-0.5 block h-1 w-1 shrink-0 rounded-full bg-zinc-300" />
+                      Accepted formats: WAV, MP3, MP4, M4A, WebM, OGG
+                    </li>
+                  </ul>
+                </div>
+              </>
+            )}
+
+            {/* Record tab */}
+            {cloneTab === "record" && (
+              <VoiceRecorder
+                onRecordingComplete={(recordedFile) => setFile(recordedFile)}
+              />
+            )}
 
             {/* Voice name */}
             <div>
@@ -591,7 +656,7 @@ function AddVoiceModal({
             <div className="flex items-center justify-between pt-2">
               <button
                 type="button"
-                onClick={() => { setStep("choose"); setFile(null); setVoiceName(""); setVoiceConsent(false) }}
+                onClick={() => { setStep("choose"); setCloneTab("upload"); setFile(null); setVoiceName(""); setVoiceConsent(false) }}
                 className="text-sm font-medium text-[#71717A] transition-colors hover:text-[#18181B]"
               >
                 Back
