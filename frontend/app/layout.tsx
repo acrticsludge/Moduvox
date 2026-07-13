@@ -4,6 +4,7 @@ import { Analytics } from "@vercel/analytics/next";
 import Script from "next/script";
 import { Toaster } from "react-hot-toast";
 import { UnhandledRejectionHandler } from "@/components/UnhandledRejectionHandler";
+import { Clarity } from "@/components/Clarity";
 import { CookieConsentBanner } from "@/components/CookieConsentBanner";
 import "./globals.css";
 
@@ -71,6 +72,7 @@ export default function RootLayout({
         {children}
         <CookieConsentBanner />
         <Analytics />
+        <Clarity />
         {process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID && (
           <>
             <Script
