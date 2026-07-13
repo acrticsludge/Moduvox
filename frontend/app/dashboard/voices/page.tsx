@@ -331,7 +331,7 @@ function AddVoiceModal({
         body: JSON.stringify({
           path,
           name: voiceName.trim(),
-          emotion_default: emotionDefault,
+          emotion_default: "calm",
           consent: voiceConsent,
         }),
       })

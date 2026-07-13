@@ -9,7 +9,7 @@ const confirmSchema = z.object({
   path: z.string().min(1),
   name: z.string().min(1).max(100),
   emotion_default: z.string().optional(),
-  consent: z.literal(true, { errorMap: () => ({ message: "Consent is required" }) }),
+  consent: z.boolean().refine((v) => v === true, { message: "Consent is required" }),
 })
 
 /**

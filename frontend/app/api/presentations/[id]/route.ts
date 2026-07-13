@@ -35,7 +35,7 @@ export const PATCH = withApiHandler(async (
   // Verify ownership
   const { data: existing } = await supabase
     .from("presentations")
-    .select("id")
+    .select("id, title")
     .eq("id", presentationId)
     .eq("user_id", user.id)
     .single()
@@ -150,7 +150,7 @@ export const DELETE = withApiHandler(async (
   }
 
   // Audit log
-  await logAuditFromRequest(request, {
+  await logAuditFromRequest(_request, {
     presentation_id: presentationId,
     action: 'presentation_deleted',
   })

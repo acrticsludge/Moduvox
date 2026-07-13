@@ -348,7 +348,7 @@ export function SlideEditor({
           voiceId: selectedVoiceId || undefined,
           voiceType: selectedVoiceId ? (voices.find(v => v.id === selectedVoiceId)?.type || "preset") : undefined,
           voiceName: selectedVoiceId ? voices.find(v => v.id === selectedVoiceId)?.name : undefined,
-          controlInstruction: controlInstructions || undefined,
+          controlInstruction: voiceDescription || undefined,
           ultimateMode: ultimateMode ?? false,
         }),
       })
