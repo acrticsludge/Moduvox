@@ -5,7 +5,6 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sha256Hex } from "@/lib/crypto"
 import { logAuditFromRequest } from "@/lib/audit"
-import { logAuditFromRequest } from "@/lib/audit"
 
 type SlideInput = {
   number: number

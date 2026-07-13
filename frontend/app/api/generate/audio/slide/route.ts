@@ -8,7 +8,6 @@ import { toWav } from "@/lib/audio-convert"
 import { downloadFileAsBuffer, deleteFile, uploadFile } from "@/lib/r2"
 import { withApiHandler } from "@/lib/api-handler"
 import { logAuditFromRequest } from "@/lib/audit"
-import { logAuditFromRequest } from "@/lib/audit"
 
 const slideSchema = z.object({
   slide_number: z.number().int().min(1),
