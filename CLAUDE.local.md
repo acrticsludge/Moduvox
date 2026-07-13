@@ -333,6 +333,46 @@ Page load → fetch presentation from DB
 
 ---
 
+## Security Audit Findings (July 2026)
+
+Compiled from 10 parallel exploration agents. Key findings for the Security/Trust page.
+
+### R2 Cleanup Gaps
+- **Presentation delete:** Only PPTX cleaned from R2. PDFs (`{uid}/pdf/{presId}/slide-*.pdf`) and audio (`{uid}/audio/{presId}/`) orphaned.
+- **Voice delete:** `sample_path` cleaned but `preview_audio_path` orphaned.
+- **Account delete:** Only voice files cleaned. All PPTX, PDF, and audio files orphaned.
+- **Re-upload:** Old PDFs from prior conversion remain if slide count decreased.
+- **No R2 lifecycle policies** configured for automatic expiration.
+
+### RLS Gaps
+- **`feedback` SELECT policy:** `auth.uid() IN (SELECT id FROM auth.users LIMIT 1)` — matches ALL users, making all feedback readable by any authenticated user.
+- **`sent_emails` + `email_queue`:** `USING (true)` on ALL operations — any authenticated user has full CRUD.
+- **`users` table:** No DELETE RLS policy — account deletion via non-admin client may be blocked.
+
+### Encryption Gaps
+- **Critical: `narration/route.ts`** reads `gemini_api_key` without calling `decrypt()`. User-provided keys silently fail.
+- **No security headers** (HSTS, CSP, X-Frame-Options, X-Content-Type-Options) on any response.
+- **No encryption key rotation** mechanism. Single `ENCRYPTION_KEY` env var; changing it breaks all encrypted data.
+- **PII in plaintext:** User emails, viewer emails, IP addresses, consent IPs all plaintext in DB.
+
+### Data Retention Gaps
+- **No automatic deletion** of any data. All tables (viewer_events, sent_emails, email_queue, feedback, waitlist) grow unboundedly.
+- **Expired presentations** return 410 but rows remain in DB forever.
+- **No viewer data export or deletion** self-service mechanism.
+
+### Audit Log Gaps
+- **CHECK constraint mismatch:** Actions `presentation_created`, `presentation_updated`, `presentation_archived`, `presentation_deleted`, `voice_consent_recorded` not in the DB CHECK constraint — inserts silently fail.
+- **Voice deletion** has no audit log entry.
+- **No audit log viewer UI** or export.
+
+### Third-Party Data Sharing
+- **Sentry:** HTTP bodies and user info enabled, 100% trace sampling, data in Germany.
+- **Clarity + GA4:** No consent opt-out. CookieConsentBanner is cosmetic only.
+- **RunPod/GCP fallback:** Undocumented in privacy policy. Voice samples sent to `34.100.134.246:8808`.
+- **All audio data** passes through HuggingFace (or fallback) for TTS processing.
+
+---
+
 ## LESSONS.md
 
 7 tracked lessons (auto-logged by build agent):

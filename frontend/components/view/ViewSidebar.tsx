@@ -144,6 +144,8 @@ export function ViewSidebar({ title, createdAt, slideCount, expiresAt, viewerFir
       {/* Legal links at bottom */}
       <div className="border-t border-zinc-100 px-4 py-3">
         <div className="flex items-center justify-center gap-3 text-[11px] text-zinc-400">
+          <a href="/security" className="transition-colors hover:text-zinc-600">Security</a>
+          <span className="text-zinc-300">·</span>
           <a href="/privacy" className="transition-colors hover:text-zinc-600">Privacy</a>
           <span className="text-zinc-300">·</span>
           <a href="/terms" className="transition-colors hover:text-zinc-600">Terms</a>
