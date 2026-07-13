@@ -373,6 +373,59 @@ Compiled from 10 parallel exploration agents. Key findings for the Security/Trus
 
 ---
 
+## Pricing & Tier Audit Findings (July 2026)
+
+Compiled from 3 parallel exploration agents.
+
+### Current Enforcement (all hardcoded Free tier)
+
+| Limit | Value | Enforced Where | Server-side? |
+|-------|-------|----------------|-------------|
+| Lifetime presentations | 15 | `quota.ts:18` + `POST /api/presentations` | Yes |
+| Daily presentations | 3 | `quota.ts:19` + `POST /api/presentations` | Yes |
+| Voice clones | 1 | `quota.ts:20` + `POST /api/voices/upload` | Yes |
+| Preset voices | 5 | `quota.ts:21` + `POST /api/voices` | Yes |
+| Upload file size | 50MB | `PptxUploadZone.tsx:13` (client only) | **No** |
+| Slides per narration call | 30 | `narration/route.ts:80` | Yes |
+| Worker max slides | 200 | `worker/server.js:96` (Zod) | Yes |
+| File extension | wav/mp3/m4a/webm/ogg | `voices/upload/route.ts:37` | Yes |
+
+### Pricing Page Tiers (`pricing-section.tsx`)
+- **Free ($0):** 15 presentations lifetime, 3/day, 1 clone, 5 presets — Active
+- **Pro ($20/mo):** 100 slides/month, 3 clones, Smart Update, password — **Coming Soon (no code)**
+- **Team ($50/mo):** 500 slides/month, 10 clones, 3 seats, SCORM — **Coming Soon (no code)**
+
+### What Would Need to Change for Pricing Restructure
+
+**Database changes (add to users table or new subscriptions table):**
+- Tier column: `tier TEXT DEFAULT 'free' CHECK (tier IN ('free','pro','team'))`
+- Or full subscriptions table with customer_id, status, period_end, etc.
+
+**Code changes (scattered across the codebase):**
+1. `lib/quota.ts` — replace `FREE_LIMITS` with `TIER_LIMITS[userTier]`, add tier param to all check functions
+2. `lib/quota.ts` — add `checkMonthlySlideQuota()` for Pro monthly limits
+3. All 6 API routes that call quota functions — need to pass user tier
+4. `lib/rate-limiter.ts` — add distributed store (Upstash Redis or DB-backed) instead of in-memory Map
+5. `api/presentations/[id]/upload/confirm/route.ts` — add server-side slide count cap (currently reads from body unchecked)
+6. `api/generate/narration/route.ts` — make 30-slide per-call limit configurable by tier
+7. Pricing page UI (`pricing-section.tsx`) — remove "Coming Soon" on paid tiers
+8. Dashboard sidebar — add plan badge + usage meter
+9. Waitlist dialog — upgrade to real checkout flow (Dodo Payments)
+10. New API routes: `/api/billing/checkout`, `/api/billing/webhook`, `/api/billing/portal`
+
+**Dodo Payments status:** Env vars in `.env.example` only. No SDK, no routes, no webhooks, no subscriptions table. Zero integration code exists.
+
+### Key Gaps Noted
+1. **No `tier`/`plan` field** on users table — can't distinguish Free from Pro
+2. **"100 slides per month"** on pricing page has no backend enforcement — purely decorative
+3. **No per-month slide counter** — would need new table + aggregation logic + reset mechanism
+4. **TOCTOU race** on all COUNT queries — concurrent requests can both pass quota
+5. **Upload size not enforced server-side** — 50MB limit is client-only JS
+6. **No rate limiting** on upload endpoints
+7. **In-memory rate limiters** reset on Vercel cold starts
+
+---
+
 ## LESSONS.md
 
 7 tracked lessons (auto-logged by build agent):
