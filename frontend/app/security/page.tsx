@@ -90,7 +90,7 @@ export default function SecurityPage() {
               All data transmitted between your browser and Moduvox is encrypted via HTTPS/TLS.
               Vercel (our hosting provider) terminates TLS at the edge. All communication with
               Cloudflare R2, Supabase, and third-party APIs uses HTTPS. The PPTX conversion
-              worker on Railway is accessible only via HTTPS.
+              worker on Render is accessible only via HTTPS.
             </p>
 
             <h3 className="mb-1.5 mt-4 text-sm font-semibold text-[#18181B]">At Rest</h3>
@@ -208,9 +208,9 @@ export default function SecurityPage() {
               </div>
 
               <div className="rounded-lg border border-zinc-200 bg-white p-3.5">
-                <p className="font-medium text-[#18181B]">Vercel + Railway</p>
+                <p className="font-medium text-[#18181B]">Vercel + Render</p>
                 <p className="mt-0.5 text-xs">
-                  Application hosting (Vercel) and PPTX conversion worker (Railway).
+                  Application hosting (Vercel) and PPTX conversion worker (Render).
                   All data passes through these providers' networks in transit.
                 </p>
               </div>

@@ -75,7 +75,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 **Frontend:** Next.js App Router, TypeScript (strict), Tailwind CSS, Radix UI, shadcn/ui, Recharts
 **Backend:** Supabase (Postgres + RLS + Auth), AES-256 encryption
-**Hosting:** Vercel (frontend), Railway (worker)
+**Hosting:** Vercel (frontend), Render (worker)
 **Integrations:** Resend (email), Dodo Payments, Supabase Auth
 **Tooling:** graphify (knowledge graph), Biome/ESLint
 
