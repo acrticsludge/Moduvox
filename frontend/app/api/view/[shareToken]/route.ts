@@ -12,9 +12,12 @@ export const GET = withApiHandler(async (
 
   const supabase = createAdminClient()
 
+  // Fetch presentation with published narration versions
   const { data: presentation } = await supabase
     .from("presentations")
-    .select("id, user_id, title, slide_count, password_hash, expires_at, email_gate_enabled, created_at, status, audio_version")
+    .select(`
+      id, user_id, title, slide_count, password_hash, expires_at, email_gate_enabled, created_at, status, audio_version
+    `)
     .eq("share_token", shareToken)
     .single()
 
@@ -22,7 +25,7 @@ export const GET = withApiHandler(async (
     return NextResponse.json({ error: "Presentation not found" }, { status: 404 })
   }
 
-  // Check archived
+  // Check published status
   if (presentation.status === "archived") {
     return NextResponse.json(
       { error: "This presentation has been archived by its owner." },
@@ -35,7 +38,7 @@ export const GET = withApiHandler(async (
     return NextResponse.json({ error: "This presentation link has expired" }, { status: 410 })
   }
 
-  // Check if a verified session is provided â€” skip gate if so
+  // Check if a verified session is provided — skip gate if so
   const { searchParams } = new URL(request.url)
   const sessionToken = searchParams.get("session")
   let sessionVerified = false
@@ -72,13 +75,26 @@ export const GET = withApiHandler(async (
     })
   }
 
-  // No gate (or session verified) â€” return minimal verified response
+  // Fetch published narration versions for this presentation
+  const { data: narrations } = await supabase
+    .from("narration_versions")
+    .select("slide_number, narration_text, voice_id, status")
+    .eq("presentation_id", presentation.id)
+    .eq("status", "published")
+
+  // Build narration map by slide number
+  const narrationMap: Record<number, { text: string; voice_id: string | null }> = {}
+  if (narrations) {
+    for (const n of narrations) {
+      narrationMap[n.slide_number] = { text: n.narration_text, voice_id: n.voice_id }
+    }
+  }
+
   let totalDurationMs = 0
   let slideTimings: { slideNumber: number; startMs: number; endMs: number }[] = []
   try {
     const timings = await getAllSlideDurations(presentation.user_id, presentation.id, presentation.slide_count || 0)
     totalDurationMs = timings.reduce((sum, t) => sum + t.durationMs, 0)
-    // Build cumulative time map: each slide's start/end in ms
     let acc = 0
     slideTimings = timings.map((t) => {
       const startMs = acc
@@ -115,6 +131,7 @@ export const GET = withApiHandler(async (
       viewer_created_at: viewerData ? (viewerData.viewed_at || viewerData.created_at) : null,
       viewer_id: viewerData?.id || null,
       first_watch_done: !!viewerCompletedAt,
+      narrations: narrationMap, // published narrations for viewer
     },
   })
 })
