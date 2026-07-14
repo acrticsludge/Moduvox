@@ -13,6 +13,7 @@ export function AnalyticsMockup() {
   };
 
   return (
+    <>
     <div className="w-full overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-lg">
       {/* Summary bar */}
       <div className="grid grid-cols-3 gap-4 border-b border-zinc-200 bg-zinc-50 p-4">
@@ -66,5 +67,9 @@ export function AnalyticsMockup() {
         </span>
       </div>
     </div>
+      <p className="mt-2 text-center text-xs text-zinc-400">
+        Example data. See real numbers here once you share your own course.
+      </p>
+    </>
   );
 }
