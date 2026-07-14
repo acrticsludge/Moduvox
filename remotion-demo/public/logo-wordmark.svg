@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 32">
+  <rect width="32" height="32" rx="6" fill="#18181B"/>
+  <path d="M12 10L22 16L12 22V10Z" fill="white"/>
+  <text x="42" y="23" font-family="Inter, -apple-system, BlinkMacSystemFont, sans-serif" font-size="20" font-weight="600" fill="#18181B" letter-spacing="-0.02em">Moduvox</text>
+</svg>
