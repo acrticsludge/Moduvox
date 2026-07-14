@@ -511,8 +511,8 @@ export function SlideEditor({
       return
     }
 
-    // All slides generated successfully
-    const combinedUrl = `/api/presentations/${presentationId}/audio/combined`
+    // All slides generated successfully — use cache-busting param to force AudioPlayer re-fetch
+    const combinedUrl = `/api/presentations/${presentationId}/audio/combined?v=${Date.now()}`
     setInternalAudioUrl(combinedUrl)
     onAudioUrlChange?.(combinedUrl)
     setInternalAudioGenerated(true)
@@ -549,13 +549,18 @@ export function SlideEditor({
     // Build the list of slides needing audio, using the latest narrations
     const sorted = targetSlides.slice().sort((a, b) => a.number - b.number)
     const slideTexts = sorted
-      .map((s) => ({ number: s.number, text: currentNarrations[s.number] || "" }))
+      .map((s) => ({ number: s.number, text: currentNarrations[s.number] || "", title: s.title }))
       .filter((s) => s.text.trim())
 
     let failedCount = 0
 
+    // Show progress — set initial state before the loop
+    setAudioGenProgress({ current: 0, total: slideTexts.length })
+
     if (slideTexts.length > 0) {
       for (let i = 0; i < slideTexts.length; i++) {
+        setAudioGenProgress({ current: i + 1, total: slideTexts.length, slideTitle: slideTexts[i].title })
+
         try {
           const res = await fetch("/api/generate/audio/slide", {
             method: "POST",
@@ -588,11 +593,12 @@ export function SlideEditor({
 
     if (failedCount > 0) {
       setGenerating(false)
+      setAudioGenProgress(null)
       return
     }
 
-    // All slides generated successfully
-    const combinedUrl = `/api/presentations/${presentationId}/audio/combined`
+    // All slides generated successfully — use cache-busting param to force AudioPlayer re-fetch
+    const combinedUrl = `/api/presentations/${presentationId}/audio/combined?v=${Date.now()}`
     setInternalAudioUrl(combinedUrl)
     onAudioUrlChange?.(combinedUrl)
     setInternalAudioGenerated(true)
@@ -610,6 +616,7 @@ export function SlideEditor({
     }
 
     setGenerating(false)
+    setAudioGenProgress(null)
   }
 
   function jumpToSlide(slideNumber: number) {
