@@ -60,6 +60,10 @@ export default function AboutPage() {
           <p>
             Built by a solo developer. No VC funding. Just a tool that should exist.
           </p>
+
+          <p className="text-xs text-[#A1A1AA]">
+            Moduvox uses Gemini AI for narration generation and VoxCPM for voice cloning.
+          </p>
         </section>
 
         <div className="mt-10 border-t border-zinc-200 pt-8">

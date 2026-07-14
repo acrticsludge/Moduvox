@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import { Play, Loader2, ExternalLink, FileText, ChevronRight, X, Share2, Check } from "lucide-react"
+import { Play, Loader2, ExternalLink, FileText, ChevronRight, X, Share2, Check, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
@@ -1229,49 +1229,59 @@ export function SlideEditor({
           <label className="text-sm font-semibold text-[#18181B]">
             Narration Script
           </label>
-          {generatingNarrations && !narrations[current.number] ? (
-            <div className="min-h-[120px] animate-pulse rounded-lg bg-zinc-100" />
-          ) : (
-            <Textarea
-              value={narrations[current.number] ?? ""}
-              onChange={(e) => updateNarration(e.target.value)}
-              placeholder={
-                generatingNarrations
-                  ? "Generating AI narration..."
-                  : "AI-generated narration will appear here..."
-              }
-              className="min-h-[120px] resize-none text-sm"
-            />
-          )}
+          <div className="relative">
+            {generatingNarrations && !narrations[current.number] ? (
+              <div className="min-h-[120px] animate-pulse rounded-lg bg-zinc-100" />
+            ) : (
+              <Textarea
+                value={narrations[current.number] ?? ""}
+                onChange={(e) => updateNarration(e.target.value)}
+                placeholder={
+                  generatingNarrations
+                    ? "Generating AI narration..."
+                    : "AI-generated narration will appear here..."
+                }
+                className={cn(
+                  "min-h-[120px] resize-none text-sm",
+                  generationFailed && "opacity-40 blur-[1px] pointer-events-none"
+                )}
+                disabled={generationFailed}
+              />
+            )}
+
+            {/* Narration failure overlay */}
+            {generationFailed && (
+              <div className="absolute inset-0 flex items-center justify-center rounded-lg">
+                <div className="flex flex-col items-center gap-3 rounded-xl bg-white/95 px-6 py-5 shadow-sm backdrop-blur-sm border border-red-100">
+                  <RefreshCw className="h-6 w-6 text-red-400" />
+                  <p className="text-sm font-medium text-red-600">Narration generation failed</p>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setGenerationFailed(false)
+                      const ok = await generateNarrations(slides, true)
+                      if (!ok) setGenerationFailed(true)
+                    }}
+                    disabled={generating || generatingNarrations}
+                    className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50"
+                  >
+                    {generating || generatingNarrations ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-4 w-4" />
+                    )}
+                    {generating || generatingNarrations ? "Trying again…" : "Try Again"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
           {narrations[current.number] && (
             <p className="text-xs text-zinc-400 text-right">
               {narrations[current.number].split(/\s+/).filter(Boolean).length} words · {narrations[current.number].length} characters
             </p>
           )}
         </div>
-
-        {/* Try Again — shown when auto-gen narration failed (no narrations) */}
-        {generationFailed && (
-          <Button
-            onClick={async () => {
-              setGenerationFailed(false)
-              const result = await generateNarrations(slides, true)
-              if (!result) setGenerationFailed(true)
-            }}
-            disabled={generating || generatingNarrations}
-            variant="outline"
-            className="w-full"
-          >
-            {generating || generatingNarrations ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Trying again…
-              </>
-            ) : (
-              "Try again"
-            )}
-          </Button>
-        )}
 
         {/* Generate Audio — shown when narration exists but TTS not done */}
         {Object.keys(narrations).length > 0 && !audioGenerated && !generationFailed && !audioGenFailed && (
@@ -1313,35 +1323,12 @@ export function SlideEditor({
         {/* Audio section — shown after TTS has been done */}
         {audioGenerated && (
           <>
-            {changedSlides.length === 0 && (
-              <div
-                className={
-                  lastRegenCount > 0
-                    ? "rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700"
-                    : "rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700"
-                }
-              >
-                {lastRegenCount > 0
-                  ? `Audio regenerated for ${lastRegenCount} slide(s)`
-                  : `Audio generated for all ${total} slides`}
-              </div>
-            )}
-
             {/* Voice changed banner */}
             {voiceChangedSinceAudio && (
               <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
                 Voice settings changed. Regenerate audio to apply the new voice.
               </div>
             )}
-
-            {/* Global regenerate button */}
-            <Button
-              onClick={() => setShowRegenModal(true)}
-              variant="outline"
-              className="w-full"
-            >
-              Regenerate Audio
-            </Button>
 
             {/* Audio player */}
             {audioUrl && (
@@ -1352,17 +1339,26 @@ export function SlideEditor({
               />
             )}
 
-            {/* Share & Track button */}
-            {audioGenerated && (
+            {/* Actions row */}
+            <div className="flex items-center gap-2">
+              {(changedSlides.length > 0 || voiceChangedSinceAudio) && (
+                <Button
+                  onClick={() => setShowRegenModal(true)}
+                  variant="outline"
+                  className="flex-1"
+                >
+                  Regenerate Audio
+                </Button>
+              )}
               <Button
                 onClick={() => setShowShareModal(true)}
                 variant="outline"
-                className="w-full"
+                className={changedSlides.length > 0 || voiceChangedSinceAudio ? "flex-1" : "w-full"}
               >
                 <Share2 className="h-4 w-4" />
                 Share & Track Viewers
               </Button>
-            )}
+            </div>
           </>
         )}
       </div>
@@ -1533,49 +1529,59 @@ export function SlideEditor({
               <label className="text-sm font-semibold text-[#18181B]">
                 Narration Script
               </label>
-              {generatingNarrations && !narrations[current.number] ? (
-                <div className="min-h-[120px] animate-pulse rounded-lg bg-zinc-100" />
-              ) : (
-                <Textarea
-                  value={narrations[current.number] ?? ""}
-                  onChange={(e) => updateNarration(e.target.value)}
-                  placeholder={
-                    generatingNarrations
-                      ? "Generating AI narration..."
-                      : "AI-generated narration will appear here..."
-                  }
-                  className="min-h-[120px] resize-none text-sm"
-                />
-              )}
+              <div className="relative">
+                {generatingNarrations && !narrations[current.number] ? (
+                  <div className="min-h-[120px] animate-pulse rounded-lg bg-zinc-100" />
+                ) : (
+                  <Textarea
+                    value={narrations[current.number] ?? ""}
+                    onChange={(e) => updateNarration(e.target.value)}
+                    placeholder={
+                      generatingNarrations
+                        ? "Generating AI narration..."
+                        : "AI-generated narration will appear here..."
+                    }
+                    className={cn(
+                      "min-h-[120px] resize-none text-sm",
+                      generationFailed && "opacity-40 blur-[1px] pointer-events-none"
+                    )}
+                    disabled={generationFailed}
+                  />
+                )}
+
+                {/* Narration failure overlay */}
+                {generationFailed && (
+                  <div className="absolute inset-0 flex items-center justify-center rounded-lg">
+                    <div className="flex flex-col items-center gap-3 rounded-xl bg-white/95 px-6 py-5 shadow-sm backdrop-blur-sm border border-red-100">
+                      <RefreshCw className="h-6 w-6 text-red-400" />
+                      <p className="text-sm font-medium text-red-600">Narration generation failed</p>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          setGenerationFailed(false)
+                          const ok = await generateNarrations(slides, true)
+                          if (!ok) setGenerationFailed(true)
+                        }}
+                        disabled={generating || generatingNarrations}
+                        className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50"
+                      >
+                        {generating || generatingNarrations ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <RefreshCw className="h-4 w-4" />
+                        )}
+                        {generating || generatingNarrations ? "Trying again…" : "Try Again"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
               {narrations[current.number] && (
                 <p className="text-xs text-zinc-400 text-right">
                   {narrations[current.number].split(/\s+/).filter(Boolean).length} words · {narrations[current.number].length} characters
                 </p>
               )}
             </div>
-
-            {/* Try Again — shown when auto-gen narration failed (no narrations) */}
-            {generationFailed && (
-              <Button
-                onClick={async () => {
-                  setGenerationFailed(false)
-                  const ok = await generateNarrations(slides, true)
-                  if (!ok) setGenerationFailed(true)
-                }}
-                disabled={generating || generatingNarrations}
-                variant="outline"
-                className="w-full"
-              >
-                {generating || generatingNarrations ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Trying again…
-                  </>
-                ) : (
-                  "Try again"
-                )}
-              </Button>
-            )}
 
             {/* Generate Audio — shown when narration exists but TTS not done */}
             {Object.keys(narrations).length > 0 && !audioGenerated && !generationFailed && !audioGenFailed && (
@@ -1617,35 +1623,12 @@ export function SlideEditor({
             {/* Audio section — shown after TTS has been done */}
             {audioGenerated && (
               <>
-                {changedSlides.length === 0 && (
-                  <div
-                    className={
-                      lastRegenCount > 0
-                        ? "rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700"
-                        : "rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700"
-                    }
-                  >
-                    {lastRegenCount > 0
-                      ? `Audio regenerated for ${lastRegenCount} slide(s)`
-                      : `Audio generated for all ${total} slides`}
-                  </div>
-                )}
-
                 {/* Voice changed banner */}
                 {voiceChangedSinceAudio && (
                   <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
                     Voice settings changed. Regenerate audio to apply the new voice.
                   </div>
                 )}
-
-                {/* Global regenerate button */}
-                <Button
-                  onClick={() => setShowRegenModal(true)}
-                  variant="outline"
-                  className="w-full"
-                >
-                  Regenerate Audio
-                </Button>
 
                 {/* Audio player */}
                 {audioUrl && (
@@ -1656,17 +1639,26 @@ export function SlideEditor({
                   />
                 )}
 
-                {/* Share & Track button */}
-                {audioGenerated && (
+                {/* Actions row */}
+                <div className="flex items-center gap-2">
+                  {(changedSlides.length > 0 || voiceChangedSinceAudio) && (
+                    <Button
+                      onClick={() => setShowRegenModal(true)}
+                      variant="outline"
+                      className="flex-1"
+                    >
+                      Regenerate Audio
+                    </Button>
+                  )}
                   <Button
                     onClick={() => setShowShareModal(true)}
                     variant="outline"
-                    className="w-full"
+                    className={changedSlides.length > 0 || voiceChangedSinceAudio ? "flex-1" : "w-full"}
                   >
                     <Share2 className="h-4 w-4" />
                     Share & Track Viewers
                   </Button>
-                )}
+                </div>
               </>
             )}
           </div>
