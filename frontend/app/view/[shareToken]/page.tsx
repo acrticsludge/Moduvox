@@ -115,18 +115,25 @@ export default function ViewPresentationPage() {
   const [convertFailed, setConvertFailed] = useState(false)
   const [versionStatus, setVersionStatus] = useState<"synced" | "outdated" | null>(null)
   const [firstWatch, setFirstWatch] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [realDurationMs, setRealDurationMs] = useState<number | undefined>(undefined)
   const viewDataRef = useRef<{ title: string; created_at?: string; slide_count?: number; expires_at?: string | null; total_duration_ms?: number; audio_url?: string | null; audio_version?: number; slide_timings?: SlideTiming[]; viewer_created_at?: string | null; presentation_id?: string; viewer_id?: string | null; first_watch_done?: boolean } | null>(null)
   const audioVersionRef = useRef(0)
   const sessionRef = useRef("")
   const seekToSlideRef = useRef<SeekToSlideFn | null>(null)
   const preloadControllerRef = useRef<AbortController | null>(null)
+  const visibilityProcessingRef = useRef(false)
 
   useEffect(() => {
     const sessionFromUrl = searchParams.get("session")
     if (sessionFromUrl) {
       saveSession(shareToken, sessionFromUrl)
       window.history.replaceState(null, "", `/view/${shareToken}`)
+      // Set referrer policy to prevent session token leakage
+      const meta = document.createElement('meta')
+      meta.name = 'referrer'
+      meta.content = 'no-referrer'
+      document.head.appendChild(meta)
       validateAndLoad(sessionFromUrl, false)
     } else {
       const storedSession = loadSession(shareToken)
@@ -144,6 +151,8 @@ export default function ViewPresentationPage() {
     if (state.type !== "gate" && state.type !== "email_sent") return
 
     async function recheckGate() {
+      if (visibilityProcessingRef.current) return
+      visibilityProcessingRef.current = true
       try {
         const res = await fetch(`/api/view/${shareToken}`)
         if (res.status === 410) {
@@ -177,9 +186,11 @@ export default function ViewPresentationPage() {
           }
         }
       } catch { /* ignore */ }
+      finally { visibilityProcessingRef.current = false }
     }
 
     function handleVisibilityChange() {
+      if (visibilityProcessingRef.current) return
       if (document.visibilityState === "visible") recheckGate()
     }
 
@@ -287,6 +298,8 @@ export default function ViewPresentationPage() {
       }
 
       // Clear gate state and persist session — verification succeeded
+      // Note: viewed_at and email_verified updates can race if two tabs verify simultaneously.
+      // This is a theoretical race — DB-level locking would be needed for atomicity.
       clearGateState(shareToken)
       saveSession(shareToken, sessionToken)
 
@@ -315,7 +328,10 @@ export default function ViewPresentationPage() {
             }
           }
         } catch { /* retry */ }
-        if (attempt < 2) await new Promise((r) => setTimeout(r, 1000))
+        if (attempt < 2) {
+          await new Promise((r) => setTimeout(r, 1000))
+          if (!loadingRef.current) return // another load started while we waited
+        }
       }
 
       setState({
@@ -351,6 +367,8 @@ export default function ViewPresentationPage() {
       const res = await fetch(`/api/view/${token}/slides?session=${sessionToken}`)
       const json = await res.json()
       if (json.data) {
+        // Note: PDF URLs from the API are already signed sequentially. This could be optimized
+        // with Promise.all if the API is updated to support batch signing.
         setSlides(json.data.slides)
         if (json.data.slides.length === 0 || json.data.slides.every((s: { pdfUrl: unknown }) => !s.pdfUrl)) {
           setSlidesError("Slides are being generated. Check back soon.")
@@ -387,6 +405,7 @@ export default function ViewPresentationPage() {
         const json = await res.json()
         if (!json.data) return
 
+        // Use local variable to avoid race with applyChanges writing to audioVersionRef
         const newVersion = json.data.audio_version ?? 0
         if (newVersion !== audioVersionRef.current) {
           audioVersionRef.current = newVersion
@@ -410,8 +429,9 @@ export default function ViewPresentationPage() {
 
   // Apply pending changes: re-fetch view data + slides + force audio remount
   async function applyChanges() {
+    setRefreshing(true)
     const tok = sessionRef.current
-    if (!tok) return
+    if (!tok) { setRefreshing(false); return }
 
     // Re-fetch view data to get fresh slide_timings, audio_url, total_duration_ms
     // This ensures the AudioBar remounts with correct timing data
@@ -432,6 +452,7 @@ export default function ViewPresentationPage() {
     fetchSlides(tok, shareToken)
     setAudioRefreshKey(k => k + 1)
     setVersionStatus("synced")
+    setRefreshing(false)
   }
 
   function clampSlide(sn: number) {
@@ -680,6 +701,7 @@ export default function ViewPresentationPage() {
           audioUrl={viewDataRef.current?.audio_url || undefined}
           versionStatus={versionStatus}
           onRefresh={applyChanges}
+          refreshing={refreshing}
           slideTimings={viewDataRef.current?.slide_timings}
           onSlideChange={(sn) => {
             setCurrentSlide(sn - 1)

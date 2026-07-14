@@ -60,7 +60,8 @@ export const GET = withApiHandler(async (
     }
   }
 
-  // If email gate is enabled or password is set (and no verified session), return only metadata
+  // Gate status returned to unauthenticated clients intentionally — the gate dialog needs
+  // to know whether to show password field.
   if ((presentation.email_gate_enabled || presentation.password_hash) && !sessionVerified) {
     return NextResponse.json({
       data: {
@@ -114,7 +115,9 @@ export const GET = withApiHandler(async (
     if (existingFiles.success && existingFiles.data.some((f) => f.Key === combinedKey)) {
       audioUrl = await createDownloadUrl(combinedKey, 3600)
     }
-  } catch { /* combined.wav may not exist yet */ }
+  } catch (err) {
+    console.error("[view route] Failed to list audio files or create download URL:", err)
+  }
 
   return NextResponse.json({
     data: {

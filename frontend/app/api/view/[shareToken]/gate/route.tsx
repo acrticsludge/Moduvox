@@ -47,6 +47,10 @@ export const POST = withApiHandler(async (
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
   }
 
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
+  }
+
   // Verify reCAPTCHA v3 token (skip if not configured â€” dev mode)
   if (process.env.RECAPTCHA_SECRET_KEY && process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY) {
     const recaptchaToken = body.recaptcha_token as string | undefined
@@ -96,7 +100,7 @@ export const POST = withApiHandler(async (
     )
   }
 
-  // Email gate disabled â†’ create viewer as verified, skip email, return success
+  // Email gate disabled — viewer is created as verified immediately since no email confirmation is needed.
   if (!presentation.email_gate_enabled) {
     // Check if a verified viewer already exists for this email
     const { data: existingVerified } = await supabase

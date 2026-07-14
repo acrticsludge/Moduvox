@@ -64,7 +64,8 @@ export const GET = withApiHandler(async (
     return NextResponse.json({ error: "This verification link has expired." }, { status: 410 })
   }
 
-  // Mark as verified
+  // SELECT then UPDATE has a theoretical race condition but is acceptable
+  // because both writes are idempotent
   const { error: updateError } = await supabase
     .from("viewers")
     .update({

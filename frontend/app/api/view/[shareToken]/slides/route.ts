@@ -50,6 +50,7 @@ export const GET = withApiHandler(async (
     const key = `${pdfPrefix}slide-${i}.pdf`
     if (existingKeys.has(key)) {
       // createDownloadUrl signs locally (no network call) — safe in loop
+      // 7-day signed URL — tradeoff between UX (viewers don't want broken links) and security; shorten if needed
       const pdfUrl = await createDownloadUrl(key, 604800) // 7 days
       slides.push({ slideNumber: i, pdfUrl })
     } else {
