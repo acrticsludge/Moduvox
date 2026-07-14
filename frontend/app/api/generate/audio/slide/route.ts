@@ -96,13 +96,15 @@ export const POST = withApiHandler(async (request: Request) => {
     // Save to R2
     const storagePath = `${user.id}/audio/${presentation_id}/slides/slide-${slide_number}.wav`
     await deleteFile(storagePath)
-    const uploadResult = await uploadFile(storagePath, audioBuffer, "audio/wav")
-    if (!uploadResult.success) throw new Error(`Failed to save audio: ${uploadResult.error}`)
 
-    // Delete old combined.wav — ensure endpoint will regenerate from fresh per-slide WAVs
+    // Delete old combined.wav BEFORE writing new per-slide WAV — prevents a window
+    // where the view API sees new per-slide WAVs but old combined audio (timing mismatch)
     const combinedKey = `${user.id}/audio/${presentation_id}/combined.wav`
     const delResult = await deleteFile(combinedKey)
     if (!delResult.success) console.error("Failed to delete stale combined.wav:", delResult.error)
+
+    const uploadResult = await uploadFile(storagePath, audioBuffer, "audio/wav")
+    if (!uploadResult.success) throw new Error(`Failed to save audio: ${uploadResult.error}`)
 
     // Bump audio_version so the view page can detect the change
     try {
