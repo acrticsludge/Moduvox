@@ -8,7 +8,7 @@ import { withApiHandler } from "@/lib/api-handler"
 async function getUserId(
   request: Request,
   presentationId: string,
-): Promise<{ userId: string | null; error?: NextResponse }> {
+): Promise<{ userId: string | null; slideCount: number; error?: NextResponse }> {
   const supabase = await createClient()
   const { searchParams } = new URL(request.url)
   const { data: { user } } = await supabase.auth.getUser()
@@ -26,24 +26,37 @@ async function getUserId(
       .single()
 
     if (!viewer || !viewer.email_verified) {
-      return { userId: null, error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) }
+      return { userId: null, slideCount: 0, error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) }
     }
 
     const { data: presentation } = await admin
       .from("presentations")
-      .select("user_id")
+      .select("user_id, slide_count")
       .eq("id", presentationId)
       .single()
 
     if (!presentation) {
-      return { userId: null, error: NextResponse.json({ error: "Presentation not found" }, { status: 404 }) }
+      return { userId: null, slideCount: 0, error: NextResponse.json({ error: "Presentation not found" }, { status: 404 }) }
     }
     userId = presentation.user_id
+    return { userId, slideCount: presentation.slide_count || 0 }
   } else if (!user) {
-    return { userId: null, error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) }
+    return { userId: null, slideCount: 0, error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) }
   }
 
-  return { userId }
+  // For authenticated users, fetch slide_count separately
+  let slideCount = 0
+  try {
+    const admin = createAdminClient()
+    const { data: pres } = await admin
+      .from("presentations")
+      .select("slide_count")
+      .eq("id", presentationId)
+      .single()
+    if (pres) slideCount = pres.slide_count || 0
+  } catch { /* non-critical — will use all files */ }
+
+  return { userId, slideCount }
 }
 
 function serveWav(data: Buffer, rangeHeader: string | null, mtime: string) {
@@ -84,7 +97,7 @@ export const GET = withApiHandler(async (
     const { id: presentationId } = await params
 
     // Get userId from auth or session token
-    const { userId, error } = await getUserId(request, presentationId)
+    const { userId, slideCount, error } = await getUserId(request, presentationId)
     if (error) return error
 
     const audioPrefix = `${userId}/audio/${presentationId}/`
@@ -101,7 +114,7 @@ export const GET = withApiHandler(async (
       }
     }
 
-    // No cached combined file â€” generate from per-slide WAVs
+    // No cached combined file — generate from per-slide WAVs
     const slidesPrefix = `${audioPrefix}slides/`
     const allFiles = await listFiles(slidesPrefix)
 
@@ -109,7 +122,7 @@ export const GET = withApiHandler(async (
       return NextResponse.json({ error: "No audio found" }, { status: 404 })
     }
 
-    const slideFiles = allFiles.data
+    let slideFiles = allFiles.data
       .map((f) => {
         const key = f.Key ?? ""
         const name = key.replace(slidesPrefix, "")
@@ -118,6 +131,26 @@ export const GET = withApiHandler(async (
       })
       .filter(Boolean)
       .sort((a, b) => a!.number - b!.number)
+
+    // Respect slide_count — skip any WAVs beyond the current slide count
+    // (stale files from a prior generation with more slides)
+    if (slideCount > 0) {
+      slideFiles = slideFiles.filter((sf) => sf!.number <= slideCount)
+
+      // Fire-and-forget clean up any stale per-slide WAVs beyond slide_count
+      const staleFiles = allFiles.data
+        .filter((f) => {
+          const key = f.Key ?? ""
+          const name = key.replace(slidesPrefix, "")
+          const match = name.match(/^slide-(\d+)\.wav$/)
+          return match && parseInt(match[1], 10) > slideCount
+        })
+      if (staleFiles.length > 0) {
+        import("@/lib/r2").then(({ deleteFile }) => {
+          staleFiles.forEach((sf) => { if (sf.Key) deleteFile(sf.Key).catch(() => {}) })
+        }).catch(() => {})
+      }
+    }
 
     if (slideFiles.length === 0) {
       return NextResponse.json({ error: "No slide audio files found" }, { status: 404 })
