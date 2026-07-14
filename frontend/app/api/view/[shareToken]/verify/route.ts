@@ -21,7 +21,7 @@ export const GET = withApiHandler(async (
     .from("presentations")
     .select("id, expires_at")
     .eq("share_token", shareToken)
-    .single()
+    .maybeSingle()
 
   if (!presentation) {
     return NextResponse.json({ error: "Presentation not found" }, { status: 404 })
@@ -37,7 +37,7 @@ export const GET = withApiHandler(async (
     .select("id, email_verified, presentation_id, verification_sent_at")
     .eq("session_token", vt)
     .eq("presentation_id", presentation.id)
-    .single()
+    .maybeSingle()
 
   if (!viewer) {
     return NextResponse.json({ error: "This verification link has expired or is invalid." }, { status: 404 })
@@ -59,7 +59,8 @@ export const GET = withApiHandler(async (
   // Enforce 15-minute magic link expiry (only for unverified viewers)
   // Use verification_sent_at (updated on every upsert) instead of created_at
   const fifteenMinAgo = new Date(Date.now() - 15 * 60 * 1000)
-  if (viewer.verification_sent_at && new Date(viewer.verification_sent_at) < fifteenMinAgo) {
+  const sentAt = viewer.verification_sent_at ? new Date(viewer.verification_sent_at) : new Date(0)
+  if (sentAt < fifteenMinAgo) {
     return NextResponse.json({ error: "This verification link has expired." }, { status: 410 })
   }
 

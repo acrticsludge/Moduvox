@@ -51,6 +51,13 @@ export function ViewAudioBar({
   slideTimingsRef.current = slideTimings
   const firstWatchRef = useRef(firstWatch)
   firstWatchRef.current = firstWatch
+  const sessionTokenRef = useRef(sessionToken)
+  sessionTokenRef.current = sessionToken
+  const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const togglePlayRef = useRef(togglePlay)
+  togglePlayRef.current = togglePlay
+  const skipSecondsRef = useRef(skipSeconds)
+  skipSecondsRef.current = skipSeconds
 
   // Detect which slide a given time (in seconds) falls in and notify if changed
   function detectSlide(secs: number) {
@@ -132,8 +139,10 @@ export function ViewAudioBar({
       html5: true,
       preload: true,
       onload: () => {
-        // Use howl.duration() as source of truth — the API-computed
-        // total_duration_ms may be stale if combined.wav wasn't rebuilt yet.
+        if (fallbackTimerRef.current) {
+          clearTimeout(fallbackTimerRef.current)
+          fallbackTimerRef.current = null
+        }
         const d = Math.floor(howl.duration())
         setDuration(d)
         durationRef.current = d
@@ -182,10 +191,13 @@ export function ViewAudioBar({
     howlRef.current = howl
 
     // Fallback: show controls after 12s even if audio never loaded
-    const fallbackTimer = setTimeout(() => setReady(true), 12000)
+    fallbackTimerRef.current = setTimeout(() => setReady(true), 12000)
 
     return () => {
-      clearTimeout(fallbackTimer)
+      if (fallbackTimerRef.current) {
+        clearTimeout(fallbackTimerRef.current)
+        fallbackTimerRef.current = null
+      }
       stopPolling()
       stopProgressInterval()
       howl.unload()
@@ -248,7 +260,7 @@ export function ViewAudioBar({
         const current = currentTimeRef.current
         const pct = Math.min(100, Math.round((current / total) * 100))
         const body = JSON.stringify({
-          session_token: sessionToken,
+          session_token: sessionTokenRef.current,
           event_type: "closed",
           progress_pct: pct,
           time_spent_seconds: current,
@@ -258,21 +270,21 @@ export function ViewAudioBar({
     }
     document.addEventListener("visibilitychange", handleVisibility)
     return () => document.removeEventListener("visibilitychange", handleVisibility)
-  }, [shareToken, sessionToken])
+  }, [shareToken])
 
   // Keyboard shortcuts
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
       if ((e.target as HTMLElement)?.tagName === "INPUT") return
       switch (e.key) {
-        case " ": e.preventDefault(); togglePlay(); break
-        case "ArrowLeft": skipSeconds(-10); break
-        case "ArrowRight": skipSeconds(10); break
+        case " ": e.preventDefault(); togglePlayRef.current(); break
+        case "ArrowLeft": skipSecondsRef.current(-10); break
+        case "ArrowRight": skipSecondsRef.current(10); break
       }
     }
     window.addEventListener("keydown", handleKey)
     return () => window.removeEventListener("keydown", handleKey)
-  })
+  }, [])
 
   // ARIA live region
   useEffect(() => {

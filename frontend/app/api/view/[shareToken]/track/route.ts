@@ -46,6 +46,7 @@ export const POST = withApiHandler(async (
 
   if (countError) {
     console.error("Rate limit check failed:", countError.message)
+    return NextResponse.json({ error: "Internal error" }, { status: 500 })
   } else if (recentCount !== null && recentCount >= 100) {
     return NextResponse.json({ error: "Too many requests" }, { status: 429 })
   }
@@ -124,6 +125,7 @@ export const POST = withApiHandler(async (
 
     if (updateError) {
       console.error("Failed to update viewer aggregates:", updateError.message)
+      return NextResponse.json({ error: "Failed to record event" }, { status: 500 })
     }
   }
 

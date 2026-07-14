@@ -1,13 +1,17 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useCallback } from "react"
 import { Document, Page, pdfjs } from "react-pdf"
 
-// Set up pdf.js worker
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  "pdfjs-dist/build/pdf.worker.min.mjs",
-  import.meta.url,
-).toString()
+// Set up pdf.js worker with fallback
+try {
+  pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+    "pdfjs-dist/build/pdf.worker.min.mjs",
+    import.meta.url,
+  ).toString()
+} catch {
+  console.warn("Failed to resolve pdfjs worker URL, using default")
+}
 
 export type SlidePdfViewerProps = {
   pdfUrl: string | null
@@ -23,6 +27,11 @@ export function SlidePdfViewer({
   onLoadError,
 }: SlidePdfViewerProps) {
   const [loadError, setLoadError] = useState(false)
+  const [retryKey, setRetryKey] = useState(0)
+  const handleRetry = useCallback(() => {
+    setLoadError(false)
+    setRetryKey((k) => k + 1)
+  }, [])
 
   const slideWidth =
     externalWidth ??
@@ -43,10 +52,17 @@ export function SlidePdfViewer({
   if (loadError) {
     return (
       <div
-        className="flex items-center justify-center rounded-lg bg-zinc-100"
+        className="flex flex-col items-center justify-center gap-3 rounded-lg bg-zinc-100"
         style={{ width: slideWidth, height: slideHeight }}
       >
         <p className="text-sm text-red-500">Failed to load slide</p>
+        <button
+          type="button"
+          onClick={handleRetry}
+          className="rounded-md bg-zinc-800 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-zinc-700"
+        >
+          Retry
+        </button>
       </div>
     )
   }
@@ -58,6 +74,7 @@ export function SlidePdfViewer({
     >
       <Document
         file={pdfUrl}
+        key={retryKey}
         onLoadError={() => {
           setLoadError(true)
           onLoadError?.()
