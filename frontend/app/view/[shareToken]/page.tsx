@@ -133,49 +133,54 @@ export default function ViewPresentationPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shareToken, searchParams])
 
-  // Re-fetch gate settings when tab regains focus
+  // Re-fetch gate settings when tab regains focus — covers both gate and email_sent states
   useEffect(() => {
-    if (state.type !== "gate") return
+    if (state.type !== "gate" && state.type !== "email_sent") return
+
+    async function recheckGate() {
+      try {
+        const res = await fetch(`/api/view/${shareToken}`)
+        if (res.status === 410) {
+          const json = await res.json().catch(() => ({}))
+          clearGateState(shareToken)
+          setState(json.error?.toLowerCase().includes("archived")
+            ? { type: "archived" }
+            : { type: "expired" })
+          return
+        }
+        if (!res.ok) {
+          clearGateState(shareToken)
+          setState({ type: "not_found" })
+          return
+        }
+        const json = await res.json()
+        if (!json.data) return
+
+        if (state.type === "email_sent" && !json.data.has_password && !json.data.email_gate_enabled) {
+          // Gate was disabled while viewer was on email_sent — proceed automatically
+          clearGateState(shareToken)
+          setState({ type: "verified", viewerId: "" })
+        } else if (state.type === "gate") {
+          if (!json.data.has_password && !json.data.email_gate_enabled) {
+            // Gate no longer required — go to verified
+            clearGateState(shareToken)
+            setState({ type: "verified", viewerId: "" })
+          } else {
+            // Gate still active — update meta
+            setState({ type: "gate", meta: json.data })
+          }
+        }
+      } catch { /* ignore */ }
+    }
 
     function handleVisibilityChange() {
-      if (document.visibilityState === "visible") {
-        fetch(`/api/view/${shareToken}`)
-          .then(async (res) => {
-            if (res.status === 410) {
-              const json = await res.json().catch(() => ({}))
-              clearGateState(shareToken)
-              if (json.error?.toLowerCase().includes("archived")) {
-                setState({ type: "archived" })
-              } else {
-                setState({ type: "expired" })
-              }
-              return null
-            }
-            if (!res.ok) {
-              clearGateState(shareToken)
-              setState({ type: "not_found" })
-              return null
-            }
-            return res.json()
-          })
-          .then((json) => {
-            if (!json) return
-            if (!json.data.has_password && !json.data.email_gate_enabled) {
-              // Gate no longer required — go to verified
-              clearGateState(shareToken)
-              setState({ type: "verified", viewerId: "" })
-            } else {
-              // Gate still active — update meta (settings may have changed)
-              setState({ type: "gate", meta: json.data })
-            }
-          })
-          .catch(() => {})
-      }
+      if (document.visibilityState === "visible") recheckGate()
     }
 
     document.addEventListener("visibilitychange", handleVisibilityChange)
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange)
-  }, [state.type, shareToken]) // eslint-disable-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.type, shareToken])
 
   async function loadPresentation() {
     setState({ type: "loading" })
@@ -274,6 +279,14 @@ export default function ViewPresentationPage() {
           if (viewRes.ok) {
             const viewJson = await viewRes.json()
             if (viewJson.data) {
+              // If gate was enabled since this viewer was verified, redirect to gate
+              if (viewJson.data.has_password || viewJson.data.email_gate_enabled) {
+                clearGateState(shareToken)
+                try { localStorage.removeItem(storageKey(SESSION_KEY_PREFIX, shareToken)) } catch { /* ignore */ }
+                setState({ type: "gate", meta: viewJson.data })
+                return
+              }
+
               viewDataRef.current = viewJson.data
               audioVersionRef.current = viewJson.data.audio_version ?? 0
               setVersionStatus("synced")
@@ -357,10 +370,27 @@ export default function ViewPresentationPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.type, shareToken])
 
-  // Apply pending changes: re-fetch slides + force audio remount
-  function applyChanges() {
+  // Apply pending changes: re-fetch view data + slides + force audio remount
+  async function applyChanges() {
     const tok = sessionRef.current
-    if (tok) fetchSlides(tok, shareToken)
+    if (!tok) return
+
+    // Re-fetch view data to get fresh slide_timings, audio_url, total_duration_ms
+    // This ensures the AudioBar remounts with correct timing data
+    try {
+      const res = await fetch(`/api/view/${shareToken}?session=${tok}`)
+      if (res.ok) {
+        const json = await res.json()
+        if (json.data) {
+          viewDataRef.current = json.data
+          audioVersionRef.current = json.data.audio_version ?? 0
+          if (json.data.total_duration_ms) setRealDurationMs(json.data.total_duration_ms)
+          if (json.data.first_watch_done !== undefined) setFirstWatch(!json.data.first_watch_done)
+        }
+      }
+    } catch { /* use stale data */ }
+
+    fetchSlides(tok, shareToken)
     setAudioRefreshKey(k => k + 1)
     setVersionStatus("synced")
   }
