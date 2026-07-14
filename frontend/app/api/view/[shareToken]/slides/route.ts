@@ -15,7 +15,7 @@ export const GET = withApiHandler(async (
     .from("presentations")
     .select("id, user_id, slide_count")
     .eq("share_token", shareToken)
-    .single()
+    .maybeSingle()
 
   if (!presentation) {
     return NextResponse.json({ error: "Presentation not found" }, { status: 404 })
@@ -30,7 +30,7 @@ export const GET = withApiHandler(async (
     .eq("session_token", sessionToken)
     .eq("presentation_id", presentation.id)
     .eq("email_verified", true)
-    .single()
+    .maybeSingle()
 
   if (!viewer) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })

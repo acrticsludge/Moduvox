@@ -107,6 +107,7 @@ export default function ViewPresentationPage() {
   const [currentSlide, setCurrentSlide] = useState(0)
   const [slidesLoading, setSlidesLoading] = useState(false)
   const [slidesError, setSlidesError] = useState<string | null>(null)
+  const slidesFetchingRef = useRef(false)
   const [audioRefreshKey, setAudioRefreshKey] = useState(0)
   const [versionStatus, setVersionStatus] = useState<"synced" | "outdated" | null>(null)
   const [firstWatch, setFirstWatch] = useState(true)
@@ -244,7 +245,13 @@ export default function ViewPresentationPage() {
         clearGateState(shareToken)
         setState({ type: "gate", meta: data })
       }
-    } catch {
+    } catch (err) {
+      // Network errors (TypeError) should not be conflated with "not found"
+      if (err instanceof TypeError) {
+        setState({ type: "loading" }) // keeps loading state — retry on visibilitychange
+        return
+      }
+      clearGateState(shareToken)
       setState({ type: "not_found" })
     }
   }
@@ -314,6 +321,8 @@ export default function ViewPresentationPage() {
   }
 
   async function fetchSlides(sessionToken: string, token: string) {
+    if (slidesFetchingRef.current) return // prevent concurrent fetches
+    slidesFetchingRef.current = true
     setSlidesLoading(true)
     setSlidesError(null)
     try {
@@ -331,6 +340,7 @@ export default function ViewPresentationPage() {
       setSlidesError("Failed to load slides")
     } finally {
       setSlidesLoading(false)
+      slidesFetchingRef.current = false
     }
   }
 

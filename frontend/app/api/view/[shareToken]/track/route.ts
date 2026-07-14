@@ -30,7 +30,7 @@ export const POST = withApiHandler(async (
     .from("presentations")
     .select("id")
     .eq("share_token", shareToken)
-    .single()
+    .maybeSingle()
 
   if (!presentation) {
     return NextResponse.json({ error: "Presentation not found" }, { status: 404 })
@@ -57,7 +57,7 @@ export const POST = withApiHandler(async (
     .eq("session_token", parsed.data.session_token)
     .eq("presentation_id", presentation.id)
     .eq("email_verified", true)
-    .single()
+    .maybeSingle()
 
   if (!viewer) {
     return NextResponse.json({ error: "Invalid session" }, { status: 403 })

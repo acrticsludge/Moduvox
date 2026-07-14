@@ -44,6 +44,7 @@ export function ViewAudioBar({
   const durationRef = useRef(0)
   const maxWatchedRef = useRef(0)
   const lastSlideRef = useRef(0)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const onSlideChangeRef = useRef(onSlideChange)
   onSlideChangeRef.current = onSlideChange
   const slideTimingsRef = useRef(slideTimings)
@@ -137,10 +138,19 @@ export function ViewAudioBar({
         setDuration(d)
         durationRef.current = d
         setReady(true)
+        setLoadError(null)
         onDurationReady?.(d)
       },
       onloaderror: (_id: number, err: unknown) => {
         console.error("Howler load error:", err)
+        const msg = (err as { message?: string })?.message || ""
+        if (msg.includes("404") || msg.includes("not found")) {
+          setLoadError("Audio not available yet — it may still be generating.")
+        } else if (msg.includes("format") || msg.includes("codec")) {
+          setLoadError("Audio format not supported by your browser.")
+        } else {
+          setLoadError("Failed to load audio. Try refreshing.")
+        }
         setReady(true)
       },
       onplay: () => {
@@ -462,6 +472,22 @@ export function ViewAudioBar({
                   <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
                   <button type="button" onClick={onRefresh} className="underline decoration-dotted underline-offset-2 hover:decoration-solid leading-none">
                     Changes detected — Refresh
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Audio load error */}
+          {loadError && (
+            <div className="ml-auto flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-3 py-1 text-[11px] text-red-700 leading-none">
+              <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              <span>{loadError}</span>
+              {onRefresh && (
+                <>
+                  <span className="text-red-300">·</span>
+                  <button type="button" onClick={onRefresh} className="underline decoration-dotted underline-offset-2 hover:decoration-solid">
+                    Retry
                   </button>
                 </>
               )}
