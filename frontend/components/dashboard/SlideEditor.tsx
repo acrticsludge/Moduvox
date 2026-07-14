@@ -864,7 +864,7 @@ export function SlideEditor({
     return (
       <>
         <div className="flex flex-1 flex-col">
-          <div className="relative flex flex-1 flex-col items-center justify-center gap-4 bg-zinc-100 p-8">
+          <div className="flex min-h-[60vh] flex-1 flex-col items-center justify-center gap-4 bg-zinc-100 p-8">
             <Loader2 className="h-6 w-6 animate-spin text-[#71717A]" />
             <p className="text-sm text-[#71717A]">Processing presentation...</p>
             {uploadProgress > 0 && (
