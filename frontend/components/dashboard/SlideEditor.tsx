@@ -521,6 +521,9 @@ export function SlideEditor({
     setRegenStep("complete")
     setGeneratingAudio(false)
     setAudioGenProgress(null)
+
+    // Warm the combined audio cache so the AudioPlayer doesn't hit a cold start
+    fetch(combinedUrl, { method: "HEAD" }).catch(() => {})
   }
 
   async function handleGenerate(
@@ -617,6 +620,9 @@ export function SlideEditor({
 
     setGenerating(false)
     setAudioGenProgress(null)
+
+    // Warm the combined audio cache so the AudioPlayer doesn't hit a cold start
+    fetch(combinedUrl, { method: "HEAD" }).catch(() => {})
   }
 
   function jumpToSlide(slideNumber: number) {
@@ -1343,13 +1349,6 @@ export function SlideEditor({
                 audioUrl={audioUrl}
                 presentationId={presentationId}
                 slideNumber={currentIndex + 1}
-                onError={() => {
-                  setInternalAudioGenerated(false)
-                  onAudioGeneratedChange?.(false)
-                  setInternalAudioUrl(null)
-                  onAudioUrlChange?.(null)
-                  onAudioStoragePathChange?.(null)
-                }}
               />
             )}
 
@@ -1654,13 +1653,6 @@ export function SlideEditor({
                     audioUrl={audioUrl}
                     presentationId={presentationId}
                     slideNumber={currentIndex + 1}
-                    onError={() => {
-                      setInternalAudioGenerated(false)
-                      onAudioGeneratedChange?.(false)
-                      setInternalAudioUrl(null)
-                      onAudioUrlChange?.(null)
-                      onAudioStoragePathChange?.(null)
-                    }}
                   />
                 )}
 
