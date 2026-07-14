@@ -15,7 +15,7 @@ export const POST = withApiHandler(async (
     .from("presentations")
     .select("id, user_id, slide_count")
     .eq("share_token", shareToken)
-    .single()
+    .maybeSingle()
 
   if (!presentation) {
     return NextResponse.json({ error: "Presentation not found" }, { status: 404 })
@@ -23,6 +23,9 @@ export const POST = withApiHandler(async (
 
   // Verify viewer session
   const body = await request.json()
+  if (typeof body.sessionToken !== "string") {
+    return NextResponse.json({ error: "Invalid session token" }, { status: 400 })
+  }
   const sessionToken = body.sessionToken as string
   const { data: viewer } = await supabase
     .from("viewers")
@@ -30,7 +33,7 @@ export const POST = withApiHandler(async (
     .eq("session_token", sessionToken)
     .eq("presentation_id", presentation.id)
     .eq("email_verified", true)
-    .single()
+    .maybeSingle()
 
   if (!viewer) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -48,7 +51,11 @@ export const POST = withApiHandler(async (
   for (let i = 1; i <= slideCount; i++) {
     const pdfKey = `${presentation.user_id}/pdf/${presentation.id}/slide-${i}.pdf`
     const putUrl = await createUploadUrl(pdfKey, "application/pdf", 3600)
-    if (putUrl) slidePutUrls[String(i)] = putUrl
+    if (putUrl) {
+      slidePutUrls[String(i)] = putUrl
+    } else {
+      console.warn(`[convert] Failed to create upload URL for slide ${i}`)
+    }
   }
 
   // Fire-and-forget to Render worker
@@ -58,14 +65,21 @@ export const POST = withApiHandler(async (
     return NextResponse.json({ error: "PDF converter not configured" }, { status: 500 })
   }
 
-  fetch(`${workerUrl}/convert`, {
+  const workerRes = await fetch(`${workerUrl}/convert`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "Authorization": `Bearer ${apiKey}`,
     },
     body: JSON.stringify({ pptxUrl, slidePutUrls, slideCount }),
-  }).catch((err) => console.error("[convert] Background trigger failed:", err))
+  })
+  const workerBody = await workerRes.text()
 
-  return NextResponse.json({ data: { success: true } })
+  return NextResponse.json({
+    data: {
+      success: true,
+      workerStatus: workerRes.ok ? "accepted" : "failed",
+      workerError: workerRes.ok ? null : workerBody,
+    },
+  })
 })

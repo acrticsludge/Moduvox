@@ -74,7 +74,7 @@ function loadGateState(shareToken: string): { viewerId: string; viewerName: stri
 function saveGateState(shareToken: string, data: { viewerId: string; viewerName: string; email: string }) {
   try {
     localStorage.setItem(storageKey(GATE_KEY_PREFIX, shareToken), JSON.stringify(data))
-  } catch { /* ignore */ }
+  } catch { console.warn("localStorage quota exceeded") }
 }
 
 function clearGateState(shareToken: string) {
@@ -93,7 +93,7 @@ function loadSession(shareToken: string): string | null {
 function saveSession(shareToken: string, token: string) {
   try {
     localStorage.setItem(storageKey(SESSION_KEY_PREFIX, shareToken), token)
-  } catch { /* ignore */ }
+  } catch { console.warn("localStorage quota exceeded") }
 }
 
 export default function ViewPresentationPage() {
@@ -103,24 +103,37 @@ export default function ViewPresentationPage() {
 
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [state, setState] = useState<PageState>({ type: "loading" })
+  const stateTypeRef = useRef(state.type)
+  stateTypeRef.current = state.type
   const [slides, setSlides] = useState<{ slideNumber: number; pdfUrl: string | null }[] | null>(null)
   const [currentSlide, setCurrentSlide] = useState(0)
   const [slidesLoading, setSlidesLoading] = useState(false)
   const [slidesError, setSlidesError] = useState<string | null>(null)
+  const slidesFetchingRef = useRef(false)
+  const loadingRef = useRef(false)
   const [audioRefreshKey, setAudioRefreshKey] = useState(0)
+  const [convertFailed, setConvertFailed] = useState(false)
   const [versionStatus, setVersionStatus] = useState<"synced" | "outdated" | null>(null)
   const [firstWatch, setFirstWatch] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [realDurationMs, setRealDurationMs] = useState<number | undefined>(undefined)
   const viewDataRef = useRef<{ title: string; created_at?: string; slide_count?: number; expires_at?: string | null; total_duration_ms?: number; audio_url?: string | null; audio_version?: number; slide_timings?: SlideTiming[]; viewer_created_at?: string | null; presentation_id?: string; viewer_id?: string | null; first_watch_done?: boolean } | null>(null)
   const audioVersionRef = useRef(0)
   const sessionRef = useRef("")
   const seekToSlideRef = useRef<SeekToSlideFn | null>(null)
+  const preloadControllerRef = useRef<AbortController | null>(null)
+  const visibilityProcessingRef = useRef(false)
 
   useEffect(() => {
     const sessionFromUrl = searchParams.get("session")
     if (sessionFromUrl) {
       saveSession(shareToken, sessionFromUrl)
       window.history.replaceState(null, "", `/view/${shareToken}`)
+      // Set referrer policy to prevent session token leakage
+      const meta = document.createElement('meta')
+      meta.name = 'referrer'
+      meta.content = 'no-referrer'
+      document.head.appendChild(meta)
       validateAndLoad(sessionFromUrl, false)
     } else {
       const storedSession = loadSession(shareToken)
@@ -133,51 +146,62 @@ export default function ViewPresentationPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shareToken, searchParams])
 
-  // Re-fetch gate settings when tab regains focus
+  // Re-fetch gate settings when tab regains focus — covers both gate and email_sent states
   useEffect(() => {
-    if (state.type !== "gate") return
+    if (state.type !== "gate" && state.type !== "email_sent") return
+
+    async function recheckGate() {
+      if (visibilityProcessingRef.current) return
+      visibilityProcessingRef.current = true
+      try {
+        const res = await fetch(`/api/view/${shareToken}`)
+        if (res.status === 410) {
+          const json = await res.json().catch(() => ({}))
+          clearGateState(shareToken)
+          setState(json.error?.toLowerCase().includes("archived")
+            ? { type: "archived" }
+            : { type: "expired" })
+          return
+        }
+        if (!res.ok) {
+          clearGateState(shareToken)
+          setState({ type: "not_found" })
+          return
+        }
+        const json = await res.json()
+        if (!json.data) return
+
+        if (stateTypeRef.current === "email_sent" && !json.data.has_password && !json.data.email_gate_enabled) {
+          // Gate was disabled while viewer was on email_sent — proceed automatically
+          clearGateState(shareToken)
+          setState({ type: "verified", viewerId: "" })
+        } else if (stateTypeRef.current === "gate") {
+          if (!json.data.has_password && !json.data.email_gate_enabled) {
+            // Gate no longer required — go to verified
+            clearGateState(shareToken)
+            setState({ type: "verified", viewerId: "" })
+          } else {
+            // Gate still active — update meta
+            setState({ type: "gate", meta: json.data })
+          }
+        }
+      } catch { /* ignore */ }
+      finally { visibilityProcessingRef.current = false }
+    }
 
     function handleVisibilityChange() {
-      if (document.visibilityState === "visible") {
-        fetch(`/api/view/${shareToken}`)
-          .then(async (res) => {
-            if (res.status === 410) {
-              const json = await res.json().catch(() => ({}))
-              clearGateState(shareToken)
-              if (json.error?.toLowerCase().includes("archived")) {
-                setState({ type: "archived" })
-              } else {
-                setState({ type: "expired" })
-              }
-              return null
-            }
-            if (!res.ok) {
-              clearGateState(shareToken)
-              setState({ type: "not_found" })
-              return null
-            }
-            return res.json()
-          })
-          .then((json) => {
-            if (!json) return
-            if (!json.data.has_password && !json.data.email_gate_enabled) {
-              // Gate no longer required — go to verified
-              clearGateState(shareToken)
-              setState({ type: "verified", viewerId: "" })
-            } else {
-              // Gate still active — update meta (settings may have changed)
-              setState({ type: "gate", meta: json.data })
-            }
-          })
-          .catch(() => {})
-      }
+      if (visibilityProcessingRef.current) return
+      if (document.visibilityState === "visible") recheckGate()
     }
 
     document.addEventListener("visibilitychange", handleVisibilityChange)
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange)
-  }, [state.type, shareToken]) // eslint-disable-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.type, shareToken])
 
   async function loadPresentation() {
+    if (loadingRef.current) return
+    loadingRef.current = true
     setState({ type: "loading" })
 
     try {
@@ -204,6 +228,7 @@ export default function ViewPresentationPage() {
       viewDataRef.current = data
       audioVersionRef.current = data.audio_version ?? 0
       setVersionStatus("synced")
+      // Invert: first_watch_done means "was completed", firstWatch means "is this the first"
       if (data.first_watch_done !== undefined) setFirstWatch(!data.first_watch_done)
 
       if (data.has_password || data.email_gate_enabled) {
@@ -239,12 +264,22 @@ export default function ViewPresentationPage() {
         clearGateState(shareToken)
         setState({ type: "gate", meta: data })
       }
-    } catch {
+    } catch (err) {
+      // Network errors (TypeError) should not be conflated with "not found"
+      if (err instanceof TypeError) {
+        setState({ type: "loading" }) // keeps loading state — retry on visibilitychange
+        return
+      }
+      clearGateState(shareToken)
       setState({ type: "not_found" })
+    } finally {
+      loadingRef.current = false
     }
   }
 
   async function validateAndLoad(sessionToken: string, fromStorage = false) {
+    if (loadingRef.current) return
+    loadingRef.current = true
     setState({ type: "loading" })
 
     try {
@@ -263,6 +298,8 @@ export default function ViewPresentationPage() {
       }
 
       // Clear gate state and persist session — verification succeeded
+      // Note: viewed_at and email_verified updates can race if two tabs verify simultaneously.
+      // This is a theoretical race — DB-level locking would be needed for atomicity.
       clearGateState(shareToken)
       saveSession(shareToken, sessionToken)
 
@@ -274,15 +311,27 @@ export default function ViewPresentationPage() {
           if (viewRes.ok) {
             const viewJson = await viewRes.json()
             if (viewJson.data) {
+              // If gate was enabled since this viewer was verified, redirect to gate
+              if (viewJson.data.has_password || viewJson.data.email_gate_enabled) {
+                clearGateState(shareToken)
+                try { localStorage.removeItem(storageKey(SESSION_KEY_PREFIX, shareToken)) } catch { /* ignore */ }
+                setState({ type: "gate", meta: viewJson.data })
+                return
+              }
+
               viewDataRef.current = viewJson.data
               audioVersionRef.current = viewJson.data.audio_version ?? 0
               setVersionStatus("synced")
+              // Invert: first_watch_done means "was completed", firstWatch means "is this the first"
               if (viewJson.data.first_watch_done !== undefined) setFirstWatch(!viewJson.data.first_watch_done)
               break
             }
           }
         } catch { /* retry */ }
-        if (attempt < 2) await new Promise((r) => setTimeout(r, 1000))
+        if (attempt < 2) {
+          await new Promise((r) => setTimeout(r, 1000))
+          if (!loadingRef.current) return // another load started while we waited
+        }
       }
 
       setState({
@@ -290,34 +339,48 @@ export default function ViewPresentationPage() {
         viewerId: verifyJson.data?.viewer_id || sessionToken,
         sessionToken: sessionToken,
       })
-    } catch {
+    } catch (err) {
+      if (err instanceof TypeError) {
+        // Network error — retry without clearing storage
+        loadingRef.current = false
+        loadPresentation()
+        return
+      }
       if (fromStorage) {
         try { localStorage.removeItem(storageKey(SESSION_KEY_PREFIX, shareToken)) } catch { /* ignore */ }
+        loadingRef.current = false
         loadPresentation()
         return
       }
       setState({ type: "verify_error" })
+    } finally {
+      loadingRef.current = false
     }
   }
 
   async function fetchSlides(sessionToken: string, token: string) {
+    if (slidesFetchingRef.current) return // prevent concurrent fetches
+    slidesFetchingRef.current = true
     setSlidesLoading(true)
     setSlidesError(null)
     try {
       const res = await fetch(`/api/view/${token}/slides?session=${sessionToken}`)
       const json = await res.json()
       if (json.data) {
+        // Note: PDF URLs from the API are already signed sequentially. This could be optimized
+        // with Promise.all if the API is updated to support batch signing.
         setSlides(json.data.slides)
         if (json.data.slides.length === 0 || json.data.slides.every((s: { pdfUrl: unknown }) => !s.pdfUrl)) {
-          setSlidesError("Slides not available yet")
+          setSlidesError("Slides are being generated. Check back soon.")
         }
       } else {
         setSlidesError(json.error || "Failed to load slides")
       }
     } catch {
-      setSlidesError("Failed to load slides")
+      setSlidesError("Could not load slides.")
     } finally {
       setSlidesLoading(false)
+      slidesFetchingRef.current = false
     }
   }
 
@@ -342,6 +405,7 @@ export default function ViewPresentationPage() {
         const json = await res.json()
         if (!json.data) return
 
+        // Use local variable to avoid race with applyChanges writing to audioVersionRef
         const newVersion = json.data.audio_version ?? 0
         if (newVersion !== audioVersionRef.current) {
           audioVersionRef.current = newVersion
@@ -357,18 +421,47 @@ export default function ViewPresentationPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.type, shareToken])
 
-  // Apply pending changes: re-fetch slides + force audio remount
-  function applyChanges() {
+  // Abort slide preloads on unmount
+  useEffect(() => {
+    return () => { preloadControllerRef.current?.abort() }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Apply pending changes: re-fetch view data + slides + force audio remount
+  async function applyChanges() {
+    setRefreshing(true)
     const tok = sessionRef.current
-    if (tok) fetchSlides(tok, shareToken)
+    if (!tok) { setRefreshing(false); return }
+
+    // Re-fetch view data to get fresh slide_timings, audio_url, total_duration_ms
+    // This ensures the AudioBar remounts with correct timing data
+    try {
+      const res = await fetch(`/api/view/${shareToken}?session=${tok}`)
+      if (res.ok) {
+        const json = await res.json()
+        if (json.data) {
+          viewDataRef.current = json.data
+          audioVersionRef.current = json.data.audio_version ?? 0
+          if (json.data.total_duration_ms) setRealDurationMs(json.data.total_duration_ms)
+          // Invert: first_watch_done means "was completed", firstWatch means "is this the first"
+          if (json.data.first_watch_done !== undefined) setFirstWatch(!json.data.first_watch_done)
+        }
+      }
+    } catch { /* use stale data */ }
+
+    fetchSlides(tok, shareToken)
     setAudioRefreshKey(k => k + 1)
     setVersionStatus("synced")
+    setRefreshing(false)
+  }
+
+  function clampSlide(sn: number) {
+    return Math.max(1, Math.min(sn, viewDataRef.current?.slide_count || 1))
   }
 
   // Navigate to a slide — seeks audio to the slide's start time
-  // force=true bypasses first-watch clamp so sidebar/prev-next always work
   function goToSlide(slideNumber: number) {
-    const sn = Math.max(1, Math.min(slideNumber, slides?.length || 1))
+    const sn = clampSlide(slideNumber)
     seekToSlideRef.current?.(sn, true)
     // Also update currentSlide immediately for instant visual feedback
     setCurrentSlide(sn - 1)
@@ -379,6 +472,9 @@ export default function ViewPresentationPage() {
   // Fetches into browser cache so react-pdf loads instantly when user navigates
   function preloadSlides(currentSn: number, allSlides: { slideNumber: number; pdfUrl: string | null }[] | null) {
     if (!allSlides) return
+    preloadControllerRef.current?.abort()
+    const controller = new AbortController()
+    preloadControllerRef.current = controller
     const preloadSn = new Set<number>()
     for (let i = -1; i <= 2; i++) {
       const sn = currentSn + i
@@ -386,7 +482,7 @@ export default function ViewPresentationPage() {
     }
     for (const s of allSlides) {
       if (preloadSn.has(s.slideNumber) && s.pdfUrl && s.slideNumber !== currentSn) {
-        fetch(s.pdfUrl, { cache: "force-cache" }).catch(() => {})
+        fetch(s.pdfUrl, { cache: "force-cache", signal: controller.signal }).catch(() => {})
       }
     }
   }
@@ -431,7 +527,7 @@ export default function ViewPresentationPage() {
                 <div className="h-4 w-24 rounded bg-zinc-100" />
               </div>
             </div>
-            <main className="flex flex-1 items-start p-6">
+            <main className="flex min-h-[60vh] flex-1 items-start p-6">
               <div className="w-full space-y-6">
                 <div className="h-6 w-48 animate-pulse rounded bg-zinc-100" />
                 <div className="h-[400px] w-full animate-pulse rounded-xl bg-zinc-100" />
@@ -523,31 +619,19 @@ export default function ViewPresentationPage() {
               onSlideClick={(sn) => goToSlide(sn)}
             />
             <main id="viewer-main-content" className="flex flex-1 flex-col items-center p-4 md:p-8">
-              {slidesLoading ? (
-                <div className="flex flex-1 items-center justify-center">
-                  <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-600" />
+              {slidesError && (
+                <div className="mb-4 w-full max-w-2xl rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  {slidesError}
                 </div>
-              ) : slidesError && (!slides || slides.length === 0) ? (
-                <div className="flex flex-1 flex-col items-center justify-center gap-4">
-                  <p className="text-sm text-zinc-500">{slidesError}</p>
-                  <button
-                    type="button"
-                    disabled={slidesLoading}
-                    onClick={async () => {
-                      if (state.type !== "verified" || !state.sessionToken) return
-                      try {
-                        await fetch(`/api/view/${shareToken}/convert`, {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ sessionToken: state.sessionToken }),
-                        })
-                      } catch { /* ignore */ }
-                      if (state.sessionToken) await fetchSlides(state.sessionToken, shareToken)
-                    }}
-                    className="min-h-[44px] rounded-lg bg-zinc-800 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50"
-                  >
-                    {slidesLoading ? "Generating..." : "Generate slides"}
-                  </button>
+              )}
+              {convertFailed && (
+                <div className="mb-4 w-full max-w-2xl rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-xs text-red-700">
+                  Slide conversion request failed. Try again.
+                </div>
+              )}
+              {slidesLoading ? (
+                <div className="flex min-h-[60vh] flex-1 items-center justify-center">
+                  <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-600" />
                 </div>
               ) : slides && slides.length > 0 ? (
                 <>
@@ -580,7 +664,32 @@ export default function ViewPresentationPage() {
                     </button>
                   </div>
                 </>
-              ) : null}
+              ) : (
+                <div className="flex flex-1 flex-col items-center justify-center gap-4">
+                  <p className="text-sm text-zinc-500">No slides available</p>
+                  <p className="text-xs text-zinc-400">Slides may still be generating. Click below to retry.</p>
+                  <button
+                    type="button"
+                    disabled={slidesLoading}
+                    onClick={async () => {
+                      if (state.type !== "verified" || !state.sessionToken) return
+                      setConvertFailed(false)
+                      try {
+                        const res = await fetch(`/api/view/${shareToken}/convert`, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ sessionToken: state.sessionToken }),
+                        })
+                        if (!res.ok) setConvertFailed(true)
+                      } catch { setConvertFailed(true) }
+                      if (state.sessionToken) await fetchSlides(state.sessionToken, shareToken)
+                    }}
+                    className="min-h-[44px] rounded-lg bg-zinc-800 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50"
+                  >
+                    {slidesLoading ? "Generating..." : "Generate slides"}
+                  </button>
+                </div>
+              )}
             </main>
           </div>
         <ViewAudioBar key={audioRefreshKey} seekToSlideRef={seekToSlideRef}
@@ -592,6 +701,7 @@ export default function ViewPresentationPage() {
           audioUrl={viewDataRef.current?.audio_url || undefined}
           versionStatus={versionStatus}
           onRefresh={applyChanges}
+          refreshing={refreshing}
           slideTimings={viewDataRef.current?.slide_timings}
           onSlideChange={(sn) => {
             setCurrentSlide(sn - 1)

@@ -47,6 +47,10 @@ export const POST = withApiHandler(async (
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
   }
 
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
+  }
+
   // Verify reCAPTCHA v3 token (skip if not configured â€” dev mode)
   if (process.env.RECAPTCHA_SECRET_KEY && process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY) {
     const recaptchaToken = body.recaptcha_token as string | undefined
@@ -96,7 +100,7 @@ export const POST = withApiHandler(async (
     )
   }
 
-  // Email gate disabled â†’ create viewer as verified, skip email, return success
+  // Email gate disabled — viewer is created as verified immediately since no email confirmation is needed.
   if (!presentation.email_gate_enabled) {
     // Check if a verified viewer already exists for this email
     const { data: existingVerified } = await supabase
@@ -185,13 +189,13 @@ export const POST = withApiHandler(async (
   }
 
   // Daily email cap: 20 magic link sends per presentation per 24h
-  // Counts viewers with verification_sent_at in the window as a proxy
-  // for emails sent (both count and cap set conservatively).
+  // Counts unique viewers created in the window, not verification_sent_at updates
+  // (which would double-count resends from the same viewer)
   const { count: dailyEmailCount } = await supabase
     .from("viewers")
     .select("id", { count: "exact", head: true })
     .eq("presentation_id", presentation.id)
-    .gte("verification_sent_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+    .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
 
   if (dailyEmailCount !== null && dailyEmailCount >= 20) {
     return NextResponse.json({ error: "Too many requests. Please try again later." }, { status: 429 })
@@ -199,6 +203,7 @@ export const POST = withApiHandler(async (
 
   // Upsert viewer — create or update in one shot
   const newSessionToken = crypto.randomUUID()
+  const verificationSentAt = new Date().toISOString()
 
   const { data: viewer, error: viewerError } = await supabase
     .from("viewers")
@@ -209,7 +214,7 @@ export const POST = withApiHandler(async (
       consent_granted: true,
       email_verified: alreadyVerified,
       session_token: newSessionToken,
-      verification_sent_at: new Date().toISOString(),
+      verification_sent_at: verificationSentAt,
       ip_address: ipAddress,
       user_agent: userAgent,
     }, {
@@ -245,7 +250,14 @@ export const POST = withApiHandler(async (
   if (!emailResult.success) {
     // Clean up orphaned viewer record — email never arrived so there's
     // no way for the viewer to verify. The user can retry on the gate form.
-    await supabase.from("viewers").delete().eq("id", viewer.id).maybeSingle()
+    // Only delete if verification_sent_at still matches (guard against
+    // concurrent requests for the same email updating this row).
+    await supabase
+      .from("viewers")
+      .delete()
+      .eq("id", viewer.id)
+      .eq("verification_sent_at", verificationSentAt)
+      .maybeSingle()
 
     return NextResponse.json(
       { error: !process.env.RESEND_API_KEY

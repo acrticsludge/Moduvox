@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Calendar, Clock, Layers, Link, ExternalLink, Check, Sparkles } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip"
 
@@ -42,11 +42,19 @@ function formatDuration(ms: number): string {
 
 export function ViewSidebar({ title, createdAt, slideCount, expiresAt, viewerFirstViewed, totalDurationMs, isOpen, onClose, currentSlide, onSlideClick }: ViewSidebarProps) {
   const [copied, setCopied] = useState(false)
+  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current)
+    }
+  }, [])
 
   function handleCopyLink() {
     navigator.clipboard.writeText(window.location.href).then(() => {
       setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current)
+      copiedTimerRef.current = setTimeout(() => setCopied(false), 2000)
     })
   }
 

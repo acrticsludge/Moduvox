@@ -50,13 +50,13 @@ export function CombinedGateDialog({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError("")
-    setLoading(true)
 
     if (!consent) {
       setError("You must confirm you are watching for yourself.")
-      setLoading(false)
       return
     }
+
+    setLoading(true)
 
     // Get reCAPTCHA v3 token (silent, no user interaction)
     let recaptchaToken = ""
@@ -75,8 +75,12 @@ export function CombinedGateDialog({
             }
           })
         })
-      } catch {
-        setError("Security verification failed. Please try again.")
+      } catch (e) {
+        if (e instanceof TypeError) {
+          setError("Could not reach the security verification service. Check your connection and try again.")
+        } else {
+          setError("Security verification failed. Please try again.")
+        }
         setLoading(false)
         return
       }

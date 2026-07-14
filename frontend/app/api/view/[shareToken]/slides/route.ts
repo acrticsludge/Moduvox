@@ -15,7 +15,7 @@ export const GET = withApiHandler(async (
     .from("presentations")
     .select("id, user_id, slide_count")
     .eq("share_token", shareToken)
-    .single()
+    .maybeSingle()
 
   if (!presentation) {
     return NextResponse.json({ error: "Presentation not found" }, { status: 404 })
@@ -30,7 +30,7 @@ export const GET = withApiHandler(async (
     .eq("session_token", sessionToken)
     .eq("presentation_id", presentation.id)
     .eq("email_verified", true)
-    .single()
+    .maybeSingle()
 
   if (!viewer) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -50,6 +50,7 @@ export const GET = withApiHandler(async (
     const key = `${pdfPrefix}slide-${i}.pdf`
     if (existingKeys.has(key)) {
       // createDownloadUrl signs locally (no network call) — safe in loop
+      // 7-day signed URL — tradeoff between UX (viewers don't want broken links) and security; shorten if needed
       const pdfUrl = await createDownloadUrl(key, 604800) // 7 days
       slides.push({ slideNumber: i, pdfUrl })
     } else {

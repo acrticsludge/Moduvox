@@ -22,6 +22,7 @@ type ViewAudioBarProps = {
   audioUrl?: string
   versionStatus?: "synced" | "outdated" | null
   onRefresh?: () => void
+  refreshing?: boolean
   slideTimings?: SlideTiming[]
   onSlideChange?: (slideNumber: number) => void
   firstWatch?: boolean
@@ -32,7 +33,7 @@ type ViewAudioBarProps = {
 export function ViewAudioBar({
   shareToken, sessionToken, viewerId, presentationId, totalDurationMs, audioUrl,
   versionStatus, onRefresh, slideTimings = [], onSlideChange, firstWatch = false,
-  seekToSlideRef, onDurationReady,
+  seekToSlideRef, onDurationReady, refreshing = false,
 }: ViewAudioBarProps) {
   const howlRef = useRef<Howl | null>(null)
   const liveRef = useRef<HTMLDivElement>(null)
@@ -44,12 +45,20 @@ export function ViewAudioBar({
   const durationRef = useRef(0)
   const maxWatchedRef = useRef(0)
   const lastSlideRef = useRef(0)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const onSlideChangeRef = useRef(onSlideChange)
   onSlideChangeRef.current = onSlideChange
   const slideTimingsRef = useRef(slideTimings)
   slideTimingsRef.current = slideTimings
   const firstWatchRef = useRef(firstWatch)
   firstWatchRef.current = firstWatch
+  const sessionTokenRef = useRef(sessionToken)
+  sessionTokenRef.current = sessionToken
+  const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const togglePlayRef = useRef(togglePlay)
+  togglePlayRef.current = togglePlay
+  const skipSecondsRef = useRef(skipSeconds)
+  skipSecondsRef.current = skipSeconds
 
   // Detect which slide a given time (in seconds) falls in and notify if changed
   function detectSlide(secs: number) {
@@ -99,6 +108,7 @@ export function ViewAudioBar({
   const [showTimeRemaining, setShowTimeRemaining] = useState(false)
   const [showVolumeSlider, setShowVolumeSlider] = useState(false)
   const [resolvedUrl, setResolvedUrl] = useState<string | undefined>(audioUrl)
+  const [starting, setStarting] = useState(false)
 
   // If audioUrl wasn't provided (combined.wav doesn't exist yet), call ensure endpoint
   useEffect(() => {
@@ -115,9 +125,18 @@ export function ViewAudioBar({
         return json as { data?: { audioUrl?: string } }
       })
       .then((json) => {
-        if (!cancelled && json.data?.audioUrl) setResolvedUrl(json.data.audioUrl)
+        if (!cancelled) {
+          if (json.data?.audioUrl) {
+            setResolvedUrl(json.data.audioUrl)
+          } else {
+            setLoadError("Audio is not available yet — it may still be generating.")
+          }
+        }
       })
-      .catch((err) => { console.error("[ViewAudioBar] Audio fetch failed:", err) })
+      .catch((err) => {
+        console.error("[ViewAudioBar] Audio fetch failed:", err)
+        setLoadError("Failed to load audio. Try refreshing.")
+      })
 
     return () => { cancelled = true }
   }, [resolvedUrl, presentationId, sessionToken])
@@ -131,19 +150,30 @@ export function ViewAudioBar({
       html5: true,
       preload: true,
       onload: () => {
-        // Use howl.duration() as source of truth — the API-computed
-        // total_duration_ms may be stale if combined.wav wasn't rebuilt yet.
+        if (fallbackTimerRef.current) {
+          clearTimeout(fallbackTimerRef.current)
+          fallbackTimerRef.current = null
+        }
         const d = Math.floor(howl.duration())
         setDuration(d)
         durationRef.current = d
         setReady(true)
+        setLoadError(null)
         onDurationReady?.(d)
       },
       onloaderror: (_id: number, err: unknown) => {
         console.error("Howler load error:", err)
-        setReady(true)
+        const msg = (err as { message?: string })?.message || ""
+        if (msg.includes("404") || msg.includes("not found")) {
+          setLoadError("Audio not available yet — it may still be generating.")
+        } else if (msg.includes("format") || msg.includes("codec")) {
+          setLoadError("Audio format not supported by your browser.")
+        } else {
+          setLoadError("Failed to load audio. Try refreshing.")
+        }
       },
       onplay: () => {
+        setStarting(false)
         setPlaying(true)
         startPolling()
         startProgressInterval()
@@ -172,10 +202,18 @@ export function ViewAudioBar({
     howlRef.current = howl
 
     // Fallback: show controls after 12s even if audio never loaded
-    const fallbackTimer = setTimeout(() => setReady(true), 12000)
+    fallbackTimerRef.current = setTimeout(() => {
+      if (!howlRef.current || howlRef.current.state() !== "loaded") {
+        setLoadError("Audio took too long to load. Try refreshing.")
+      }
+      setReady(true)
+    }, 12000)
 
     return () => {
-      clearTimeout(fallbackTimer)
+      if (fallbackTimerRef.current) {
+        clearTimeout(fallbackTimerRef.current)
+        fallbackTimerRef.current = null
+      }
       stopPolling()
       stopProgressInterval()
       howl.unload()
@@ -238,7 +276,7 @@ export function ViewAudioBar({
         const current = currentTimeRef.current
         const pct = Math.min(100, Math.round((current / total) * 100))
         const body = JSON.stringify({
-          session_token: sessionToken,
+          session_token: sessionTokenRef.current,
           event_type: "closed",
           progress_pct: pct,
           time_spent_seconds: current,
@@ -248,21 +286,21 @@ export function ViewAudioBar({
     }
     document.addEventListener("visibilitychange", handleVisibility)
     return () => document.removeEventListener("visibilitychange", handleVisibility)
-  }, [shareToken, sessionToken])
+  }, [shareToken])
 
   // Keyboard shortcuts
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
       if ((e.target as HTMLElement)?.tagName === "INPUT") return
       switch (e.key) {
-        case " ": e.preventDefault(); togglePlay(); break
-        case "ArrowLeft": skipSeconds(-10); break
-        case "ArrowRight": skipSeconds(10); break
+        case " ": e.preventDefault(); togglePlayRef.current(); break
+        case "ArrowLeft": skipSecondsRef.current(-10); break
+        case "ArrowRight": skipSecondsRef.current(10); break
       }
     }
     window.addEventListener("keydown", handleKey)
     return () => window.removeEventListener("keydown", handleKey)
-  })
+  }, [])
 
   // ARIA live region
   useEffect(() => {
@@ -290,6 +328,7 @@ export function ViewAudioBar({
     if (howl.playing()) {
       howl.pause()
     } else {
+      setStarting(true)
       howl.play()
     }
   }
@@ -381,9 +420,9 @@ export function ViewAudioBar({
           {/* Play/Pause */}
           <Tooltip>
             <TooltipTrigger asChild>
-              <button type="button" aria-label={ready ? (playing ? "Pause" : "Play") : "Loading audio"} onClick={togglePlay}
-                className="touch-target rounded-full bg-[#18181B] text-white transition-colors hover:bg-[#27272A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2">
-                {!ready ? <Loader2 className="h-4 w-4 animate-spin" /> : playing ? <Pause className="h-4 w-4" /> : <Play className="ml-0.5 h-4 w-4" />}
+              <button type="button" aria-label={loadError ? "Audio error" : starting ? "Starting audio" : ready ? (playing ? "Pause" : "Play") : "Loading audio"} onClick={togglePlay} disabled={!!loadError}
+                className="touch-target rounded-full bg-[#18181B] text-white transition-colors hover:bg-[#27272A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                {starting ? <Loader2 className="h-4 w-4 animate-spin" /> : loadError ? <Play className="ml-0.5 h-4 w-4" /> : !ready ? <Loader2 className="h-4 w-4 animate-spin" /> : playing ? <Pause className="h-4 w-4" /> : <Play className="ml-0.5 h-4 w-4" />}
               </button>
             </TooltipTrigger>
             <TooltipContent side="top">{playing ? "Pause" : "Play"}</TooltipContent>
@@ -460,8 +499,24 @@ export function ViewAudioBar({
               ) : (
                 <>
                   <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-                  <button type="button" onClick={onRefresh} className="underline decoration-dotted underline-offset-2 hover:decoration-solid leading-none">
-                    Changes detected — Refresh
+                  <button type="button" onClick={onRefresh} disabled={refreshing} className="underline decoration-dotted underline-offset-2 hover:decoration-solid leading-none disabled:opacity-50 disabled:cursor-not-allowed">
+                    {refreshing ? "Refreshing..." : "Changes detected — Refresh"}
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Audio load error */}
+          {loadError && (
+            <div className="ml-auto flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-3 py-1 text-[11px] text-red-700 leading-none">
+              <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              <span>{loadError}</span>
+              {onRefresh && (
+                <>
+                  <span className="text-red-300">·</span>
+                  <button type="button" onClick={onRefresh} className="underline decoration-dotted underline-offset-2 hover:decoration-solid">
+                    Retry
                   </button>
                 </>
               )}

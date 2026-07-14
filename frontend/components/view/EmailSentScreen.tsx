@@ -92,11 +92,11 @@ export function EmailSentScreen({
         return
       }
 
-      if (res.ok && json.data?.email_sent !== false) {
+      if (res.ok && json.data?.email_sent === true) {
         setResent(true)
         setTimeout(() => setResent(false), 5000)
       } else {
-        setError(json.data?.message || "Failed to resend. Try again.")
+        setError(json.data?.message || json.error || "Failed to resend. Try again.")
       }
     } catch {
       setError("Network error.")
