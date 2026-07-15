@@ -50,12 +50,16 @@ export function CreatePresentationDialog({
       }
       if (!res.ok) {
         setError(typeof json.error === "string" ? json.error : "Something went wrong")
+        setSaving(false)
         return
       }
+      // Don't setSaving(false) on success — the router.push navigation below
+      // will unmount the component, keeping the spinner visible until then.
+      // Resetting saving here causes a brief flicker where the button looks idle
+      // before the redirect completes.
       router.push(`/dashboard/projects/${projectId}/presentations/${json.data.id}`)
     } catch {
       setError("Something went wrong")
-    } finally {
       setSaving(false)
     }
   }
