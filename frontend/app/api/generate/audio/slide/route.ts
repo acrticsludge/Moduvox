@@ -2,8 +2,8 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { generateWithPreset, generateWithClone } from "@/lib/voxcpm"
-import { isValidWav, detectFormat } from "@/lib/wav-utils"
+import { generateWithPreset, generateWithClone, splitIntoChunks } from "@/lib/voxcpm"
+import { isValidWav, detectFormat, concatWavBuffers } from "@/lib/wav-utils"
 import { toWav } from "@/lib/audio-convert"
 import { downloadFileAsBuffer, deleteFile, uploadFile } from "@/lib/r2"
 import { withApiHandler } from "@/lib/api-handler"
@@ -41,10 +41,11 @@ export const POST = withApiHandler(async (request: Request) => {
   const cfgValue = cfg_value ?? 2.0
 
   try {
-    let result
+    // ── Phase 1: Voice setup (resolve reference audio and description) ──
+    let refFile: File | null = null
+    let voiceDesc = voice_description || "Natural, clear, professional speaking voice"
 
     if (voice_id) {
-      // ── Cloned voice mode — look up the voice and use reference audio ──
       const { data: voice } = await supabase
         .from("voices")
         .select("type, sample_path, control_instruction")
@@ -53,47 +54,61 @@ export const POST = withApiHandler(async (request: Request) => {
         .single()
 
       if (voice?.type === "cloned" && voice.sample_path) {
-        // Download reference audio from R2
         const refResult = await downloadFileAsBuffer(voice.sample_path)
         if (refResult.success) {
-          const refFile = new File([new Uint8Array(refResult.data)], "sample.wav", { type: "audio/wav" })
-          result = await generateWithClone(text, refFile, voice_description || "", cfgValue)
+          refFile = new File([new Uint8Array(refResult.data)], "sample.wav", { type: "audio/wav" })
         } else {
-          throw new Error(`Cloned voice reference audio not found. Please re-upload your voice sample.`)
+          throw new Error("Cloned voice reference audio not found. Please re-upload your voice sample.")
         }
       } else {
-        // Preset voice — use control_instruction as voice description
-        const desc = voice?.control_instruction || voice_description || "Natural, clear, professional speaking voice"
-        result = await generateWithPreset(text, desc, cfgValue)
+        voiceDesc = voice?.control_instruction || voice_description || "Natural, clear, professional speaking voice"
       }
-    } else {
-      // ── No voice_id — use preset mode with voice_description ──
-      result = await generateWithPreset(text, voice_description || "Natural, clear, professional speaking voice", cfgValue)
     }
 
-    // Download from Gradio
-    const gradioRes = await fetch(result.audioUrl)
-    if (!gradioRes.ok) throw new Error("Failed to download generated audio")
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let audioBuffer: any = Buffer.from(await gradioRes.arrayBuffer())
+    // ── Phase 2: Chunk narration text and generate audio per chunk ──
+    // Long text causes VoxCPM2 to produce screeching artifacts.
+    // Chunking at natural boundaries (≤250 chars) keeps each inference manageable,
+    // then we seamlessly concatenate the WAVs with no gaps.
+    const chunks = splitIntoChunks(text, 250)
+    const wavBuffers: Buffer[] = []
 
-    // VoxCPM2 returns MP3; convert to WAV for consistent processing
-    if (!isValidWav(audioBuffer)) {
-      const format = detectFormat(audioBuffer)
-      console.log(`Gradio returned ${format}, converting to WAV...`)
-      const wavBuffer = await toWav(audioBuffer)
-      if (isValidWav(wavBuffer)) {
-        audioBuffer = wavBuffer
+    for (const chunk of chunks) {
+      let result
+      if (refFile) {
+        result = await generateWithClone(chunk, refFile, voiceDesc, cfgValue)
       } else {
-        const contentType = gradioRes.headers.get("content-type") || "unknown"
-        throw new Error(
-          `Gradio returned ${format} (Content-Type: ${contentType}) and ` +
-          `conversion to WAV failed.`,
-        )
+        result = await generateWithPreset(chunk, voiceDesc, cfgValue)
       }
+
+      // Download from Gradio
+      const gradioRes = await fetch(result.audioUrl)
+      if (!gradioRes.ok) throw new Error("Failed to download generated audio")
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let audioBuffer: any = Buffer.from(await gradioRes.arrayBuffer())
+
+      // VoxCPM2 returns MP3; convert to WAV for consistent processing
+      if (!isValidWav(audioBuffer)) {
+        const format = detectFormat(audioBuffer)
+        console.log(`[chunk] Gradio returned ${format}, converting to WAV...`)
+        const wavBuffer = await toWav(audioBuffer)
+        if (isValidWav(wavBuffer)) {
+          audioBuffer = wavBuffer
+        } else {
+          const contentType = gradioRes.headers.get("content-type") || "unknown"
+          throw new Error(
+            `Gradio returned ${format} (Content-Type: ${contentType}) and ` +
+            `conversion to WAV failed.`,
+          )
+        }
+      }
+
+      wavBuffers.push(audioBuffer as Buffer)
     }
 
-    // Save to R2
+    // ── Phase 3: Concatenate chunk WAVs into a single slide audio ──
+    const finalWav = wavBuffers.length === 1 ? wavBuffers[0] : concatWavBuffers(wavBuffers)
+
+    // ── Phase 4: Save to R2 ──
     const storagePath = `${user.id}/audio/${presentation_id}/slides/slide-${slide_number}.wav`
     await deleteFile(storagePath)
 
@@ -103,7 +118,7 @@ export const POST = withApiHandler(async (request: Request) => {
     const delResult = await deleteFile(combinedKey)
     if (!delResult.success) console.error("Failed to delete stale combined.wav:", delResult.error)
 
-    const uploadResult = await uploadFile(storagePath, audioBuffer, "audio/wav")
+    const uploadResult = await uploadFile(storagePath, finalWav, "audio/wav")
     if (!uploadResult.success) throw new Error(`Failed to save audio: ${uploadResult.error}`)
 
     // Bump audio_version so the view page can detect the change

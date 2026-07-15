@@ -262,6 +262,67 @@ function normalizeUrl(raw: string): string {
   return raw.replace(/\/+$/, "") // strip trailing slashes
 }
 
+/**
+ * Split text into chunks at natural boundaries (sentence > clause > word).
+ * Each chunk is at most `maxChars` characters.
+ * Returns the original text as a single chunk if it's short enough.
+ */
+export function splitIntoChunks(text: string, maxChars = 250): string[] {
+  if (text.length <= maxChars) return [text]
+
+  const chunks: string[] = []
+  let start = 0
+
+  while (start < text.length) {
+    if (start + maxChars >= text.length) {
+      chunks.push(text.slice(start))
+      break
+    }
+
+    const remaining = text.slice(start)
+    const end = findSplitPoint(remaining, maxChars)
+    chunks.push(text.slice(start, start + end))
+    start += end
+  }
+
+  return chunks
+}
+
+/**
+ * Find the best split point within a text window.
+ * Priority: sentence boundary > clause boundary > word boundary > hard cut.
+ * Only considers splits past 40% of maxChars to avoid tiny chunks.
+ */
+function findSplitPoint(window: string, maxChars: number): number {
+  const minSplit = Math.max(1, Math.floor(maxChars * 0.4))
+
+  let lastSentenceEnd = -1
+  let lastClauseEnd = -1
+  let lastSpace = -1
+  const searchLen = Math.min(window.length, maxChars)
+
+  for (let i = searchLen - 1; i >= minSplit; i--) {
+    const ch = window[i]
+    const nextCh = i + 1 < window.length ? window[i + 1] : " "
+
+    if (lastSentenceEnd === -1 && (ch === "." || ch === "!" || ch === "?") && nextCh === " ") {
+      lastSentenceEnd = i + 2 // include the trailing space
+    }
+    if (lastClauseEnd === -1 && (ch === "," || ch === ";" || ch === ":") && nextCh === " ") {
+      lastClauseEnd = i + 2 // include the trailing space
+    }
+    if (lastSpace === -1 && ch === " ") {
+      lastSpace = i
+    }
+  }
+
+  if (lastSentenceEnd !== -1) return lastSentenceEnd
+  if (lastClauseEnd !== -1) return lastClauseEnd
+  // For word break, split at the space (exclude it from current chunk)
+  if (lastSpace !== -1) return lastSpace
+  return searchLen
+}
+
 export async function generateAudio(input: VoxCPMInput): Promise<VoxCPMResult> {
   const rawFallback = process.env.INFERENCE_BASE_URL
   const fallbackUrl = rawFallback ? normalizeUrl(rawFallback) : undefined
