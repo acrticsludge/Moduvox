@@ -138,11 +138,36 @@ export default function SignupPage() {
       return;
     }
 
+    // If Supabase has email confirmations enabled, the session will be null.
+    // Auto-confirm via admin API and sign in immediately.
+    if (!data.session) {
+      const confirmRes = await fetch("/api/auth/auto-confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: data.user!.id }),
+      })
+
+      if (!confirmRes.ok) {
+        toastError("Account created but could not sign in automatically. Please log in.")
+        setLoading(false)
+        return
+      }
+
+      // Sign in now that the email is confirmed
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+      if (signInError) {
+        toastError("Account created. Please log in.")
+        setLoading(false)
+        return
+      }
+    }
+
     // Record ToS acceptance
-    if (data.session?.access_token) {
+    const token = data.session?.access_token
+    if (token) {
       fetch("/api/auth/accept-terms", {
         method: "POST",
-        headers: { Authorization: `Bearer ${data.session.access_token}` },
+        headers: { Authorization: `Bearer ${token}` },
       }).catch(() => {})
     }
 
