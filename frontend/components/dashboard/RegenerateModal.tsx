@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Loader2, ChevronDown, ChevronRight, CheckCircle2, XCircle, X } from "lucide-react"
 import type { ParsedSlide } from "@/lib/pptx-renderer"
 
@@ -31,6 +31,14 @@ export function RegenerateModal({
   generationSummary: { success: number; failed: number } | null
   onRetry: () => void
 }) {
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape" && step !== "generating") onCancel()
+    }
+    document.addEventListener("keydown", onKeyDown)
+    return () => document.removeEventListener("keydown", onKeyDown)
+  }, [onCancel, step])
+
   const [expandedSlide, setExpandedSlide] = useState<number | null>(null)
   const affectedSlides = voiceChangedSinceAudio
     ? slides

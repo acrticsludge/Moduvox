@@ -22,6 +22,13 @@ export function DeleteVoiceDialog({
     document.body.style.overflow = "hidden"
     return () => { document.body.style.overflow = "" }
   }, [])
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose()
+    }
+    document.addEventListener("keydown", onKeyDown)
+    return () => document.removeEventListener("keydown", onKeyDown)
+  }, [onClose])
   const [confirm, setConfirm] = useState("")
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState("")
@@ -48,7 +55,7 @@ export function DeleteVoiceDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#18181B]/40 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#18181B]/40 p-4" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div className={`w-full max-w-sm rounded-xl border bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto hide-scrollbar transition-all duration-300 ${
         error ? "border-red-300 shadow-[0_0_0_1px_#fca5a5]" : "border-zinc-200"
       }`}>
@@ -73,6 +80,7 @@ export function DeleteVoiceDialog({
             onChange={(e) => setConfirm(e.target.value)}
             placeholder=""
             autoFocus
+            onKeyDown={(e) => e.key === "Enter" && handleDelete()}
             className="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm text-[#18181B] focus:border-red-400 focus:outline-none"
           />
         </div>
@@ -95,7 +103,7 @@ export function DeleteVoiceDialog({
             type="button"
             onClick={onClose}
             disabled={deleting}
-            className="flex-1 rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-[#71717A] hover:text-[#18181B]"
+            className="flex-1 rounded-lg border border-zinc-200 px-4 py-2.5 min-h-[44px] text-sm font-medium text-[#71717A] hover:text-[#18181B]"
           >
             Cancel
           </button>
@@ -103,7 +111,7 @@ export function DeleteVoiceDialog({
             type="button"
             onClick={handleDelete}
             disabled={confirm !== "DELETE" || deleting}
-            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-red-700 disabled:opacity-50"
+            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-red-600 px-4 py-2.5 min-h-[44px] text-sm font-medium text-white transition-all hover:bg-red-700 disabled:opacity-50"
           >
             {deleting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
             Delete

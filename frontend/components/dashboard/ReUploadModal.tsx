@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect } from "react"
 import { AlertTriangle, FileText, Info, ArrowRight } from "lucide-react"
 import type { SlideDiff } from "@/lib/pptx-renderer"
 
@@ -14,6 +15,17 @@ export function ReUploadModal({
   onCancel: () => void
   parsing: boolean
 }) {
+  useEffect(() => {
+    document.body.style.overflow = "hidden"
+    return () => { document.body.style.overflow = "" }
+  }, [])
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onCancel()
+    }
+    document.addEventListener("keydown", onKeyDown)
+    return () => document.removeEventListener("keydown", onKeyDown)
+  }, [onCancel])
   const isReplacement = diff.type === "replacement"
   const isIdentical = diff.type === "identical"
 
@@ -22,7 +34,7 @@ export function ReUploadModal({
   const unchangedCount = diff.changes.filter((c) => c.status === "unchanged").length
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#18181B]/40 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#18181B]/40 p-4" onClick={(e) => { if (e.target === e.currentTarget) onCancel() }}>
       <div className="w-full max-w-md rounded-xl border border-zinc-200 bg-white p-6 shadow-xl">
         <div
           className={`mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full ${
@@ -90,7 +102,7 @@ export function ReUploadModal({
             type="button"
             onClick={onCancel}
             disabled={parsing}
-            className="rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-[#71717A] hover:text-[#18181B] disabled:opacity-50"
+            className="rounded-lg border border-zinc-200 px-4 py-2.5 min-h-[44px] text-sm font-medium text-[#71717A] hover:text-[#18181B] disabled:opacity-50"
           >
             {isIdentical ? "OK" : "Cancel"}
           </button>
@@ -99,7 +111,7 @@ export function ReUploadModal({
               type="button"
               onClick={onApply}
               disabled={parsing}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-[#18181B]/70 bg-[#18181B] px-4 py-2 text-sm font-medium text-white transition-all hover:bg-[#27272A] disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[#18181B]/70 bg-[#18181B] px-4 py-2.5 min-h-[44px] text-sm font-medium text-white transition-all hover:bg-[#27272A] disabled:opacity-50"
             >
               {parsing ? "Processing..." : isReplacement ? "Replace All" : "Apply Changes"}
             </button>

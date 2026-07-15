@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect } from "react"
 import { X } from "lucide-react"
 import { ShareSettingsPanel } from "./ShareSettingsPanel"
 import { ViewerTable } from "./ViewerTable"
@@ -11,8 +12,19 @@ export function SharePresentationModal({
   presentationId: string
   onClose: () => void
 }) {
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose()
+    }
+    document.addEventListener("keydown", onKeyDown)
+    return () => document.removeEventListener("keydown", onKeyDown)
+  }, [onClose])
+
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#18181B]/40 sm:items-center sm:p-4">
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-[#18181B]/40 sm:items-center sm:p-4"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+    >
       <div className="flex max-h-[90vh] w-full max-w-5xl flex-col rounded-t-xl border border-zinc-200 bg-white shadow-xl sm:rounded-xl sm:max-h-[85vh]">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-zinc-100 px-4 py-3 sm:px-6 sm:py-4">

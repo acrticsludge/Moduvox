@@ -32,6 +32,13 @@ export function CreateProjectModal({
     document.body.style.overflow = "hidden"
     return () => { document.body.style.overflow = "" }
   }, [])
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose()
+    }
+    document.addEventListener("keydown", onKeyDown)
+    return () => document.removeEventListener("keydown", onKeyDown)
+  }, [onClose])
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
   const [color, setColor] = useState<ProjectColor | null>(null)
@@ -70,7 +77,7 @@ export function CreateProjectModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#18181B]/40 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#18181B]/40 p-4" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div className={`w-full max-w-md rounded-xl border bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto hide-scrollbar transition-all duration-300 ${
         error ? "border-red-300 shadow-[0_0_0_1px_#fca5a5]" : "border-zinc-200"
       }`}>
@@ -116,7 +123,7 @@ export function CreateProjectModal({
                   key={c}
                   type="button"
                   onClick={() => setColor(c as ProjectColor)}
-                  className="flex h-7 w-7 items-center justify-center rounded-full transition-all hover:scale-110"
+                  className="flex h-10 w-10 items-center justify-center rounded-full transition-all hover:scale-110"
                   style={{ backgroundColor: c }}
                 >
                   {color === c && <Check className="h-3.5 w-3.5 text-[#18181B]" />}
@@ -133,7 +140,7 @@ export function CreateProjectModal({
                   key={ico}
                   type="button"
                   onClick={() => setIcon(ico as ProjectIcon)}
-                  className={`flex items-center justify-center rounded-lg border p-2 transition-all ${
+                  className={`flex items-center justify-center rounded-lg border p-3 min-h-[44px] min-w-[44px] transition-all ${
                     icon === ico
                       ? "border-[#18181B] bg-zinc-100"
                       : "border-zinc-200 hover:border-zinc-300"
@@ -162,14 +169,14 @@ export function CreateProjectModal({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-[#71717A] hover:text-[#18181B]"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={!name.trim() || saving}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-[#18181B]/70 bg-[#18181B] px-4 py-2 text-sm font-medium text-white transition-all hover:border-[#18181B] hover:bg-[#27272A] disabled:opacity-50"
+                className="rounded-lg border border-zinc-200 px-4 py-2.5 min-h-[44px] text-sm font-medium text-[#71717A] hover:text-[#18181B]"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={!name.trim() || saving}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[#18181B]/70 bg-[#18181B] px-4 py-2.5 min-h-[44px] text-sm font-medium text-white transition-all hover:border-[#18181B] hover:bg-[#27272A] disabled:opacity-50"
             >
               {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
               Create

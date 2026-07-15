@@ -66,6 +66,21 @@ export default function PresentationCreatePage() {
   const [restoring, setRestoring] = useState(false)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
 
+  useEffect(() => {
+    if (!mobileSidebarOpen) return
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setMobileSidebarOpen(false)
+    }
+    document.addEventListener("keydown", onKeyDown)
+    return () => document.removeEventListener("keydown", onKeyDown)
+  }, [mobileSidebarOpen])
+
+  useEffect(() => {
+    if (!mobileSidebarOpen) return
+    document.body.style.overflow = "hidden"
+    return () => { document.body.style.overflow = "" }
+  }, [mobileSidebarOpen])
+
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   function handleFileAccepted(file: File) {
@@ -306,35 +321,36 @@ export default function PresentationCreatePage() {
       )}
 
       {/* Mobile sidebar drawer */}
-      {mobileSidebarOpen && (
-        <div className="fixed inset-0 z-50 md:hidden">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setMobileSidebarOpen(false)} />
-          <div className="absolute bottom-0 left-0 right-0 z-10 max-h-[80vh] overflow-y-auto rounded-t-2xl border-t border-zinc-200 bg-white shadow-xl animate-slide-up">
-            <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-3">
-              <span className="text-sm font-semibold text-zinc-500">Voice Settings</span>
-              <button
-                type="button"
-                onClick={() => setMobileSidebarOpen(false)}
-                className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-600"
-                aria-label="Close voice settings"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              </button>
-            </div>
-            <div className="p-5">
-              <CreatePageSidebar
-                className=""
-                selectedVoiceId={selectedVoiceId}
-                onVoiceChange={handleVoiceChange}
-                controlInstructions={controlInstructions}
-                onControlInstructionsChange={handleControlInstructionsChange}
-                ultimateMode={ultimateMode}
-                onUltimateModeChange={handleUltimateModeChange}
-              />
-            </div>
+      <div className={`fixed inset-0 z-50 md:hidden ${mobileSidebarOpen ? "" : "pointer-events-none"}`}>
+        <div
+          className={`absolute inset-0 transition-opacity duration-300 ${mobileSidebarOpen ? "bg-black/40 opacity-100" : "bg-black/40 opacity-0"}`}
+          onClick={() => setMobileSidebarOpen(false)}
+        />
+        <div className={`absolute bottom-0 left-0 right-0 z-10 max-h-[80vh] overflow-y-auto rounded-t-2xl border-t border-zinc-200 bg-white shadow-xl transition-transform duration-300 ${mobileSidebarOpen ? "translate-y-0" : "translate-y-full"}`}>
+          <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-3">
+            <span className="text-sm font-semibold text-zinc-500">Voice Settings</span>
+            <button
+              type="button"
+              onClick={() => setMobileSidebarOpen(false)}
+              className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-600"
+              aria-label="Close voice settings"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <div className="p-5">
+            <CreatePageSidebar
+              className=""
+              selectedVoiceId={selectedVoiceId}
+              onVoiceChange={handleVoiceChange}
+              controlInstructions={controlInstructions}
+              onControlInstructionsChange={handleControlInstructionsChange}
+              ultimateMode={ultimateMode}
+              onUltimateModeChange={handleUltimateModeChange}
+            />
           </div>
         </div>
-      )}
+      </div>
 
       {/* Desktop sidebar */}
       <div className="hidden md:block">

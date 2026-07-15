@@ -855,6 +855,9 @@ export function SlideEditor({
       if (!currentSlide) return
       if (e.key === "ArrowLeft") jumpRef.current(currentSlide.number - 1)
       if (e.key === "ArrowRight") jumpRef.current(currentSlide.number + 1)
+      if (e.key === "Escape" && showMobilePanel && !showRegenModal && !showShareModal && !showReUpload) {
+        setShowMobilePanel(false)
+      }
     }
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
@@ -1150,80 +1153,6 @@ export function SlideEditor({
           </div>
         )}
 
-        {/* Slide info modal */}
-        {showSlideInfo && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#18181B]/40 p-4">
-            <div className="w-full max-w-lg rounded-xl border border-zinc-200 bg-white shadow-xl">
-              {/* Header */}
-              <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-4">
-                <div className="flex items-center gap-3">
-                  <span className="inline-flex items-center rounded-md bg-zinc-100 px-2 py-0.5 text-[11px] font-semibold tracking-wider text-zinc-500 uppercase">
-                    Slide {current.number}
-                  </span>
-                  {changedSlides.includes(current.number) && (
-                    <span className="inline-flex items-center rounded-md bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
-                      Modified
-                    </span>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowSlideInfo(false)}
-                  className="rounded-md p-1 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-
-              {/* Title */}
-              <div className="px-5 pt-4 pb-2">
-                <h2 className="text-lg font-semibold leading-snug text-[#18181B]">
-                  {current.title}
-                </h2>
-              </div>
-
-              {/* Content */}
-              <div className="max-h-[50vh] overflow-y-auto px-5 pb-4 hide-scrollbar">
-                {current.bullets.length > 0 ? (
-                  <div className="space-y-1.5">
-                    {current.bullets.map((b, i) => (
-                      <div
-                        key={i}
-                        className="group flex gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-zinc-50"
-                      >
-                        <div className="mt-0.5 w-0.5 flex-shrink-0 rounded-full bg-zinc-200 group-hover:bg-zinc-400" />
-                        <p className="text-sm leading-relaxed text-zinc-600 group-hover:text-zinc-800">
-                          {b}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-center rounded-lg border border-dashed border-zinc-200 py-8">
-                    <p className="text-sm text-zinc-400">No additional content extracted</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Footer */}
-              <div className="flex items-center justify-between border-t border-zinc-100 px-5 py-3">
-                <span className="text-[11px] text-zinc-400">
-                  {current.bullets.length > 0
-                    ? `${current.bullets.length} item${current.bullets.length === 1 ? "" : "s"}`
-                    : "Empty slide"}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setShowSlideInfo(false)}
-                  className="inline-flex items-center justify-center rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-zinc-900"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Narration textarea */}
         <div className="space-y-2">
           <label className="text-sm font-semibold text-[#18181B]">
@@ -1376,12 +1305,9 @@ export function SlideEditor({
       )}
 
       {/* Mobile drawer — overlay + slide-in panel */}
-      {showMobilePanel && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          {/* Overlay */}
-          <div className="absolute inset-0 bg-black/40" onClick={() => setShowMobilePanel(false)} />
-          {/* Panel */}
-          <div className="absolute bottom-0 right-0 left-0 z-10 max-h-[75vh] flex-col gap-4 overflow-y-auto rounded-t-2xl border-t border-zinc-200 bg-white p-5 shadow-xl animate-slide-up">
+        <div className="fixed inset-0 z-50 transition-opacity duration-300 lg:hidden">
+          <div className={`absolute inset-0 transition-opacity duration-300 ${showMobilePanel ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={() => { if (showMobilePanel) setShowMobilePanel(false) }} />
+          <div className={`absolute bottom-0 right-0 left-0 z-10 max-h-[75vh] flex-col gap-4 overflow-y-auto rounded-t-2xl border-t border-zinc-200 bg-white p-5 shadow-xl transition-transform duration-300 ease-out ${showMobilePanel ? 'translate-y-0' : 'translate-y-full'}`}>
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-semibold text-zinc-500">Controls</span>
               <button
@@ -1450,80 +1376,6 @@ export function SlideEditor({
               </div>
             )}
 
-            {/* Slide info modal */}
-            {showSlideInfo && (
-              <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#18181B]/40 p-4">
-                <div className="w-full max-w-lg rounded-xl border border-zinc-200 bg-white shadow-xl">
-                  {/* Header */}
-                  <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-4">
-                    <div className="flex items-center gap-3">
-                      <span className="inline-flex items-center rounded-md bg-zinc-100 px-2 py-0.5 text-[11px] font-semibold tracking-wider text-zinc-500 uppercase">
-                        Slide {current.number}
-                      </span>
-                      {changedSlides.includes(current.number) && (
-                        <span className="inline-flex items-center rounded-md bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
-                          Modified
-                        </span>
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setShowSlideInfo(false)}
-                      className="rounded-md p-1 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-
-                  {/* Title */}
-                  <div className="px-5 pt-4 pb-2">
-                    <h2 className="text-lg font-semibold leading-snug text-[#18181B]">
-                      {current.title}
-                    </h2>
-                  </div>
-
-                  {/* Content */}
-                  <div className="max-h-[50vh] overflow-y-auto px-5 pb-4 hide-scrollbar">
-                    {current.bullets.length > 0 ? (
-                      <div className="space-y-1.5">
-                        {current.bullets.map((b, i) => (
-                          <div
-                            key={i}
-                            className="group flex gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-zinc-50"
-                          >
-                            <div className="mt-0.5 w-0.5 flex-shrink-0 rounded-full bg-zinc-200 group-hover:bg-zinc-400" />
-                            <p className="text-sm leading-relaxed text-zinc-600 group-hover:text-zinc-800">
-                              {b}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-center rounded-lg border border-dashed border-zinc-200 py-8">
-                        <p className="text-sm text-zinc-400">No additional content extracted</p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Footer */}
-                  <div className="flex items-center justify-between border-t border-zinc-100 px-5 py-3">
-                    <span className="text-[11px] text-zinc-400">
-                      {current.bullets.length > 0
-                        ? `${current.bullets.length} item${current.bullets.length === 1 ? "" : "s"}`
-                        : "Empty slide"}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setShowSlideInfo(false)}
-                      className="inline-flex items-center justify-center rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-zinc-900"
-                    >
-                      Close
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {/* Narration textarea */}
             <div className="space-y-2">
               <label className="text-sm font-semibold text-[#18181B]">
@@ -1563,7 +1415,7 @@ export function SlideEditor({
                           if (!ok) setGenerationFailed(true)
                         }}
                         disabled={generating || generatingNarrations}
-                        className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50"
+                        className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-white px-4 py-2.5 min-h-[44px] text-sm font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50"
                       >
                         {generating || generatingNarrations ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
@@ -1663,6 +1515,79 @@ export function SlideEditor({
             )}
           </div>
         </div>
+
+      {/* Slide info modal */}
+      {showSlideInfo && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#18181B]/40 p-4">
+          <div className="w-full max-w-lg rounded-xl border border-zinc-200 bg-white shadow-xl">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-4">
+              <div className="flex items-center gap-3">
+                <span className="inline-flex items-center rounded-md bg-zinc-100 px-2 py-0.5 text-[11px] font-semibold tracking-wider text-zinc-500 uppercase">
+                  Slide {current.number}
+                </span>
+                {changedSlides.includes(current.number) && (
+                  <span className="inline-flex items-center rounded-md bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                    Modified
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSlideInfo(false)}
+                className="rounded-md p-1 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Title */}
+            <div className="px-5 pt-4 pb-2">
+              <h2 className="text-lg font-semibold leading-snug text-[#18181B]">
+                {current.title}
+              </h2>
+            </div>
+
+            {/* Content */}
+            <div className="max-h-[65vh] overflow-y-auto px-5 pb-4">
+              {current.bullets.length > 0 ? (
+                <div className="space-y-1.5">
+                  {current.bullets.map((b, i) => (
+                    <div
+                      key={i}
+                      className="group flex gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-zinc-50"
+                    >
+                      <div className="mt-0.5 w-0.5 flex-shrink-0 rounded-full bg-zinc-200 group-hover:bg-zinc-400" />
+                      <p className="text-sm leading-relaxed text-zinc-600 group-hover:text-zinc-800">
+                        {b}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex items-center justify-center rounded-lg border border-dashed border-zinc-200 py-8">
+                  <p className="text-sm text-zinc-400">No additional content extracted</p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between border-t border-zinc-100 px-5 py-3">
+              <span className="text-[11px] text-zinc-400">
+                {current.bullets.length > 0
+                  ? `${current.bullets.length} item${current.bullets.length === 1 ? "" : "s"}`
+                  : "Empty slide"}
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowSlideInfo(false)}
+                className="inline-flex items-center justify-center rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-zinc-900"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Re-upload modal overlay */}
@@ -1713,11 +1638,9 @@ export function SlideEditor({
               return
             }
             setShowRegenModal(false)
-            setTimeout(() => {
-              setRegenStep("review")
-              setGenerationSummary(null)
-              setIsInitialGenerate(false)
-            }, 200)
+            setRegenStep("review")
+            setGenerationSummary(null)
+            setIsInitialGenerate(false)
           }}
           step={regenStep}
           generationError={null}

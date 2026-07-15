@@ -49,6 +49,25 @@ export function Navbar() {
     };
   }, [drawerOpen]);
 
+  // Close drawer on Escape key
+  useEffect(() => {
+    if (!drawerOpen) return
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setDrawerOpen(false)
+    }
+    document.addEventListener("keydown", onKeyDown)
+    return () => document.removeEventListener("keydown", onKeyDown)
+  }, [drawerOpen])
+
+  // Close drawer when window crosses md breakpoint (768px)
+  useEffect(() => {
+    function onResize() {
+      if (window.innerWidth >= 768) setDrawerOpen(false)
+    }
+    window.addEventListener("resize", onResize)
+    return () => window.removeEventListener("resize", onResize)
+  }, [])
+
   return (
     <header
       className={`fixed inset-x-0 top-0 z-50 transition-colors duration-300 ${
@@ -129,7 +148,7 @@ export function Navbar() {
       />
       {/* Mobile drawer panel */}
       <aside
-        className={`fixed inset-y-0 right-0 z-50 flex w-72 max-w-[80%] flex-col bg-[#FFFFFF] px-6 py-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)] transition-transform duration-300 ease-out md:hidden ${
+        className={`fixed inset-y-0 right-0 z-50 flex w-72 max-w-[80%] flex-col bg-[#FFFFFF] px-6 py-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)] transition-transform duration-300 ease-out overflow-y-auto md:hidden ${
           drawerOpen ? "translate-x-0" : "translate-x-full"
         }`}
         aria-hidden={!drawerOpen}

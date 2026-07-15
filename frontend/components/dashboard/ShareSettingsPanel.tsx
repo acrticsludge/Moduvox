@@ -20,6 +20,7 @@ export function ShareSettingsPanel({
     email_gate_enabled: boolean
   } | null>(null)
   const [loading, setLoading] = useState(true)
+  const [fetchError, setFetchError] = useState(false)
   const [copied, setCopied] = useState(false)
   const [passwordInput, setPasswordInput] = useState("")
 const [showPasswordInput, setShowPasswordInput] = useState(false)
@@ -42,6 +43,7 @@ const [expireDate, setExpireDate] = useState<Date | undefined>(undefined)
       }
     } catch (err) {
       console.error("[ShareSettingsPanel] Settings fetch failed:", err)
+      setFetchError(true)
     } finally {
       setLoading(false)
     }
@@ -128,6 +130,26 @@ const [expireDate, setExpireDate] = useState<Date | undefined>(undefined)
     )
   }
 
+  if (fetchError) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-red-200 bg-red-50 px-6 py-8">
+        <p className="text-sm font-medium text-red-600">Failed to load share settings</p>
+        <p className="text-xs text-red-500">Check your connection and try again.</p>
+        <button
+          type="button"
+          onClick={() => {
+            setFetchError(false)
+            setLoading(true)
+            fetchSettings()
+          }}
+          className="rounded-lg border border-red-200 bg-white px-4 py-2 text-xs font-medium text-red-600 transition-colors hover:bg-red-50"
+        >
+          Retry
+        </button>
+      </div>
+    )
+  }
+
   if (!settings) return null
 
   return (
@@ -198,7 +220,7 @@ const [expireDate, setExpireDate] = useState<Date | undefined>(undefined)
           >
             <span
               className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
-                settings.email_gate_enabled ? "translate-x-4.5" : "translate-x-1"
+                settings.email_gate_enabled ? "translate-x-5" : "translate-x-1"
               }`}
             />
           </button>

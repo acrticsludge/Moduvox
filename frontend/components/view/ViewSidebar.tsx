@@ -50,6 +50,21 @@ export function ViewSidebar({ title, createdAt, slideCount, expiresAt, viewerFir
     }
   }, [])
 
+  useEffect(() => {
+    if (!onClose || !isOpen) return
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose!()
+    }
+    document.addEventListener("keydown", onKeyDown)
+    return () => document.removeEventListener("keydown", onKeyDown)
+  }, [onClose, isOpen])
+
+  useEffect(() => {
+    if (!isOpen) return
+    document.body.style.overflow = "hidden"
+    return () => { document.body.style.overflow = "" }
+  }, [isOpen])
+
   function handleCopyLink() {
     navigator.clipboard.writeText(window.location.href).then(() => {
       setCopied(true)
@@ -172,12 +187,12 @@ export function ViewSidebar({ title, createdAt, slideCount, expiresAt, viewerFir
       {/* Mobile drawer — overlay + slide-in panel */}
       {onClose && (
         <>
-          {isOpen && (
-            <div
-              className="fixed inset-0 z-40 bg-black/40 md:hidden"
-              onClick={onClose}
-            />
-          )}
+          <div
+            className={`fixed inset-0 z-40 bg-black/40 transition-opacity duration-300 md:hidden ${
+              isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
+            }`}
+            onClick={onClose}
+          />
           <aside
             className={`fixed left-0 top-0 z-50 flex h-full w-72 flex-col border-r border-zinc-200 bg-white shadow-xl transition-transform duration-300 md:hidden ${
               isOpen ? "translate-x-0" : "-translate-x-full"

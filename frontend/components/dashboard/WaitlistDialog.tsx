@@ -47,6 +47,15 @@ export function WaitlistDialog({
     document.body.style.overflow = "hidden"
     return () => { document.body.style.overflow = "" }
   }, [])
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose()
+    }
+    document.addEventListener("keydown", onKeyDown)
+    return () => document.removeEventListener("keydown", onKeyDown)
+  }, [onClose])
+
   const [interest, setInterest] = useState<WaitlistInterest | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
@@ -95,7 +104,7 @@ export function WaitlistDialog({
           <button
             type="button"
             onClick={onClose}
-            className="mt-5 rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-[#71717A] hover:text-[#18181B]"
+            className="mt-5 rounded-lg border border-zinc-200 px-4 py-2.5 min-h-[44px] text-sm font-medium text-[#71717A] hover:text-[#18181B]"
           >
             Close
           </button>
@@ -118,7 +127,7 @@ export function WaitlistDialog({
         </div>
 
         {/* Plan selection */}
-        <div className="space-y-2">
+        <div className="space-y-2" role="radiogroup" aria-label="Select a plan">
           <label className="text-sm font-medium text-[#18181B]">
             Which plan interests you?
           </label>
@@ -126,6 +135,9 @@ export function WaitlistDialog({
             <button
               key={opt.value}
               type="button"
+              role="radio"
+              aria-checked={interest === opt.value}
+              aria-current={interest === opt.value ? "true" : undefined}
               onClick={() => {
                 setInterest(opt.value)
                 setValidationError("")
@@ -169,7 +181,7 @@ export function WaitlistDialog({
             type="button"
             onClick={handleSubmit}
             disabled={submitting}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-[#18181B]/70 bg-[#18181B] px-4 py-2 text-sm font-medium text-white transition-all hover:border-[#18181B] hover:bg-[#27272A] disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-[#18181B]/70 bg-[#18181B] px-4 py-2.5 min-h-[44px] text-sm font-medium text-white transition-all hover:border-[#18181B] hover:bg-[#27272A] disabled:opacity-50"
           >
             {submitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
             Notify me when available

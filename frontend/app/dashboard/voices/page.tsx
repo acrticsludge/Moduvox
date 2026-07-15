@@ -236,6 +236,19 @@ function AddVoiceModal({
   const [quotaResult, setQuotaResult] = useState<QuotaResult | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose()
+    }
+    document.addEventListener("keydown", onKeyDown)
+    return () => document.removeEventListener("keydown", onKeyDown)
+  }, [onClose])
+
+  useEffect(() => {
+    document.body.style.overflow = "hidden"
+    return () => { document.body.style.overflow = "" }
+  }, [])
+
   async function handleSavePreset() {
     const isCustom = !selectedPreset
     if (!voiceName.trim()) return
@@ -462,6 +475,7 @@ function AddVoiceModal({
                 type="text"
                 value={voiceName}
                 onChange={(e) => setVoiceName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") handleSavePreset() }}
                 placeholder="e.g. Training Narrator"
                 className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm text-[#18181B] outline-none transition-colors placeholder:text-zinc-500 focus:border-zinc-400"
               />
@@ -509,7 +523,7 @@ function AddVoiceModal({
                   (!selectedPreset && !controlInstruction.trim()) ||
                   (!!selectedPreset && !voiceName.trim())
                 }
-                className="inline-flex items-center gap-2 rounded-lg border border-[#18181B]/70 bg-[#18181B] px-4 py-2 text-sm font-medium text-white transition-all hover:border-[#18181B] hover:bg-[#27272A] disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-flex items-center gap-2 rounded-lg border border-[#18181B]/70 bg-[#18181B] px-4 py-2.5 min-h-[44px] text-sm font-medium text-white transition-all hover:border-[#18181B] hover:bg-[#27272A] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {uploading && <Loader2 className="h-4 w-4 animate-spin" />}
                 {selectedPreset ? "Save Voice" : "Create Custom Voice"}
@@ -632,6 +646,7 @@ function AddVoiceModal({
                 type="text"
                 value={voiceName}
                 onChange={(e) => setVoiceName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") handleUploadClone() }}
                 placeholder="e.g. My Training Voice"
                 className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm text-[#18181B] outline-none transition-colors placeholder:text-zinc-500 focus:border-zinc-400"
               />
@@ -667,7 +682,7 @@ function AddVoiceModal({
                 type="button"
                 onClick={handleUploadClone}
                 disabled={!file || !voiceName.trim() || uploading || !voiceConsent}
-                className="inline-flex items-center gap-2 rounded-lg border border-[#18181B]/70 bg-[#18181B] px-4 py-2 text-sm font-medium text-white transition-all hover:border-[#18181B] hover:bg-[#27272A] disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-flex items-center gap-2 rounded-lg border border-[#18181B]/70 bg-[#18181B] px-4 py-2.5 min-h-[44px] text-sm font-medium text-white transition-all hover:border-[#18181B] hover:bg-[#27272A] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {uploading && <Loader2 className="h-4 w-4 animate-spin" />}
                 {uploading ? "Uploading..." : "Save Voice"}
@@ -701,6 +716,19 @@ function TestVoiceModal({
   const [state, setState] = useState<"idle" | "generating" | "done">("idle")
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose()
+    }
+    document.addEventListener("keydown", onKeyDown)
+    return () => document.removeEventListener("keydown", onKeyDown)
+  }, [onClose])
+
+  useEffect(() => {
+    document.body.style.overflow = "hidden"
+    return () => { document.body.style.overflow = "" }
+  }, [])
 
   async function handleGenerate() {
     setState("generating")

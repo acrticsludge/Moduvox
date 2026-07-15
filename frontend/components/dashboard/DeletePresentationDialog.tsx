@@ -18,6 +18,13 @@ export function DeletePresentationDialog({
     document.body.style.overflow = "hidden"
     return () => { document.body.style.overflow = "" }
   }, [])
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose()
+    }
+    document.addEventListener("keydown", onKeyDown)
+    return () => document.removeEventListener("keydown", onKeyDown)
+  }, [onClose])
   const [confirmText, setConfirmText] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
@@ -48,7 +55,7 @@ export function DeletePresentationDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#18181B]/40 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#18181B]/40 p-4" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div className={`w-full max-w-sm rounded-xl border bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto hide-scrollbar transition-all duration-300 ${
         error ? "border-red-300 shadow-[0_0_0_1px_#fca5a5]" : "border-zinc-200"
       }`}>
@@ -75,6 +82,7 @@ export function DeletePresentationDialog({
             onChange={(e) => setConfirmText(e.target.value)}
             className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500"
             autoFocus
+            onKeyDown={(e) => e.key === "Enter" && handleDelete()}
           />
         </div>
 
@@ -94,14 +102,14 @@ export function DeletePresentationDialog({
         <div className="flex gap-3">
           <button
             onClick={onClose}
-            className="flex-1 rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+            className="flex-1 rounded-lg border border-zinc-300 px-4 py-2.5 min-h-[44px] text-sm font-medium text-zinc-700 hover:bg-zinc-50"
           >
             Cancel
           </button>
           <button
             onClick={handleDelete}
             disabled={confirmText !== "DELETE" || deleting}
-            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 min-h-[44px] text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
           >
             {deleting && <Loader2 className="h-4 w-4 animate-spin" />}
             Delete

@@ -18,6 +18,13 @@ export function ConfirmArchiveDialog({
     document.body.style.overflow = "hidden"
     return () => { document.body.style.overflow = "" }
   }, [])
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose()
+    }
+    document.addEventListener("keydown", onKeyDown)
+    return () => document.removeEventListener("keydown", onKeyDown)
+  }, [onClose])
   const [archiving, setArchiving] = useState(false)
   const [error, setError] = useState("")
 
@@ -34,7 +41,7 @@ export function ConfirmArchiveDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#18181B]/40 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#18181B]/40 p-4" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div className={`w-full max-w-sm rounded-xl border bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto hide-scrollbar transition-all duration-300 ${
         error ? "border-red-300 shadow-[0_0_0_1px_#fca5a5]" : "border-zinc-200"
       }`}>
@@ -80,7 +87,7 @@ export function ConfirmArchiveDialog({
             type="button"
             onClick={onClose}
             disabled={archiving}
-            className="flex-1 rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-40"
+            className="flex-1 rounded-lg border border-zinc-200 px-4 py-2.5 min-h-[44px] text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-40"
           >
             Cancel
           </button>
@@ -88,7 +95,7 @@ export function ConfirmArchiveDialog({
             type="button"
             onClick={handleArchive}
             disabled={archiving}
-            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-700 disabled:opacity-50"
+            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 min-h-[44px] text-sm font-medium text-white transition-colors hover:bg-amber-700 disabled:opacity-50"
           >
             {archiving ? (
               <Loader2 className="h-4 w-4 animate-spin" />
