@@ -11,6 +11,7 @@ import { compareSlides, type SlideDiff } from "@/lib/pptx-renderer"
 import { toastSuccess, toastError } from "@/components/ui/CustomToast"
 import { ReUploadModal } from "./ReUploadModal"
 import { RegenerateModal, type RegenStep } from "./RegenerateModal"
+import { SlideParsedData } from "./SlideParsedData"
 import { AudioPlayer } from "./AudioPlayer"
 import { SharePresentationModal } from "./SharePresentationModal"
 import { SlidePdfViewer } from "@/components/shared/SlidePdfViewer"
@@ -1518,76 +1519,11 @@ export function SlideEditor({
 
       {/* Slide info modal */}
       {showSlideInfo && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#18181B]/40 p-4">
-          <div className="w-full max-w-lg rounded-xl border border-zinc-200 bg-white shadow-xl">
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-4">
-              <div className="flex items-center gap-3">
-                <span className="inline-flex items-center rounded-md bg-zinc-100 px-2 py-0.5 text-[11px] font-semibold tracking-wider text-zinc-500 uppercase">
-                  Slide {current.number}
-                </span>
-                {changedSlides.includes(current.number) && (
-                  <span className="inline-flex items-center rounded-md bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
-                    Modified
-                  </span>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowSlideInfo(false)}
-                className="rounded-md p-1 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            {/* Title */}
-            <div className="px-5 pt-4 pb-2">
-              <h2 className="text-lg font-semibold leading-snug text-[#18181B]">
-                {current.title}
-              </h2>
-            </div>
-
-            {/* Content */}
-            <div className="max-h-[65vh] overflow-y-auto px-5 pb-4">
-              {current.bullets.length > 0 ? (
-                <div className="space-y-1.5">
-                  {current.bullets.map((b, i) => (
-                    <div
-                      key={i}
-                      className="group flex gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-zinc-50"
-                    >
-                      <div className="mt-0.5 w-0.5 flex-shrink-0 rounded-full bg-zinc-200 group-hover:bg-zinc-400" />
-                      <p className="text-sm leading-relaxed text-zinc-600 group-hover:text-zinc-800">
-                        {b}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex items-center justify-center rounded-lg border border-dashed border-zinc-200 py-8">
-                  <p className="text-sm text-zinc-400">No additional content extracted</p>
-                </div>
-              )}
-            </div>
-
-            {/* Footer */}
-            <div className="flex items-center justify-between border-t border-zinc-100 px-5 py-3">
-              <span className="text-[11px] text-zinc-400">
-                {current.bullets.length > 0
-                  ? `${current.bullets.length} item${current.bullets.length === 1 ? "" : "s"}`
-                  : "Empty slide"}
-              </span>
-              <button
-                type="button"
-                onClick={() => setShowSlideInfo(false)}
-                className="inline-flex items-center justify-center rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-zinc-900"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
+        <SlideParsedData
+          slide={current}
+          presentationId={presentationId}
+          onClose={() => setShowSlideInfo(false)}
+        />
       )}
 
       {/* Re-upload modal overlay */}
