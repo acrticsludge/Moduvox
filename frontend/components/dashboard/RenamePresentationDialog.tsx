@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Loader2, Pencil } from "lucide-react"
+import { X, Loader2, Pencil } from "lucide-react"
 import { ErrorBanner } from "@/components/ui/ErrorBanner"
 import type { Presentation } from "@/lib/validations/presentation"
 
@@ -54,13 +54,28 @@ export function RenamePresentationDialog({
     }
   }
 
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    handleSave()
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#18181B]/40 p-4">
       <div className={`w-full max-w-sm rounded-xl border bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto hide-scrollbar transition-all duration-300 ${
         error ? "border-red-300 shadow-[0_0_0_1px_#fca5a5]" : "border-zinc-200"
       }`}>
-        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-blue-100">
-          <Pencil className="h-6 w-6 text-blue-600" />
+        <div className="mb-4 flex items-center justify-between">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-blue-100">
+            <Pencil className="h-6 w-6 text-blue-600" />
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-[#71717A] transition-colors hover:bg-zinc-100 hover:text-[#18181B]"
+            aria-label="Close"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
 
         <h2 className="mb-2 text-center text-lg font-semibold">
@@ -71,7 +86,7 @@ export function RenamePresentationDialog({
           Update the title of this presentation.
         </p>
 
-        <div className="mb-6">
+        <form onSubmit={handleSubmit} className="mb-6">
           <label className="mb-1.5 block text-sm font-medium text-zinc-700">
             Title
           </label>
@@ -79,11 +94,11 @@ export function RenamePresentationDialog({
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") handleSave() }}
             className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500"
             autoFocus
+            maxLength={200}
           />
-        </div>
+        </form>
 
         {error && (
           <div className="mb-4 space-y-2">
@@ -100,13 +115,14 @@ export function RenamePresentationDialog({
 
         <div className="flex gap-3">
           <button
+            type="button"
             onClick={onClose}
             className="flex-1 rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
           >
             Cancel
           </button>
           <button
-            onClick={handleSave}
+            type="submit"
             disabled={saving || !title.trim()}
             className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#18181B] px-4 py-2 text-sm font-medium text-white hover:bg-[#27272A] disabled:opacity-50"
           >

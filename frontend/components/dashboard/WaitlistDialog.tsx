@@ -161,7 +161,7 @@ export function WaitlistDialog({
           <button
             type="button"
             onClick={onClose}
-            className="text-sm font-medium text-[#71717A] hover:text-[#18181B]"
+            className="min-h-[44px] px-2 text-sm font-medium text-[#71717A] hover:text-[#18181B]"
           >
             Not now
           </button>

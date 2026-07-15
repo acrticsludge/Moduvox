@@ -91,6 +91,7 @@ export function CreateProjectModal({
               placeholder="e.g. Security Training Q3"
               maxLength={100}
               required
+              autoFocus
               className="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm text-[#18181B] placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-none"
             />
           </div>

@@ -1,3 +1,5 @@
+"use client"
+
 import { useState } from "react"
 import { Loader2, TriangleAlert } from "lucide-react"
 import { ErrorBanner } from "@/components/ui/ErrorBanner"
