@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { parsePptxText, type ParsedSlide } from "@/lib/pptx-renderer"
 import { compareSlides, type SlideDiff } from "@/lib/pptx-renderer"
+import { describeSlideImages } from "@/lib/image-analysis"
 import { toastSuccess, toastError } from "@/components/ui/CustomToast"
 import { ReUploadModal } from "./ReUploadModal"
 import { RegenerateModal, type RegenStep } from "./RegenerateModal"
@@ -92,6 +93,7 @@ export function SlideEditor({
   const [pollAttempts, setPollAttempts] = useState(0)
   const [showSlideInfo, setShowSlideInfo] = useState(false)
   const [internalNarrations, setInternalNarrations] = useState<Record<number, string>>({})
+  const [imageDescLoading, setImageDescLoading] = useState(false)
   const [showReUpload, setShowReUpload] = useState(false)
   const [pendingDiff, setPendingDiff] = useState<SlideDiff | null>(null)
   const [pendingSlides, setPendingSlides] = useState<ParsedSlide[]>([])
@@ -1521,12 +1523,23 @@ export function SlideEditor({
           </div>
         </div>
 
+      {/* Batch-fetch image descriptions for ALL slides in one API call */}
+      {showSlideInfo && !externalImageDescriptions?.[current.number] && !imageDescLoading && slides.some((s) => s.images.length > 0) && (
+        <BatchImageFetcher
+          slides={slides}
+          presentationId={presentationId}
+          onResult={(cache) => onImageDescriptionsChange?.(cache)}
+          onLoading={setImageDescLoading}
+        />
+      )}
+
       {/* Slide info modal */}
       {showSlideInfo && (
         <SlideParsedData
           slide={current}
           presentationId={presentationId}
           cachedImageDescriptions={externalImageDescriptions?.[current.number]}
+          imageDescLoading={imageDescLoading}
           onImageDescriptionsUpdate={(descs) => {
             onImageDescriptionsChange?.({
               ...(externalImageDescriptions || {}),
@@ -1606,4 +1619,54 @@ export function SlideEditor({
       {/* Audio generation progress is now shown inside the unified RegenerateModal */}
     </>
   )
+}
+
+/**
+ * Zero-height component that batch-fetches image descriptions for ALL slides
+ * in a single API call when mounted. Renders nothing.
+ */
+function BatchImageFetcher({
+  slides,
+  presentationId,
+  onResult,
+  onLoading,
+}: {
+  slides: ParsedSlide[]
+  presentationId: string
+  onResult: (cache: Record<number, { index: number; description: string; error?: string }[]>) => void
+  onLoading: (v: boolean) => void
+}) {
+  useEffect(() => {
+    const slidesWithImages = slides
+      .filter((s) => s.images.length > 0)
+      .map((s) => ({
+        number: s.number,
+        images: s.images.map((img) => ({
+          index: img.index,
+          mimeType: img.mimeType,
+          dataUrl: img.dataUrl,
+        })),
+      }))
+
+    if (slidesWithImages.length === 0) return
+
+    onLoading(true)
+
+    describeSlideImages(presentationId, slidesWithImages)
+      .then((result) => {
+        const cache: Record<number, { index: number; description: string; error?: string }[]> = {}
+        for (const slide of result.slides) {
+          cache[slide.number] = slide.images
+        }
+        onResult(cache)
+      })
+      .catch(() => {
+        // Individual slides will show error states with retry
+      })
+      .finally(() => {
+        onLoading(false)
+      })
+  }, [slides, presentationId, onResult, onLoading])
+
+  return null
 }

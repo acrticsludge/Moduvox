@@ -13,18 +13,20 @@ export function SlideParsedData({
   slide,
   presentationId,
   cachedImageDescriptions,
+  imageDescLoading,
   onImageDescriptionsUpdate,
   onClose,
 }: {
   slide: ParsedSlide
   presentationId: string
   cachedImageDescriptions?: { index: number; description: string; error?: string }[]
+  imageDescLoading?: boolean
   onImageDescriptionsUpdate?: (descs: { index: number; description: string; error?: string }[]) => void
   onClose: () => void
 }) {
   const [activeTab, setActiveTab] = useState<Tab>("text")
 
-  // Use cached descriptions if available — skip the API call entirely
+  // Use cached descriptions if available — otherwise parent fetches in batch
   const hasCached = cachedImageDescriptions !== undefined && cachedImageDescriptions.length > 0
   const initialDescMap = new Map<number, ImageDescription>()
   if (hasCached) {
@@ -39,7 +41,9 @@ export function SlideParsedData({
       ? "empty"
       : hasCached
         ? "loaded"
-        : "loading",
+        : imageDescLoading
+          ? "loading"
+          : "loaded", // Will show empty-styled if no cache yet — BatchImageFetcher populates
   )
   const [imageError, setImageError] = useState<string | null>(null)
 
@@ -103,11 +107,12 @@ export function SlideParsedData({
     }
   }, [slide, presentationId, onImageDescriptionsUpdate])
 
+  // Only fetch on explicit retry — parent handles initial batch fetch
   useEffect(() => {
-    if (activeTab === "images" && imageStatus === "loading") {
+    if (activeTab === "images" && imageStatus === "loading" && !imageDescLoading) {
       loadImageDescriptions()
     }
-  }, [activeTab, imageStatus, loadImageDescriptions])
+  }, [activeTab, imageStatus, imageDescLoading, loadImageDescriptions])
 
   // ── Tab pill component ───────────────────────────────────────────────────
 
