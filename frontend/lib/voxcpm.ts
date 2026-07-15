@@ -290,37 +290,55 @@ export function splitIntoChunks(text: string, maxChars = 250): string[] {
 
 /**
  * Find the best split point within a text window.
- * Priority: sentence boundary > clause boundary > word boundary > hard cut.
+ * Priority: sentence boundary > clause boundary > word boundary.
  * Only considers splits past 40% of maxChars to avoid tiny chunks.
+ * NEVER cuts a word in half — if no boundary exists within maxChars,
+ * extends the search up to maxChars*2 to find the next space.
  */
 function findSplitPoint(window: string, maxChars: number): number {
   const minSplit = Math.max(1, Math.floor(maxChars * 0.4))
+  const searchLen = Math.min(window.length, maxChars)
 
   let lastSentenceEnd = -1
   let lastClauseEnd = -1
   let lastSpace = -1
-  const searchLen = Math.min(window.length, maxChars)
 
   for (let i = searchLen - 1; i >= minSplit; i--) {
     const ch = window[i]
     const nextCh = i + 1 < window.length ? window[i + 1] : " "
 
-    if (lastSentenceEnd === -1 && (ch === "." || ch === "!" || ch === "?") && nextCh === " ") {
-      lastSentenceEnd = i + 2 // include the trailing space
-    }
-    if (lastClauseEnd === -1 && (ch === "," || ch === ";" || ch === ":") && nextCh === " ") {
-      lastClauseEnd = i + 2 // include the trailing space
-    }
+    // Record space in case we need it as fallback
     if (lastSpace === -1 && ch === " ") {
       lastSpace = i
+    }
+
+    // Sentence boundary: punctuation + space
+    if (lastSentenceEnd === -1 && (ch === "." || ch === "!" || ch === "?") && nextCh === " ") {
+      lastSentenceEnd = i + 2 // include punctuation + trailing space
+    }
+
+    // Clause boundary: punctuation + space
+    if (lastClauseEnd === -1 && (ch === "," || ch === ";" || ch === ":") && nextCh === " ") {
+      lastClauseEnd = i + 2 // include punctuation + trailing space
     }
   }
 
   if (lastSentenceEnd !== -1) return lastSentenceEnd
   if (lastClauseEnd !== -1) return lastClauseEnd
-  // For word break, split at the space (exclude it from current chunk)
-  if (lastSpace !== -1) return lastSpace
-  return searchLen
+  if (lastSpace !== -1) return lastSpace + 1 // include trailing space (consistent with above)
+
+  // No word boundary found within maxChars — extend search to avoid cutting a word
+  const extendedLimit = Math.min(window.length, maxChars * 2)
+  for (let i = searchLen; i < extendedLimit; i++) {
+    if (window[i] === " ") {
+      return i + 1 // split after the space
+    }
+  }
+
+  // Absolute last resort: return extended limit (still cuts the word, but only if
+  // the word itself is longer than maxChars*2 characters — virtually impossible for
+  // natural language)
+  return extendedLimit
 }
 
 export async function generateAudio(input: VoxCPMInput): Promise<VoxCPMResult> {
