@@ -16,6 +16,7 @@ const DeletePresentationDialog = dynamic(() => import("@/components/dashboard/De
 const RenamePresentationDialog = dynamic(() => import("@/components/dashboard/RenamePresentationDialog").then(mod => mod.RenamePresentationDialog), { ssr: false })
 const ConfirmArchiveDialog = dynamic(() => import("@/components/dashboard/ConfirmArchiveDialog").then(mod => mod.ConfirmArchiveDialog), { ssr: false })
 
+type ImageDesc = { index: number; description: string; error?: string }
 type EditorState = {
   selectedVoiceId?: string
   controlInstructions?: string
@@ -28,6 +29,7 @@ type EditorState = {
   slideData?: { title: string; bullets: string[] }[]
   changedSlides?: number[]
   slideCount?: number
+  imageDescriptions?: Record<number, ImageDesc[]>
 }
 
 function formatDate(iso: string) {
@@ -61,6 +63,7 @@ export default function PresentationCreatePage() {
   const [currentSlide, setCurrentSlide] = useState(0)
   const [slideData, setSlideData] = useState<{ title: string; bullets: string[] }[]>([])
   const [changedSlides, setChangedSlides] = useState<number[]>([])
+  const [imageDescriptions, setImageDescriptions] = useState<Record<number, ImageDesc[]>>({})
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle")
   const [dirty, setDirty] = useState(false)
   const [restoring, setRestoring] = useState(false)
@@ -176,6 +179,7 @@ export default function PresentationCreatePage() {
           if (saved.currentSlide !== undefined) setCurrentSlide(saved.currentSlide)
           if (saved.slideData?.length) setSlideData(saved.slideData)
           if (saved.changedSlides) setChangedSlides(saved.changedSlides)
+          if (saved.imageDescriptions) setImageDescriptions(saved.imageDescriptions)
         }
       }
       setLoading(false)
@@ -202,6 +206,7 @@ export default function PresentationCreatePage() {
         slideData: slideData.length > 0 ? slideData : undefined,
         changedSlides: changedSlides.length > 0 ? changedSlides : undefined,
         slideCount: slideData.length > 0 ? slideData.length : undefined,
+        imageDescriptions: Object.keys(imageDescriptions).length > 0 ? imageDescriptions : undefined,
       }
       fetch(`/api/presentations/${params.presentationId}/state`, {
         method: "PATCH",
@@ -214,7 +219,7 @@ export default function PresentationCreatePage() {
         })
         .catch(() => { setSaveStatus("error"); toastError("Failed to save changes", { id: "editor-save" }) })
     }, 2000)
-  }, [selectedVoiceId, controlInstructions, ultimateMode, narrations, audioGenerated, storagePath, currentSlide, slideData, changedSlides, params.presentationId])
+  }, [selectedVoiceId, controlInstructions, ultimateMode, narrations, audioGenerated, storagePath, currentSlide, slideData, changedSlides, imageDescriptions, params.presentationId])
 
   // Trigger auto-save when any editor state changes
   useEffect(() => {
@@ -495,6 +500,8 @@ export default function PresentationCreatePage() {
               onCurrentSlideChange={setCurrentSlide}
               slideData={slideData}
               onSlideDataChange={setSlideData}
+              imageDescriptions={imageDescriptions}
+              onImageDescriptionsChange={setImageDescriptions}
               changedSlides={changedSlides}
               onChangedSlidesChange={handleChangedSlidesChange}
               selectedVoiceId={selectedVoiceId || null}

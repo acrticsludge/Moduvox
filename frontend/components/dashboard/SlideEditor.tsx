@@ -38,6 +38,8 @@ export function SlideEditor({
   onCurrentSlideChange,
   slideData: externalSlideData,
   onSlideDataChange,
+  imageDescriptions: externalImageDescriptions,
+  onImageDescriptionsChange,
   changedSlides: externalChangedSlides,
   onChangedSlidesChange,
   onRemovePpt,
@@ -63,6 +65,8 @@ export function SlideEditor({
   onCurrentSlideChange?: (v: number) => void
   slideData?: { title: string; bullets: string[] }[]
   onSlideDataChange?: (v: { title: string; bullets: string[] }[]) => void
+  imageDescriptions?: Record<number, { index: number; description: string; error?: string }[]>
+  onImageDescriptionsChange?: (v: Record<number, { index: number; description: string; error?: string }[]>) => void
   changedSlides?: number[]
   onChangedSlidesChange?: (v: number[]) => void
   onRemovePpt?: () => void
@@ -1522,6 +1526,13 @@ export function SlideEditor({
         <SlideParsedData
           slide={current}
           presentationId={presentationId}
+          cachedImageDescriptions={externalImageDescriptions?.[current.number]}
+          onImageDescriptionsUpdate={(descs) => {
+            onImageDescriptionsChange?.({
+              ...(externalImageDescriptions || {}),
+              [current.number]: descs,
+            })
+          }}
           onClose={() => setShowSlideInfo(false)}
         />
       )}

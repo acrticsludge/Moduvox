@@ -12,16 +12,34 @@ type TabStatus = "loading" | "loaded" | "empty" | "error"
 export function SlideParsedData({
   slide,
   presentationId,
+  cachedImageDescriptions,
+  onImageDescriptionsUpdate,
   onClose,
 }: {
   slide: ParsedSlide
   presentationId: string
+  cachedImageDescriptions?: { index: number; description: string; error?: string }[]
+  onImageDescriptionsUpdate?: (descs: { index: number; description: string; error?: string }[]) => void
   onClose: () => void
 }) {
   const [activeTab, setActiveTab] = useState<Tab>("text")
-  const [imageDescriptions, setImageDescriptions] = useState<Map<number, ImageDescription>>(new Map())
+
+  // Use cached descriptions if available — skip the API call entirely
+  const hasCached = cachedImageDescriptions !== undefined && cachedImageDescriptions.length > 0
+  const initialDescMap = new Map<number, ImageDescription>()
+  if (hasCached) {
+    for (const d of cachedImageDescriptions!) {
+      initialDescMap.set(d.index, d)
+    }
+  }
+
+  const [imageDescriptions, setImageDescriptions] = useState<Map<number, ImageDescription>>(initialDescMap)
   const [imageStatus, setImageStatus] = useState<TabStatus>(
-    slide.images.length > 0 ? "loading" : "empty",
+    slide.images.length === 0
+      ? "empty"
+      : hasCached
+        ? "loaded"
+        : "loading",
   )
   const [imageError, setImageError] = useState<string | null>(null)
 
@@ -70,6 +88,11 @@ export function SlideParsedData({
 
       setImageDescriptions(descMap)
 
+      // Propagate to parent for caching in editor_state
+      if (onImageDescriptionsUpdate && slideResult?.images) {
+        onImageDescriptionsUpdate(slideResult.images)
+      }
+
       // Determine overall status
       const allFailed = slideResult?.images.every((img) => img.error) ?? false
       setImageStatus(allFailed ? "error" : "loaded")
@@ -78,7 +101,7 @@ export function SlideParsedData({
       setImageError(msg)
       setImageStatus("error")
     }
-  }, [slide, presentationId])
+  }, [slide, presentationId, onImageDescriptionsUpdate])
 
   useEffect(() => {
     if (activeTab === "images" && imageStatus === "loading") {
