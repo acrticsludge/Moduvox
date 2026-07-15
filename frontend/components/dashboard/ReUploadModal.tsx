@@ -22,8 +22,8 @@ export function ReUploadModal({
   const unchangedCount = diff.changes.filter((c) => c.status === "unchanged").length
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#18181B]/40">
-      <div className="mx-4 w-full max-w-md rounded-xl border border-zinc-200 bg-white p-6 shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#18181B]/40 p-4">
+      <div className="w-full max-w-md rounded-xl border border-zinc-200 bg-white p-6 shadow-xl">
         <div
           className={`mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full ${
             isReplacement ? "bg-red-50" : isIdentical ? "bg-zinc-50" : "bg-amber-50"

@@ -349,7 +349,7 @@ function AddVoiceModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#18181B]/40 p-4">
-      <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-lg">
+      <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-lg max-h-[90vh] overflow-y-auto hide-scrollbar">
         {/* Header */}
         <div className="mb-6 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-[#18181B]">
@@ -724,7 +724,7 @@ function TestVoiceModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#18181B]/40 p-4">
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-lg">
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-lg max-h-[90vh] overflow-y-auto hide-scrollbar">
         {/* Header */}
         <div className="mb-4 flex items-center justify-between">
           <div>

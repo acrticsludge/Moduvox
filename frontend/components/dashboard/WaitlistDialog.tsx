@@ -83,7 +83,7 @@ export function WaitlistDialog({
 
   if (submitted) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#18181B]/40">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#18181B]/40 p-4">
         <div className="w-full max-w-md rounded-xl border border-zinc-200 bg-white p-6 text-center shadow-xl">
           <CheckCircle2 className="mx-auto h-10 w-10 text-green-500" />
           <h2 className="mt-3 text-base font-semibold text-[#18181B]">
@@ -105,7 +105,7 @@ export function WaitlistDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#18181B]/40">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#18181B]/40 p-4">
       <div className="w-full max-w-md rounded-xl border border-zinc-200 bg-white p-6 shadow-xl shadow-red-500/10 max-h-[90vh] overflow-y-auto hide-scrollbar">
         {/* Header */}
         <div className="mb-5">

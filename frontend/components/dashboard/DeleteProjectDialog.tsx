@@ -41,7 +41,7 @@ export function DeleteProjectDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#18181B]/40">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#18181B]/40 p-4">
       <div className="w-full max-w-sm rounded-xl border bg-white shadow-xl shadow-red-500/10 p-6 max-h-[90vh] overflow-y-auto hide-scrollbar">
         <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
           <TriangleAlert className="h-6 w-6 text-red-600" />

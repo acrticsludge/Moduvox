@@ -55,7 +55,7 @@ export function RenamePresentationDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#18181B]/40">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#18181B]/40 p-4">
       <div className={`w-full max-w-sm rounded-xl border bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto hide-scrollbar transition-all duration-300 ${
         error ? "border-red-300 shadow-[0_0_0_1px_#fca5a5]" : "border-zinc-200"
       }`}>
