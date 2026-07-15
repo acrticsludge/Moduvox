@@ -79,7 +79,20 @@ async function pollResult(
   while (Date.now() < deadline) {
     attempts++
     const t0 = Date.now()
-    const res = await withTimeout(fetch(pollUrl), 30_000, "Poll")
+
+    // Each poll attempt has its own timeout. If it fires (e.g. HF Space has a
+    // queue and the SSE connection stays open), we catch it and retry rather
+    // than killing the entire polling loop. Only the overall deadline matters.
+    let res: Response | null = null
+    try {
+      res = await withTimeout(fetch(pollUrl), 30_000, "Poll")
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      log("POLL", `Attempt ${attempts} timed out (${msg}) — retrying`)
+      await new Promise((r) => setTimeout(r, 1000))
+      continue
+    }
+
     const text = await res.text()
     log("POLL", `Attempt ${attempts} — status ${res.status}, ${text.length} chars, took ${Date.now() - t0}ms`)
 
