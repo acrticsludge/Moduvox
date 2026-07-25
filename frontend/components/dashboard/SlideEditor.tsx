@@ -254,7 +254,8 @@ export function SlideEditor({
           parsedSlides = await parsePptxText(file!)
           if (!cancelled) {
             setSlides(parsedSlides)
-            onSlideDataChange?.(parsedSlides)
+            // Strip heavy data (images, notes, comments) from persisted state
+            onSlideDataChange?.(parsedSlides.map(({ title, bullets }) => ({ title, bullets })))
             setInternalIndex(externalCurrentSlide ?? 0)
           }
         } catch {
@@ -734,9 +735,9 @@ export function SlideEditor({
     onCurrentSlideChange?.(0)
     setSlideInput("1")
 
-    // Replace slide data
+    // Replace slide data — strip heavy fields from persisted state
     setSlides(pendingSlides)
-    onSlideDataChange?.(pendingSlides)
+    onSlideDataChange?.(pendingSlides.map(({ title, bullets }) => ({ title, bullets })))
 
     // Merge narrations for "changed" type — preserve unchanged, keep modified, init added
     if (!isReplacement && pendingDiff?.changes) {
