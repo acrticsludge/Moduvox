@@ -219,7 +219,7 @@ export default function PresentationCreatePage() {
         })
         .catch(() => { setSaveStatus("error"); toastError("Failed to save changes", { id: "editor-save" }) })
     }, 2000)
-  }, [selectedVoiceId, controlInstructions, ultimateMode, narrations, audioGenerated, storagePath, currentSlide, slideData, changedSlides, imageDescriptions, params.presentationId])
+  }, [selectedVoiceId, controlInstructions, ultimateMode, narrations, audioGenerated, audioStoragePath, storagePath, currentSlide, slideData, changedSlides, imageDescriptions, params.presentationId])
 
   // Trigger auto-save when any editor state changes
   useEffect(() => {
@@ -501,7 +501,7 @@ export default function PresentationCreatePage() {
               slideData={slideData}
               onSlideDataChange={setSlideData}
               imageDescriptions={imageDescriptions}
-              onImageDescriptionsChange={setImageDescriptions}
+              onImageDescriptionsChange={(v) => { setImageDescriptions(v); setDirty(true) }}
               changedSlides={changedSlides}
               onChangedSlidesChange={handleChangedSlidesChange}
               selectedVoiceId={selectedVoiceId || null}

@@ -9,6 +9,47 @@ type Tab = "text" | "notes" | "images"
 
 type TabStatus = "loading" | "loaded" | "empty" | "error"
 
+function tabDot(status: TabStatus): string {
+  switch (status) {
+    case "loaded": return "bg-green-500"
+    case "empty": return "bg-zinc-300"
+    case "error": return "bg-red-500"
+    case "loading": return "bg-amber-400 animate-pulse"
+  }
+}
+
+function TabPill({
+  tab,
+  label,
+  icon,
+  status,
+  isActive,
+  onClick,
+}: {
+  tab: Tab
+  label: string
+  icon: React.ReactNode
+  status: TabStatus
+  isActive: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2.5 text-xs font-medium transition-all ${
+        isActive
+          ? "bg-[#18181B] text-white shadow-sm"
+          : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 hover:text-zinc-800"
+      }`}
+    >
+      <span className={`h-1.5 w-1.5 rounded-full ${tabDot(status)}`} />
+      {icon}
+      {label}
+    </button>
+  )
+}
+
 export function SlideParsedData({
   slide,
   presentationId,
@@ -30,7 +71,7 @@ export function SlideParsedData({
   const hasCached = cachedImageDescriptions !== undefined && cachedImageDescriptions.length > 0
   const initialDescMap = new Map<number, ImageDescription>()
   if (hasCached) {
-    for (const d of cachedImageDescriptions!) {
+    for (const d of hasCached ? cachedImageDescriptions : []) {
       initialDescMap.set(d.index, d)
     }
   }
@@ -43,7 +84,7 @@ export function SlideParsedData({
         ? "loaded"
         : imageDescLoading
           ? "loading"
-          : "loaded", // Will show empty-styled if no cache yet — BatchImageFetcher populates
+          : "loaded", // Per-image shows "Analyzing..." until batch fetch completes
   )
   const [imageError, setImageError] = useState<string | null>(null)
 
@@ -56,15 +97,6 @@ export function SlideParsedData({
     slide.notes !== null || slide.comments.length > 0
       ? "loaded"
       : "empty"
-
-  function tabDot(status: TabStatus): string {
-    switch (status) {
-      case "loaded": return "bg-green-500"
-      case "empty": return "bg-zinc-300"
-      case "error": return "bg-red-500"
-      case "loading": return "bg-amber-400 animate-pulse"
-    }
-  }
 
   // ── Load image descriptions ──────────────────────────────────────────────
 
@@ -107,43 +139,28 @@ export function SlideParsedData({
     }
   }, [slide, presentationId, onImageDescriptionsUpdate])
 
+  // Sync cached descriptions from parent into local state
+  useEffect(() => {
+    if (cachedImageDescriptions && cachedImageDescriptions.length > 0) {
+      const newMap = new Map<number, ImageDescription>()
+      for (const d of cachedImageDescriptions) {
+        newMap.set(d.index, d)
+      }
+      setImageDescriptions(newMap)
+      const allFailed = cachedImageDescriptions.every((d) => d.error)
+      setImageStatus(allFailed ? "error" : "loaded")
+    } else if (!imageDescLoading && slide.images.length > 0) {
+      // Parent is not loading and no cache — show per-image placeholder
+      setImageStatus("loaded")
+    }
+  }, [cachedImageDescriptions, imageDescLoading, slide.images.length])
+
   // Only fetch on explicit retry — parent handles initial batch fetch
   useEffect(() => {
     if (activeTab === "images" && imageStatus === "loading" && !imageDescLoading) {
       loadImageDescriptions()
     }
   }, [activeTab, imageStatus, imageDescLoading, loadImageDescriptions])
-
-  // ── Tab pill component ───────────────────────────────────────────────────
-
-  function TabPill({
-    tab,
-    label,
-    icon,
-    status,
-  }: {
-    tab: Tab
-    label: string
-    icon: React.ReactNode
-    status: TabStatus
-  }) {
-    const isActive = activeTab === tab
-    return (
-      <button
-        type="button"
-        onClick={() => setActiveTab(tab)}
-        className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium transition-all ${
-          isActive
-            ? "bg-[#18181B] text-white shadow-sm"
-            : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 hover:text-zinc-800"
-        }`}
-      >
-        <span className={`h-1.5 w-1.5 rounded-full ${tabDot(status)}`} />
-        {icon}
-        {label}
-      </button>
-    )
-  }
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#18181B]/40 p-4">
@@ -161,7 +178,7 @@ export function SlideParsedData({
           <button
             type="button"
             onClick={onClose}
-            className="flex min-h-[36px] min-w-[36px] items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600"
+            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600"
             aria-label="Close"
           >
             <X className="h-4 w-4" />
@@ -170,9 +187,9 @@ export function SlideParsedData({
 
         {/* ── Pill Tabs ─────────────────────────────────────────────── */}
         <div className="flex gap-2 border-b border-zinc-100 px-5 py-2.5 flex-shrink-0">
-          <TabPill tab="text" label="Text" icon={<FileText className="h-3 w-3" />} status={textStatus} />
-          <TabPill tab="notes" label="Notes" icon={<MessageSquare className="h-3 w-3" />} status={notesStatus} />
-          <TabPill tab="images" label="Images" icon={<ImageIcon className="h-3 w-3" />} status={imageStatus} />
+          <TabPill tab="text" label="Text" icon={<FileText className="h-3 w-3" />} status={textStatus} isActive={activeTab === "text"} onClick={() => setActiveTab("text")} />
+          <TabPill tab="notes" label="Notes" icon={<MessageSquare className="h-3 w-3" />} status={notesStatus} isActive={activeTab === "notes"} onClick={() => setActiveTab("notes")} />
+          <TabPill tab="images" label="Images" icon={<ImageIcon className="h-3 w-3" />} status={imageStatus} isActive={activeTab === "images"} onClick={() => setActiveTab("images")} />
         </div>
 
         {/* ── Tab Content ───────────────────────────────────────────── */}
@@ -204,7 +221,7 @@ export function SlideParsedData({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50"
+            className="rounded-lg border border-zinc-200 px-3.5 py-2.5 text-xs font-medium min-h-[44px] text-zinc-600 hover:bg-zinc-50"
           >
             Close
           </button>
@@ -384,7 +401,7 @@ function ImagesTab({
         <button
           type="button"
           onClick={onRetry}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 px-3.5 py-2.5 text-xs font-medium min-h-[44px] text-zinc-600 hover:bg-zinc-50"
         >
           <RefreshCw className="h-3 w-3" />
           Retry
@@ -449,7 +466,7 @@ function ImagesTab({
           <button
             type="button"
             onClick={onRetry}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 px-3.5 py-2.5 text-xs font-medium min-h-[44px] text-zinc-600 hover:bg-zinc-50"
           >
             <RefreshCw className="h-3 w-3" />
             Retry failed

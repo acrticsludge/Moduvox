@@ -147,7 +147,7 @@ function extractParagraphsFromXml(xml: string): string[] {
   const texts: string[] = []
 
   for (const pEl of Array.from(allParagraphs)) {
-    const tRuns = (pEl as Element).getElementsByTagName("a:t")
+    const tRuns = pEl.getElementsByTagName("a:t")
     let text = ""
     for (const t of Array.from(tRuns)) {
       text += t.textContent || ""
@@ -205,6 +205,27 @@ async function parseCommentsIndex(
   zip: JSZip,
   slideFiles: string[],
 ): Promise<Map<number, SlideComment[]>> {
+  // Build author lookup: ppt/commentAuthors.xml
+  const authorMap: Map<number, string> = new Map()
+  const authorFile = zip.files["ppt/commentAuthors.xml"]
+  if (authorFile) {
+    try {
+      const authorXml = await authorFile.async("string")
+      const authorDoc = parseXml(authorXml)
+      if (authorDoc) {
+        const authorEls = authorDoc.getElementsByTagName("p:cmAuthor")
+        const altAuthorEls = authorEls.length === 0 ? authorDoc.getElementsByTagName("cmAuthor") : authorEls
+        for (const el of Array.from(altAuthorEls)) {
+          const id = parseInt((el as Element).getAttribute("id") || "", 10)
+          const name = (el as Element).getAttribute("name") || "Unknown"
+          if (!isNaN(id)) authorMap.set(id, name)
+        }
+      }
+    } catch {
+      // Proceed with empty author map
+    }
+  }
+
   // Build reverse map: comment rel target → comment file content
   // First, discover all comment relationship targets per slide
   const slideCommentMap = new Map<number, string[]>() // slideNum → [commentTargetFilename]
@@ -261,7 +282,7 @@ async function parseCommentsIndex(
 
     try {
       const xml = await commentFile.async("string")
-      const comments = parseCommentsXml(xml)
+      const comments = parseCommentsXml(xml, authorMap)
       if (comments.length > 0) {
         loadedComments.set(filename, comments)
       }
@@ -288,34 +309,32 @@ async function parseCommentsIndex(
 /**
  * Parse a single PPTX comments XML file into SlideComment[].
  */
-function parseCommentsXml(xml: string): SlideComment[] {
+function parseCommentsXml(xml: string, authorMap: Map<number, string>): SlideComment[] {
   const doc = parseXml(xml)
   if (!doc) return []
 
   const comments: SlideComment[] = []
 
-  // PPTX comment XML uses <mc:Comment> elements (or <Comment> in some versions)
-  const commentEls = doc.getElementsByTagName("mc:Comment")
-  // Fallback for different namespace
-  const altCommentEls = commentEls.length === 0 ? doc.getElementsByTagName("Comment") : commentEls
+  // PPTX comment XML uses <p:cm> elements (or <cm> in some versions)
+  const commentEls = doc.getElementsByTagName("p:cm")
+  const altCommentEls = commentEls.length === 0 ? doc.getElementsByTagName("cm") : commentEls
 
   for (const el of Array.from(altCommentEls)) {
-    const authorEles = (el as Element).getElementsByTagName("mc:author")
-    const textEles = (el as Element).getElementsByTagName("mc:commentText")
-    const dtEles = (el as Element).getElementsByTagName("mc:dt")
-
-    // Fallback for un-namespaced variants
-    const authorEl = authorEles.length > 0 ? authorEles[0] : (el as Element).getElementsByTagName("Author")[0]
-    const textEl = textEles.length > 0 ? textEles[0] : (el as Element).getElementsByTagName("Text")[0]
-    const dtEl = dtEles.length > 0 ? dtEles[0] : (el as Element).getElementsByTagName("Date")[0]
+    const authorIdAttr = (el as Element).getAttribute("authorId")
+    const dtAttr = (el as Element).getAttribute("dt")
+    const textEles = (el as Element).getElementsByTagName("p:text")
+    const textEl = textEles.length > 0 ? textEles[0] : (el as Element).getElementsByTagName("text")[0]
 
     const text = textEl?.textContent?.trim()
     if (!text) continue
 
+    const authorId = authorIdAttr ? parseInt(authorIdAttr, 10) : -1
+    const author = authorId >= 0 ? (authorMap.get(authorId) || "Unknown") : "Unknown"
+
     comments.push({
-      author: authorEl?.textContent?.trim() || "Unknown",
+      author,
       text,
-      createdAt: dtEl?.textContent?.trim() || "",
+      createdAt: dtAttr || "",
     })
   }
 
@@ -385,13 +404,20 @@ async function parseImageIndex(
         try {
           const binaryData = await mediaFile.async("arraybuffer")
           const base64 = arrayBufferToBase64(binaryData)
+          const origDataUrl = `data:${img.mimeType};base64,${base64}`
 
           // Resize via canvas to keep payload manageable
-          const resizedDataUrl = await resizeImage(
-            `data:${img.mimeType};base64,${base64}`,
-            MAX_IMAGE_DIMENSION,
-            img.mimeType,
-          )
+          let resizedDataUrl: string
+          try {
+            resizedDataUrl = await resizeImage(
+              origDataUrl,
+              MAX_IMAGE_DIMENSION,
+              img.mimeType,
+            )
+          } catch {
+            // SVG images can't be rendered on canvas — include as-is
+            resizedDataUrl = origDataUrl
+          }
 
           images.push({
             index: imageIndex,
@@ -436,6 +462,9 @@ function resizeImage(
   maxPx: number,
   mimeType: string,
 ): Promise<string> {
+  if (typeof document === "undefined") {
+    throw new Error("resizeImage requires browser APIs and cannot run on the server")
+  }
   return new Promise((resolve, reject) => {
     const img = new Image()
     img.onload = () => {
@@ -469,7 +498,8 @@ function resizeImage(
 // ── Slide comparison (unchanged logic, updated type) ──────────────────────────
 
 export function slideHash(title: string, bullets: string[]): string {
-  const content = title + "|" + bullets.join("|")
+  const DELIM = "\x00" // null character
+  const content = title + DELIM + bullets.join(DELIM)
   let hash = 0
   for (let i = 0; i < content.length; i++) {
     const char = content.charCodeAt(i)

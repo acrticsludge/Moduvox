@@ -3,6 +3,23 @@ import { GoogleGenerativeAI } from "@google/generative-ai"
 import { createClient } from "@/lib/supabase/server"
 import { withApiHandler } from "@/lib/api-handler"
 import { checkRateLimit } from "@/lib/rate-limiter"
+import { z } from "zod"
+
+const ImageSchema = z.object({
+  index: z.number().int().min(0),
+  mimeType: z.string().regex(/^image\/(png|jpeg|webp|gif|bmp)$/),
+  data: z.string().min(1),
+})
+
+const SlideSchema = z.object({
+  number: z.number().int().positive(),
+  images: z.array(ImageSchema).max(10),
+})
+
+const RequestSchema = z.object({
+  presentationId: z.string().uuid(),
+  slides: z.array(SlideSchema).max(50),
+})
 
 const MAX_IMAGES_PER_REQUEST = 20
 
@@ -13,20 +30,18 @@ export const POST = withApiHandler(async (request: Request) => {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  let body: {
-    presentationId?: string
-    slides?: { number: number; images: { index: number; mimeType: string; data: string }[] }[]
-  }
+  let body: Record<string, unknown>
   try {
     body = await request.json()
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
   }
 
-  const { presentationId, slides } = body
-  if (!presentationId || !slides || slides.length === 0) {
-    return NextResponse.json({ error: "presentationId and slides are required" }, { status: 400 })
+  const parsed = RequestSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Validation failed", fields: parsed.error.flatten().fieldErrors }, { status: 422 })
   }
+  const { presentationId, slides } = parsed.data
 
   // Verify the user owns this presentation
   const { data: presentation } = await supabase
@@ -74,37 +89,42 @@ export const POST = withApiHandler(async (request: Request) => {
     images: { index: number; description: string; error?: string }[]
   }[] = []
 
+  const BATCH_SIZE = 5
+  const BATCH_TIMEOUT_MS = 25000
+
   for (const slide of slides) {
     const slideDescriptions: { index: number; description: string; error?: string }[] = []
 
-    for (const image of slide.images) {
-      try {
-        const prompt =
-          "Describe this image from a business presentation slide. " +
-          "What is shown? Read any visible text, identify chart types or diagrams, " +
-          "explain data trends if applicable, and state the purpose of the visual. " +
-          "Keep your description concise (2-3 sentences). " +
-          'If the image has no significant visual content, say "No significant visual content detected."'
+    for (let i = 0; i < slide.images.length; i += BATCH_SIZE) {
+      const batch = slide.images.slice(i, i + BATCH_SIZE)
 
-        const result = await model.generateContent([
-          { text: prompt },
-          {
-            inlineData: {
-              mimeType: image.mimeType,
-              data: image.data,
-            },
-          },
+      try {
+        const contents = [
+          { text: "Examine these images from a business presentation slide. For each image, describe what is shown, read any visible text, identify chart types or diagrams, explain data trends if applicable, and state the purpose of the visual. Keep each description concise (2-3 sentences). Number each description. If an image has no significant visual content, say 'No significant visual content detected.'" },
+          ...batch.map(img => ({
+            inlineData: { mimeType: img.mimeType, data: img.data }
+          }))
+        ]
+
+        const result = await Promise.race([
+          model.generateContent(contents),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error("Batch timed out after 25s")), BATCH_TIMEOUT_MS)
+          ),
         ])
 
-        const description = result.response.text()?.trim() || "No description available"
-        slideDescriptions.push({ index: image.index, description })
+        const text = result.response.text()?.trim() || ""
+        const lines = text.split("\n").filter(l => l.trim())
+        batch.forEach((img, batchIdx) => {
+          const desc = lines[batchIdx] || "No description available"
+          const cleanDesc = desc.replace(/^\d+[\.\)]\s*/, "").trim()
+          slideDescriptions.push({ index: img.index, description: cleanDesc })
+        })
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err)
-        console.error(`[image-descriptions] Slide ${slide.number}, image ${image.index}: ${msg}`)
-        slideDescriptions.push({
-          index: image.index,
-          description: "",
-          error: "Analysis failed",
+        console.error(`[image-descriptions] Slide ${slide.number}, batch ${Math.floor(i / BATCH_SIZE)}: ${msg}`)
+        batch.forEach(img => {
+          slideDescriptions.push({ index: img.index, description: "", error: "Analysis failed" })
         })
       }
     }

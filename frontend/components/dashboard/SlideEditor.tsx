@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import { Play, Loader2, ExternalLink, FileText, ChevronRight, X, Share2, Check, RefreshCw } from "lucide-react"
+import { Play, Loader2, ExternalLink, FileText, ChevronRight, Share2, Check, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
@@ -24,6 +24,8 @@ type Voice = {
   preset_id: string | null
   control_instruction: string | null
 }
+
+type ImageDesc = { index: number; description: string; error?: string }
 
 export function SlideEditor({
   voiceSelected,
@@ -94,6 +96,10 @@ export function SlideEditor({
   const [showSlideInfo, setShowSlideInfo] = useState(false)
   const [internalNarrations, setInternalNarrations] = useState<Record<number, string>>({})
   const [imageDescLoading, setImageDescLoading] = useState(false)
+  const [imageDescError, setImageDescError] = useState<string | null>(null)
+  const handleBatchResult = useCallback((cache: Record<number, ImageDesc[]>) => {
+    onImageDescriptionsChange?.(cache)
+  }, [onImageDescriptionsChange])
   const [showReUpload, setShowReUpload] = useState(false)
   const [pendingDiff, setPendingDiff] = useState<SlideDiff | null>(null)
   const [pendingSlides, setPendingSlides] = useState<ParsedSlide[]>([])
@@ -1524,11 +1530,11 @@ export function SlideEditor({
         </div>
 
       {/* Batch-fetch image descriptions for ALL slides in one API call */}
-      {showSlideInfo && !externalImageDescriptions?.[current.number] && !imageDescLoading && slides.some((s) => s.images.length > 0) && (
+      {showSlideInfo && !externalImageDescriptions?.[current.number] && slides.some((s) => s.images.length > 0) && (
         <BatchImageFetcher
           slides={slides}
           presentationId={presentationId}
-          onResult={(cache) => onImageDescriptionsChange?.(cache)}
+          onResult={handleBatchResult}
           onLoading={setImageDescLoading}
         />
       )}
@@ -1660,8 +1666,8 @@ function BatchImageFetcher({
         }
         onResult(cache)
       })
-      .catch(() => {
-        // Individual slides will show error states with retry
+      .catch((err) => {
+        console.error("[BatchImageFetcher] Failed:", err)
       })
       .finally(() => {
         onLoading(false)
