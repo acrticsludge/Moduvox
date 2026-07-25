@@ -242,8 +242,16 @@ export function SlideEditor({
       // Extract text content for slides (parse early to get slide count)
       let parsedSlides: ParsedSlide[] | null = null
       if (externalSlideData && externalSlideData.length > 0 && !file) {
-        // Restore from saved editor state
-        parsedSlides = externalSlideData as ParsedSlide[]
+        // Restore from saved editor state (only { title, bullets } persisted)
+        parsedSlides = externalSlideData.map((s, i) => ({
+          number: (s as { number?: number }).number ?? i + 1,
+          title: s.title,
+          bullets: s.bullets,
+          notes: null,
+          comments: [],
+          images: [],
+          rawText: s.title + (s.bullets.length > 0 ? "\n" + s.bullets.join("\n") : ""),
+        })) as ParsedSlide[]
         if (!cancelled) {
           setSlides(parsedSlides)
           setInternalIndex(externalCurrentSlide ?? 0)
@@ -255,7 +263,7 @@ export function SlideEditor({
           if (!cancelled) {
             setSlides(parsedSlides)
             // Strip heavy data (images, notes, comments) from persisted state
-            onSlideDataChange?.(parsedSlides.map(({ title, bullets }) => ({ title, bullets })))
+            onSlideDataChange?.(parsedSlides.map(({ number, title, bullets }) => ({ number, title, bullets })))
             setInternalIndex(externalCurrentSlide ?? 0)
           }
         } catch {
@@ -737,7 +745,7 @@ export function SlideEditor({
 
     // Replace slide data — strip heavy fields from persisted state
     setSlides(pendingSlides)
-    onSlideDataChange?.(pendingSlides.map(({ title, bullets }) => ({ title, bullets })))
+    onSlideDataChange?.(pendingSlides.map(({ number, title, bullets }) => ({ number, title, bullets })))
 
     // Merge narrations for "changed" type — preserve unchanged, keep modified, init added
     if (!isReplacement && pendingDiff?.changes) {
