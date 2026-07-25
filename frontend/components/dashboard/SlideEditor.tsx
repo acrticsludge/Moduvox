@@ -1191,30 +1191,28 @@ export function SlideEditor({
               />
             )}
 
-            {/* Narration failure overlay */}
+            {/* Narration failure overlay — centered inside blurred textarea */}
             {generationFailed && (
-              <div className="absolute inset-0 flex items-center justify-center rounded-lg">
-                <div className="flex flex-col items-center gap-3 rounded-xl bg-white/95 px-6 py-5 shadow-sm backdrop-blur-sm border border-red-100">
-                  <RefreshCw className="h-6 w-6 text-red-400" />
-                  <p className="text-sm font-medium text-red-600">Narration generation failed</p>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      setGenerationFailed(false)
-                      const ok = await generateNarrations(slides, true)
-                      if (!ok) setGenerationFailed(true)
-                    }}
-                    disabled={generating || generatingNarrations}
-                    className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50"
-                  >
-                    {generating || generatingNarrations ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <RefreshCw className="h-4 w-4" />
-                    )}
-                    {generating || generatingNarrations ? "Trying again…" : "Try Again"}
-                  </button>
-                </div>
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-lg">
+                <RefreshCw className="h-5 w-5 text-red-400" />
+                <p className="text-xs font-medium text-red-500">Generation failed</p>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setGenerationFailed(false)
+                    const ok = await generateNarrations(slides, true)
+                    if (!ok) setGenerationFailed(true)
+                  }}
+                  disabled={generating || generatingNarrations}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white/80 px-3 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50"
+                >
+                  {generating || generatingNarrations ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-3.5 w-3.5" />
+                  )}
+                  {generating || generatingNarrations ? "Trying again…" : "Try Again"}
+                </button>
               </div>
             )}
           </div>
@@ -1414,30 +1412,28 @@ export function SlideEditor({
                   />
                 )}
 
-                {/* Narration failure overlay */}
+                {/* Narration failure overlay — centered inside blurred textarea */}
                 {generationFailed && (
-                  <div className="absolute inset-0 flex items-center justify-center rounded-lg">
-                    <div className="flex flex-col items-center gap-3 rounded-xl bg-white/95 px-6 py-5 shadow-sm backdrop-blur-sm border border-red-100">
-                      <RefreshCw className="h-6 w-6 text-red-400" />
-                      <p className="text-sm font-medium text-red-600">Narration generation failed</p>
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          setGenerationFailed(false)
-                          const ok = await generateNarrations(slides, true)
-                          if (!ok) setGenerationFailed(true)
-                        }}
-                        disabled={generating || generatingNarrations}
-                        className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-white px-4 py-2.5 min-h-[44px] text-sm font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50"
-                      >
-                        {generating || generatingNarrations ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <RefreshCw className="h-4 w-4" />
-                        )}
-                        {generating || generatingNarrations ? "Trying again…" : "Try Again"}
-                      </button>
-                    </div>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-lg">
+                    <RefreshCw className="h-5 w-5 text-red-400" />
+                    <p className="text-xs font-medium text-red-500">Generation failed</p>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setGenerationFailed(false)
+                        const ok = await generateNarrations(slides, true)
+                        if (!ok) setGenerationFailed(true)
+                      }}
+                      disabled={generating || generatingNarrations}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white/80 px-3 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50"
+                    >
+                      {generating || generatingNarrations ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <RefreshCw className="h-3.5 w-3.5" />
+                      )}
+                      {generating || generatingNarrations ? "Trying again…" : "Try Again"}
+                    </button>
                   </div>
                 )}
               </div>
