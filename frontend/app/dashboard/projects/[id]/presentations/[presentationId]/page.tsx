@@ -141,6 +141,11 @@ export default function PresentationCreatePage() {
     }).catch(() => {})
   }
 
+  const handleImageDescriptionsChange = useCallback((v: Record<number, ImageDesc[]>) => {
+    setImageDescriptions((prev) => ({ ...prev, ...v }))
+    setDirty(true)
+  }, [])
+
   function handleStoragePathChange(path: string) {
     setStoragePath(path)
   }
@@ -501,7 +506,7 @@ export default function PresentationCreatePage() {
               slideData={slideData}
               onSlideDataChange={setSlideData}
               imageDescriptions={imageDescriptions}
-              onImageDescriptionsChange={(v) => { setImageDescriptions(v); setDirty(true) }}
+              onImageDescriptionsChange={handleImageDescriptionsChange}
               changedSlides={changedSlides}
               onChangedSlidesChange={handleChangedSlidesChange}
               selectedVoiceId={selectedVoiceId || null}

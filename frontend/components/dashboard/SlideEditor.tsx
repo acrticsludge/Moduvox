@@ -1546,12 +1546,9 @@ export function SlideEditor({
           presentationId={presentationId}
           cachedImageDescriptions={externalImageDescriptions?.[current.number]}
           imageDescLoading={imageDescLoading}
-          onImageDescriptionsUpdate={(descs) => {
-            onImageDescriptionsChange?.({
-              ...(externalImageDescriptions || {}),
-              [current.number]: descs,
-            })
-          }}
+            onImageDescriptionsUpdate={(descs) => {
+              onImageDescriptionsChange?.({ [current.number]: descs })
+            }}
           onClose={() => setShowSlideInfo(false)}
         />
       )}
