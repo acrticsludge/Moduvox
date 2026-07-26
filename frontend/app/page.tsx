@@ -5,6 +5,8 @@ import { Footer } from "@/components/landing/footer"
 import { UploadMockup } from "@/components/landing/mockups/upload-mockup"
 import { AnalyticsMockup } from "@/components/landing/mockups/analytics-mockup"
 
+export const revalidate = 3600
+
 export default function Home() {
   return (
     <main className="bg-[#F9FAFB] text-[#18181B]">

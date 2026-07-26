@@ -5,6 +5,8 @@ import { FeaturesSection } from "@/components/landing/features-section"
 import { Footer } from "@/components/landing/footer"
 import { CompareMockup } from "@/components/landing/mockups/compare-mockup"
 
+export const revalidate = 3600
+
 export const metadata: Metadata = {
   title: "Features — Moduvox",
   description: "Explore Moduvox features: AI narration, voice cloning, slide editing, viewer analytics, and team sharing.",

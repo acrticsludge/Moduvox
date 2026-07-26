@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import { useParams, useSearchParams } from "next/navigation"
 import dynamic from "next/dynamic"
+import { Skeleton } from "@/components/ui/skeleton"
 
 import { EmailSentScreen } from "@/components/view/EmailSentScreen"
 import { VerifyErrorScreen } from "@/components/view/VerifyErrorScreen"
@@ -630,8 +631,9 @@ export default function ViewPresentationPage() {
                 </div>
               )}
               {slidesLoading ? (
-                <div className="flex min-h-[60vh] flex-1 items-center justify-center">
-                  <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-600" />
+                <div className="flex min-h-[60vh] flex-1 flex-col items-center justify-center p-6">
+                  <Skeleton className="mb-4 h-6 w-48" />
+                  <Skeleton className="h-[400px] w-full max-w-4xl rounded-xl" />
                 </div>
               ) : slides && slides.length > 0 ? (
                 <>

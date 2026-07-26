@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation"
 import { Navbar } from "@/components/ui/Navbar"
 import { Footer } from "@/components/landing/footer"
 import { LayoutGrid, Mic, Settings, Archive, Menu, Loader2 } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
 import { createClient } from "@/lib/supabase/client"
 import { ErrorBoundary } from "react-error-boundary"
 
@@ -49,8 +50,38 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   if (checkingAuth) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#F9FAFB]">
-        <Loader2 className="h-6 w-6 animate-spin text-[#71717A]" />
+      <div className="flex min-h-screen bg-[#F9FAFB]">
+        {/* Sidebar */}
+        <aside className="hidden w-64 border-r border-zinc-200 bg-white p-4 md:block">
+          <Skeleton className="mb-8 h-6 w-24" />
+          <div className="space-y-2">
+            {[1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} className="h-10 w-full" />
+            ))}
+          </div>
+        </aside>
+        {/* Main content */}
+        <div className="flex flex-1 flex-col">
+          {/* Top bar */}
+          <header className="flex h-16 items-center justify-between border-b border-zinc-200 bg-white px-6">
+            <Skeleton className="h-5 w-32" />
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-8 w-8 rounded-full" />
+            </div>
+          </header>
+          {/* Content area */}
+          <main className="flex-1 p-6">
+            <Skeleton className="mb-6 h-8 w-40" />
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="rounded-xl border border-zinc-200 bg-white p-4">
+                  <Skeleton className="mb-3 h-5 w-3/4" />
+                  <Skeleton className="h-4 w-1/2" />
+                </div>
+              ))}
+            </div>
+          </main>
+        </div>
       </div>
     )
   }

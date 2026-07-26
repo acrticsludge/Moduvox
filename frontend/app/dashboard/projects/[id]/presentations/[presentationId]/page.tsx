@@ -11,6 +11,7 @@ import { PptxUploadZone } from "@/components/dashboard/PptxUploadZone"
 import { SlideEditor } from "@/components/dashboard/SlideEditor"
 import dynamic from "next/dynamic"
 import { ErrorBoundary } from "@/components/dashboard/ErrorBoundary"
+import { Skeleton } from "@/components/ui/skeleton"
 
 const DeletePresentationDialog = dynamic(() => import("@/components/dashboard/DeletePresentationDialog").then(mod => mod.DeletePresentationDialog), { ssr: false })
 const RenamePresentationDialog = dynamic(() => import("@/components/dashboard/RenamePresentationDialog").then(mod => mod.RenamePresentationDialog), { ssr: false })
@@ -247,52 +248,52 @@ export default function PresentationCreatePage() {
     return (
       <>
         <div className="hidden md:block">
-          <div className="absolute bottom-0 left-0 top-0 z-30 w-80 animate-pulse border-r border-[var(--color-border-faint)] bg-white p-5">
+          <div className="absolute bottom-0 left-0 top-0 z-30 w-80 border-r border-[var(--color-border-faint)] bg-white p-5">
             <div className="space-y-6">
               <div className="space-y-2">
-                <div className="h-4 w-12 rounded bg-zinc-200" />
-                <div className="h-9 w-full rounded-lg bg-zinc-100" />
+                <Skeleton className="h-4 w-12" />
+                <Skeleton className="h-9 w-full" />
               </div>
               <div className="space-y-2">
-                <div className="h-4 w-32 rounded bg-zinc-200" />
-                <div className="h-[100px] w-full rounded-lg bg-zinc-100" />
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-[100px] w-full" />
               </div>
             </div>
           </div>
         </div>
         <div className="ml-0 mr-0 flex flex-1 flex-col md:ml-80 md:mr-[380px]">
-          <div className="flex animate-pulse flex-wrap items-center gap-2 border-b border-[var(--color-border-faint)] bg-white px-4 py-3 md:flex-nowrap md:px-6 md:py-4">
+          <div className="flex flex-wrap items-center gap-2 border-b border-[var(--color-border-faint)] bg-white px-4 py-3 md:flex-nowrap md:px-6 md:py-4">
             <div className="flex items-center gap-2">
-              <div className="h-4 w-20 rounded bg-zinc-200" />
-              <div className="h-3.5 w-3.5 rounded bg-zinc-200" />
-              <div className="h-4 w-24 rounded bg-zinc-200" />
-              <div className="h-3.5 w-3.5 rounded bg-zinc-200" />
-              <div className="h-4 w-28 rounded bg-zinc-200" />
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-3.5 w-3.5" />
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-3.5 w-3.5" />
+              <Skeleton className="h-4 w-28" />
             </div>
           </div>
-          <div className="flex flex-1 animate-pulse items-center justify-center bg-zinc-100">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-600" />
+          <div className="flex flex-1 items-center justify-center bg-zinc-100">
+            <Skeleton className="h-8 w-8 rounded-full" />
           </div>
         </div>
         <div className="hidden md:block">
-          <div className="absolute bottom-0 right-0 top-0 z-20 w-[380px] animate-pulse border-l border-[var(--color-border-faint)] bg-white p-6">
+          <div className="absolute bottom-0 right-0 top-0 z-20 w-[380px] border-l border-[var(--color-border-faint)] bg-white p-6">
             <div className="flex flex-col gap-5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
-                  <div className="h-4 w-10 rounded bg-zinc-200" />
-                  <div className="h-6 w-12 rounded border border-zinc-200 bg-zinc-50" />
+                  <Skeleton className="h-4 w-10" />
+                  <Skeleton className="h-6 w-12" />
                 </div>
                 <div className="flex gap-1">
-                  <div className="h-7 w-7 rounded bg-zinc-100" />
-                  <div className="h-7 w-7 rounded bg-zinc-100" />
+                  <Skeleton className="h-7 w-7" />
+                  <Skeleton className="h-7 w-7" />
                 </div>
               </div>
-              <div className="h-10 w-full rounded-lg bg-zinc-100" />
+              <Skeleton className="h-10 w-full" />
               <div className="space-y-2">
-                <div className="h-4 w-28 rounded bg-zinc-200" />
-                <div className="h-[120px] w-full rounded-lg bg-zinc-100" />
+                <Skeleton className="h-4 w-28" />
+                <Skeleton className="h-[120px] w-full" />
               </div>
-              <div className="h-9 w-full rounded-lg bg-zinc-100" />
+              <Skeleton className="h-9 w-full" />
             </div>
           </div>
         </div>
