@@ -44,7 +44,7 @@ export const POST = withApiHandler(async (request: Request) => {
   // Fetch voice, verify ownership
   const { data: voice, error: fetchError } = await supabase
     .from("voices")
-    .select("id, user_id, type, preset_id, control_instruction, sample_path, preview_audio_path")
+    .select("id, user_id, type, preset_id, control_instruction, sample_path, preview_audio_path, gender")
     .eq("id", voice_id)
     .single()
 

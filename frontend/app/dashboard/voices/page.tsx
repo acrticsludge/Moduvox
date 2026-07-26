@@ -21,17 +21,24 @@ type Voice = {
   sample_duration_seconds: number | null
   emotion_default: string
   control_instruction: string | null
+  gender: "male" | "female" | "neutral" | null
   is_active: boolean
   created_at: string
 }
 
 const PRESET_VOICES = [
-  { id: "calm-female", label: "Calm Female", description: "Warm, steady, reassuring. Ideal for policy and compliance training." },
-  { id: "energetic-male", label: "Energetic Male", description: "Upbeat, engaging. Good for onboarding and introductions." },
-  { id: "soft-narrator", label: "Soft Narrator", description: "Gentle and measured. Fits detailed explanations and tutorials." },
-  { id: "professional-tone", label: "Professional Tone", description: "Clear, authoritative. Suits formal business content." },
-  { id: "warm-friendly", label: "Warm Friendly", description: "Approachable, conversational. Makes complex topics feel simple." },
+  { id: "calm-female", label: "Calm Female", description: "Warm, steady, reassuring. Ideal for policy and compliance training.", gender: "female" as const },
+  { id: "energetic-male", label: "Energetic Male", description: "Upbeat, engaging. Good for onboarding and introductions.", gender: "male" as const },
+  { id: "soft-narrator", label: "Soft Narrator", description: "Gentle and measured. Fits detailed explanations and tutorials.", gender: "neutral" as const },
+  { id: "professional-tone", label: "Professional Tone", description: "Clear, authoritative. Suits formal business content.", gender: "neutral" as const },
+  { id: "warm-friendly", label: "Warm Friendly", description: "Approachable, conversational. Makes complex topics feel simple.", gender: "neutral" as const },
 ]
+
+const GENDER_LABELS: Record<string, string> = {
+  male: "a male voice",
+  female: "a female voice",
+  neutral: "a voice",
+}
 
 const PRESET_CONTROL_INSTRUCTIONS: Record<string, string> = {
   "calm-female": "A calm, warm female voice with a steady and reassuring tone. Ideal for policy and compliance training content.",
@@ -39,6 +46,17 @@ const PRESET_CONTROL_INSTRUCTIONS: Record<string, string> = {
   "soft-narrator": "A gentle, measured voice with a soft delivery. Fits detailed explanations and tutorial-style content.",
   "professional-tone": "A clear, authoritative voice with a professional business tone. Suits formal business content.",
   "warm-friendly": "An approachable, conversational voice that makes complex topics feel simple and accessible.",
+}
+
+/** Build a control instruction that includes the gender specification. */
+function buildControlInstruction(base: string, gender: string | null | undefined): string {
+  const genderPhrase = GENDER_LABELS[gender || "neutral"] || "a voice"
+  if (base.toLowerCase().includes("voice")) return base // already has gender context
+  // Prepend the gender if not already specified
+  if (base.toLowerCase().startsWith("a ")) {
+    return base.replace(/^a /i, `A ${genderPhrase.replace(/^a /, "")}, `)
+  }
+  return `${genderPhrase.charAt(0).toUpperCase() + genderPhrase.slice(1)}. ${base}`
 }
 
 // ── Helpers ──────────────────────────────────────────
@@ -231,6 +249,7 @@ function AddVoiceModal({
   const [cloneTab, setCloneTab] = useState<"upload" | "record">("upload")
   const [file, setFile] = useState<File | null>(null)
   const [voiceConsent, setVoiceConsent] = useState(false)
+  const [voiceGender, setVoiceGender] = useState<"male" | "female" | "neutral" | "">("")
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [quotaResult, setQuotaResult] = useState<QuotaResult | null>(null)
@@ -271,6 +290,7 @@ function AddVoiceModal({
           type: "preset",
           preset_id: selectedPreset,
           control_instruction: resolvedInstruction,
+          gender: voiceGender || null,
         }),
       })
       const json = await res.json()
@@ -346,6 +366,7 @@ function AddVoiceModal({
           name: voiceName.trim(),
           emotion_default: "calm",
           consent: voiceConsent,
+          gender: voiceGender || null,
         }),
       })
       const confirmJson = await confirmRes.json()
@@ -438,7 +459,14 @@ function AddVoiceModal({
                   <button
                     key={pv.id}
                     type="button"
-                    onClick={() => setSelectedPreset(selectedPreset === pv.id ? null : pv.id)}
+                    onClick={() => {
+                      if (selectedPreset === pv.id) {
+                        setSelectedPreset(null)
+                      } else {
+                        setSelectedPreset(pv.id)
+                        setVoiceGender(pv.gender || "")
+                      }
+                    }}
                     className={`flex items-start gap-3 rounded-xl border p-3 text-left transition-all ${
                       selectedPreset === pv.id
                         ? "border-[#18181B] bg-zinc-50"
@@ -479,6 +507,29 @@ function AddVoiceModal({
                 placeholder="e.g. Training Narrator"
                 className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm text-[#18181B] outline-none transition-colors placeholder:text-zinc-500 focus:border-zinc-400"
               />
+            </div>
+
+            {/* Gender selection */}
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-[#18181B]">
+                Voice gender
+              </label>
+              <div className="flex gap-2">
+                {(["male", "female", "neutral"] as const).map((g) => (
+                  <button
+                    key={g}
+                    type="button"
+                    onClick={() => setVoiceGender(voiceGender === g ? "" : g)}
+                    className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-all ${
+                      voiceGender === g
+                        ? "border-[#18181B] bg-[#18181B] text-white"
+                        : "border-zinc-200 text-zinc-600 hover:border-zinc-300"
+                    }`}
+                  >
+                    {g.charAt(0).toUpperCase() + g.slice(1)}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Control instruction — only for custom presets */}
@@ -650,6 +701,29 @@ function AddVoiceModal({
                 placeholder="e.g. My Training Voice"
                 className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm text-[#18181B] outline-none transition-colors placeholder:text-zinc-500 focus:border-zinc-400"
               />
+            </div>
+
+            {/* Gender selection */}
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-[#18181B]">
+                Voice gender
+              </label>
+              <div className="flex gap-2">
+                {(["male", "female", "neutral"] as const).map((g) => (
+                  <button
+                    key={g}
+                    type="button"
+                    onClick={() => setVoiceGender(voiceGender === g ? "" : g)}
+                    className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-all ${
+                      voiceGender === g
+                        ? "border-[#18181B] bg-[#18181B] text-white"
+                        : "border-zinc-200 text-zinc-600 hover:border-zinc-300"
+                    }`}
+                  >
+                    {g.charAt(0).toUpperCase() + g.slice(1)}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Voice cloning consent */}

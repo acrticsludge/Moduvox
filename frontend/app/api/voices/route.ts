@@ -19,7 +19,7 @@ export const GET = withApiHandler(async (request: Request) => {
 
   const query = supabase
     .from("voices")
-    .select("id, name, type, preset_id, control_instruction, sample_path, preview_audio_path, sample_duration_seconds, emotion_default, is_active, created_at", { count: "exact" })
+    .select("id, name, type, preset_id, control_instruction, sample_path, preview_audio_path, sample_duration_seconds, emotion_default, gender, is_active, created_at", { count: "exact" })
     .eq("user_id", user.id)
     .eq("is_active", true)
     .order("created_at", { ascending: false })
@@ -69,6 +69,7 @@ export const POST = withApiHandler(async (request: Request) => {
       sample_path: null,
       sample_duration_seconds: null,
       emotion_default: parsed.data.emotion_default,
+      gender: parsed.data.gender || null,
     })
     .select()
     .single()
