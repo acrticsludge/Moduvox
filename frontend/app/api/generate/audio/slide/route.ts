@@ -48,7 +48,7 @@ export const POST = withApiHandler(async (request: Request) => {
     if (voice_id) {
       const { data: voice } = await supabase
         .from("voices")
-        .select("type, sample_path, control_instruction")
+        .select("type, sample_path, control_instruction, gender")
         .eq("id", voice_id)
         .eq("user_id", user.id)
         .single()
@@ -57,6 +57,10 @@ export const POST = withApiHandler(async (request: Request) => {
         const refResult = await downloadFileAsBuffer(voice.sample_path)
         if (refResult.success) {
           refFile = new File([new Uint8Array(refResult.data)], "sample.wav", { type: "audio/wav" })
+          // Use the voice's control_instruction (set at clone creation) as tone instructions,
+          // falling back to the frontend's voice_description. Without this, VoxCPM2 gets a
+          // generic description and produces inconsistent voice characteristics per slide.
+          voiceDesc = voice?.control_instruction || voice_description || "Natural, clear, professional speaking voice"
         } else {
           throw new Error("Cloned voice reference audio not found. Please re-upload your voice sample.")
         }
