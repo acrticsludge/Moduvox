@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import Script from "next/script";
-import dynamic from "next/dynamic";
+import { ClientToaster } from "@/components/ClientToaster";
 import { UnhandledRejectionHandler } from "@/components/UnhandledRejectionHandler";
 import { Clarity } from "@/components/Clarity";
 import { CookieConsentBanner } from "@/components/CookieConsentBanner";
@@ -17,10 +17,6 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
-
-const Toaster = dynamic(() => import("react-hot-toast").then((m) => m.Toaster), {
-  ssr: false,
-})
 
 const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://moduvox.pulsemonitor.dev"
 
@@ -77,7 +73,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col">
         <UnhandledRejectionHandler />
-        <Toaster position="top-center" />
+        <ClientToaster />
         {children}
         <CookieConsentBanner />
         <Analytics />
