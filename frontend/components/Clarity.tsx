@@ -1,14 +1,22 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Script from "next/script";
 
-const CLARITY_ID =
-  process.env.NEXT_PUBLIC_CLARITY_ID || "xlottry59u";
+const CLARITY_ID = process.env.NEXT_PUBLIC_CLARITY_ID || "xlottry59u";
+const CONSENT_KEY = "moduvox_cookie_consent";
 
 export function Clarity() {
-  if (process.env.NODE_ENV !== "production") {
-    return null;
-  }
+  if (process.env.NODE_ENV !== "production") return null;
+
+  const [consented, setConsented] = useState(false);
+
+  useEffect(() => {
+    const stored = localStorage.getItem(CONSENT_KEY);
+    if (stored === "accepted") setConsented(true);
+  }, []);
+
+  if (!consented) return null;
 
   return (
     <Script

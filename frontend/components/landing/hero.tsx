@@ -1,19 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
-import type { User } from "@supabase/supabase-js";
 import { EditorMockup } from "./mockups/editor-mockup";
 
 const SPRING = "cubic-bezier(0.34, 1.56, 0.64, 1)";
 
 export function Hero() {
-  const [user, setUser] = useState<User | null>(null);
-  const supabase = createClient();
+  const [user, setUser] = useState<{ id: string } | null>(null);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUser(data.user ?? null));
-  }, [supabase]);
+    fetch("/api/auth/me")
+      .then((res) => (res.ok ? res.json() : { user: null }))
+      .then((data) => setUser(data.user))
+      .catch(() => setUser(null));
+  }, []);
 
   return (
     <section className="mx-auto max-w-[1400px] px-4 pb-20 pt-36 sm:px-6 lg:px-8 lg:pt-44">

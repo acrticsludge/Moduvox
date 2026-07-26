@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { Menu, X } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
-import type { User } from "@supabase/supabase-js";
 
 const NAV_LINKS = [
   { label: "Features", href: "/features" },
@@ -17,20 +15,14 @@ const SPRING = "cubic-bezier(0.34,1.56,0.64,1)";
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [user, setUser] = useState<User | null>(null);
-  const supabase = createClient();
+  const [user, setUser] = useState<{ id: string } | null>(null);
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getUser().then(({ data }) => setUser(data.user ?? null));
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
-
-    return () => subscription.unsubscribe();
-  }, [supabase]);
+    fetch("/api/auth/me")
+      .then((res) => (res.ok ? res.json() : { user: null }))
+      .then((data) => setUser(data.user))
+      .catch(() => setUser(null));
+  }, []);
 
   // Navbar is transparent + absolute over the Canvas; gains a Surface backdrop
   // once scrolled so Charcoal text stays legible over content below.
