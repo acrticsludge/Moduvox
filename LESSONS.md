@@ -1,3 +1,13 @@
+## 2026-07-26: [Performance] API response compression via zlib in withApiHandler
+
+**What happened:** All 44 JSON API routes had no compression. Responses went over the wire at full size, adding download latency for users.
+
+**Root cause:** No compression was applied at the Route Handler level. Vercel's edge network may apply gzip/brotli for some responses, but the origin-to-edge link still sends full-size data, and local dev has no compression at all.
+
+**Fix:** Added `compressResponse` to `withApiHandler` (the single choke point for all API routes). Uses Node.js `zlib.gzipSync` at level 6 for JSON responses ≥ 1KB. Skips small responses, non-JSON, error statuses, and already-compressed responses. Sets `Content-Encoding: gzip` and `Vary: Accept-Encoding`. Benchmark across 7 representative payloads: bandwidth reduced **92.7%** (100 KB → 7 KB), compression overhead adds **~376 μs per response** (≈0.4 ms — imperceptible to users).
+
+**Prevention:** Any new API route handler that uses `withApiHandler` gets compression for free. Routes bypassing `withApiHandler` need explicit compression or a good reason not to use it.
+
 ## 2026-07-12: [Bug] LibreOffice produces PDF at unpredictable filename in Docker
 
 **What happened:** `soffice --headless --convert-to pdf --outdir /tmp/convert input.pptx` reported success but the expected `/tmp/convert/input.pdf` didn't exist, causing "LibreOffice did not produce output PDF" errors.
