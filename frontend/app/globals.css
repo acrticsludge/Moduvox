@@ -76,6 +76,25 @@ body {
   }
 }
 
+/* Thin rounded scrollbar for modals — respects border-radius without clipping */
+@utility thin-scrollbar {
+  overflow-y: auto;
+  &::-webkit-scrollbar {
+    width: 5px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: hsl(0 0% 80%);
+    border-radius: 999px;
+    background-clip: content-box;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background: hsl(0 0% 60%);
+  }
+}
+
 @utility touch-target {
   @apply flex min-h-[48px] min-w-[48px] items-center justify-center;
 }
