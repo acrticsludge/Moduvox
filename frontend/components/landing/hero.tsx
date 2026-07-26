@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
-import { SlideThumbnail } from "./mockups/slide-thumbnail";
 import { EditorMockup } from "./mockups/editor-mockup";
 
 const SPRING = "cubic-bezier(0.34, 1.56, 0.64, 1)";

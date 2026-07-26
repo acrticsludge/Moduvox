@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import Script from "next/script";
-import { Toaster } from "react-hot-toast";
+import dynamic from "next/dynamic";
 import { UnhandledRejectionHandler } from "@/components/UnhandledRejectionHandler";
 import { Clarity } from "@/components/Clarity";
 import { CookieConsentBanner } from "@/components/CookieConsentBanner";
@@ -17,6 +17,10 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
+
+const Toaster = dynamic(() => import("react-hot-toast").then((m) => m.Toaster), {
+  ssr: false,
+})
 
 const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://moduvox.pulsemonitor.dev"
 
@@ -66,6 +70,11 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
+      <head>
+        <link rel="preconnect" href="https://www.googletagmanager.com" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://scripts.clarity.ms" />
+        <link rel="preconnect" href="https://bbsvzakecjinduiejoma.supabase.co" />
+      </head>
       <body className="min-h-full flex flex-col">
         <UnhandledRejectionHandler />
         <Toaster position="top-center" />
@@ -77,9 +86,9 @@ export default function RootLayout({
           <>
             <Script
               src={`https://www.googletagmanager.com/gtag/js?id=${process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID}`}
-              strategy="beforeInteractive"
+              strategy="afterInteractive"
             />
-            <Script id="google-analytics" strategy="beforeInteractive">
+            <Script id="google-analytics" strategy="afterInteractive">
               {`
                 window.dataLayer = window.dataLayer || [];
                 function gtag(){dataLayer.push(arguments);}

@@ -1,9 +1,15 @@
+import dynamic from "next/dynamic"
 import { Navbar } from "@/components/ui/Navbar"
 import { Hero } from "@/components/landing/hero"
 import { FeatureSection } from "@/components/landing/feature-section"
 import { Footer } from "@/components/landing/footer"
-import { UploadMockup } from "@/components/landing/mockups/upload-mockup"
-import { AnalyticsMockup } from "@/components/landing/mockups/analytics-mockup"
+
+const AnalyticsMockup = dynamic(() =>
+  import("@/components/landing/mockups/analytics-mockup").then((m) => m.AnalyticsMockup),
+)
+const UploadMockup = dynamic(() =>
+  import("@/components/landing/mockups/upload-mockup").then((m) => m.UploadMockup),
+)
 
 export const revalidate = 3600
 
