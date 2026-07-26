@@ -178,8 +178,17 @@ export function SlideEditor({
         const res = await fetch(`/api/presentations/${presId}/slides`)
         const json = await res.json()
         if (json.data?.completed) {
+          const slides = json.data.slides || []
+          // Defense: don't trust completed=true unless we have the expected number of slides.
+          // Before the confirm route sets slide_count in the DB, the API returns
+          // completed=true with zero slides (slideCount=0), causing "could not be loaded".
+          if (slides.length < slideCount) {
+            // Keep polling — conversion is still in progress
+            setTimeout(poll, POLL_INTERVAL)
+            return
+          }
           const urls: (string | null)[] = []
-          for (const slide of json.data.slides) {
+          for (const slide of slides) {
             urls[slide.slideNumber - 1] = slide.pdfUrl
           }
           setPdfUrls(urls)

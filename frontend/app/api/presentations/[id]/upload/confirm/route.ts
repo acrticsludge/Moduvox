@@ -50,10 +50,12 @@ export const POST = withApiHandler(async (
     }
   }
 
-  // Update presentation status
+  // Update presentation status + slide count
+  // slide_count MUST be set before pollForPdfs reads it, otherwise the slides API
+  // returns completed:true with zero slides and the UI shows "could not be loaded"
   await supabase
     .from("presentations")
-    .update({ status: "ready" })
+    .update({ status: "ready", slide_count: slideCount })
     .eq("id", presentationId)
 
   // ── Fire PDF conversion in background ──
