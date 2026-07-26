@@ -1,3 +1,13 @@
+## 2026-07-26: [Performance] Lighthouse score 25→target 50+ with JS bundle, preconnect, & image optimizations
+
+**What happened:** Lighthouse audit showed Performance score 25 — TBT 5,850ms, unused JS 1,294 KiB, JS execution 7.6s. Browser extensions (AI Chat, Loom) inflated ~40% of the metrics but our own code was still 3.4s of main thread time.
+
+**Root cause:** (1) GA's `beforeInteractive` blocked initial render. (2) `react-hot-toast` Toaster was in the initial bundle despite being rarely used on landing. (3) All landing page sections were eagerly imported (no dynamic imports for below-fold content). (4) No preconnect hints for 3rd party origins. (5) Sentry's BrowserTracing (~108 KiB) and Replay (~75 KiB) were in the client bundle by default. (6) `lucide-react` was fully bundled without package-level tree-shaking. (7) Logo images lacked explicit width/height.
+
+**Fix:** GA → `afterInteractive`; Toaster → `dynamic({ssr:false})`; below-fold mockups → `dynamic()`; added `optimizePackageImports: ["lucide-react"]`; created `sentry.client.config.ts` excluding BrowserTracing + Replay with production-only init; added preconnect hints for 3 origins; added width/height to logo images.
+
+**Prevention:** Run Lighthouse before shipping. Use `next/dynamic` for any component not visible above the fold. Configure Sentry client explicitly (default config includes heavy tracing/replay). Set preconnect hints for all 3rd party origins. Use `optimizePackageImports` for icon libraries.
+
 ## 2026-07-26: [Performance] API response compression via zlib in withApiHandler
 
 **What happened:** All 44 JSON API routes had no compression. Responses went over the wire at full size, adding download latency for users.
