@@ -10,6 +10,7 @@ const confirmSchema = z.object({
   name: z.string().min(1).max(100),
   emotion_default: z.string().optional(),
   consent: z.boolean().refine((v) => v === true, { message: "Consent is required" }),
+  gender: z.enum(["male", "female", "neutral"]).optional().nullable(),
 })
 
 /**
@@ -39,7 +40,7 @@ export const POST = withApiHandler(async (request: Request) => {
     )
   }
 
-  const { path: filePath, name, emotion_default: emotionDefault, consent } = parsed.data
+  const { path: filePath, name, emotion_default: emotionDefault, consent, gender } = parsed.data
 
   // Extract client metadata for audit trail
   const forwardedFor = request.headers.get("x-forwarded-for")
@@ -61,6 +62,7 @@ export const POST = withApiHandler(async (request: Request) => {
       consent_timestamp: new Date().toISOString(),
       consent_ip: ip,
       consent_user_agent: userAgent,
+      gender: gender || null,
     })
     .select()
     .single()

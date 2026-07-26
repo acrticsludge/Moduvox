@@ -23,6 +23,7 @@ type Voice = {
   type: "preset" | "cloned"
   preset_id: string | null
   control_instruction: string | null
+  gender?: "male" | "female" | "neutral" | null
 }
 
 export function CreatePageSidebar({
@@ -67,7 +68,7 @@ export function CreatePageSidebar({
         if (!user) { setVoicesLoading(false); return }
         return supabase
           .from("voices")
-          .select("id, name, type, preset_id, control_instruction")
+          .select("id, name, type, preset_id, control_instruction, gender")
           .eq("user_id", user.id)
           .order("created_at", { ascending: false })
           .then(({ data }) => {
