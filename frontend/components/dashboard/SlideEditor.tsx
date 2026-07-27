@@ -236,12 +236,20 @@ export function SlideEditor({
             const xhr = new XMLHttpRequest()
             xhr.open("PUT", json.data.presignedUrl)
             xhr.setRequestHeader("Content-Type", "application/vnd.openxmlformats-officedocument.presentationml.presentation")
+            xhr.timeout = 120_000 // 2 min
             xhr.upload.onprogress = (e) => {
               if (e.lengthComputable) {
                 setUploadProgress(Math.round((e.loaded / e.total) * 100))
               }
             }
-            xhr.onerror = () => {} // silent — file is still on local disk for parsing
+            xhr.onerror = () => {
+              console.error("[Upload] XHR error — upload failed")
+              setLoadError("Upload failed. Check your connection and try again.")
+            }
+            xhr.ontimeout = () => {
+              console.error("[Upload] XHR timeout — upload timed out")
+              setLoadError("Upload timed out. Try a smaller file or check your connection.")
+            }
             xhr.send(file)
           }
         } catch {
