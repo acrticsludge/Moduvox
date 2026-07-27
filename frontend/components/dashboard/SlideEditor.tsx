@@ -590,10 +590,7 @@ export function SlideEditor({
     fetch(combinedUrl, { method: "HEAD" }).catch(() => {})
   }
 
-  async function handleGenerate(
-    selectedSlides?: Set<number>,
-    reason: 'voice_changed' | 'content_changed' = 'voice_changed',
-  ) {
+  async function handleGenerate(selectedSlides?: Set<number>) {
     if (!selectedVoiceId) {
       toastError("Select a voice before generating audio.")
       setGenerating(false)
@@ -606,22 +603,11 @@ export function SlideEditor({
       ? slides.filter((s) => selectedSlides.has(s.number))
       : slides
 
-    // When reason is 'voice_changed' (settings change, not content change),
-    // skip Gemini and use existing narrations. This prevents unnecessary
-    // Gemini calls that fail on sparse slide content.
-    let currentNarrations: Record<number, string> = { ...narrations }
-    if (reason === 'content_changed') {
-      const result = await generateNarrations(targetSlides, false)
-      if (result) {
-        currentNarrations = result
-        setGenerationFailed(false)
-      }
-    }
-
-    // Build the list of slides needing audio, using the latest narrations
+    // Use current narration text — no Gemini re-generation.
+    // If the user wants fresh AI narrations, there's a separate "Re-generate AI" button.
     const sorted = targetSlides.slice().sort((a, b) => a.number - b.number)
     const slideTexts = sorted
-      .map((s) => ({ number: s.number, text: currentNarrations[s.number] || "", title: s.title }))
+      .map((s) => ({ number: s.number, text: narrations[s.number] || "", title: s.title }))
       .filter((s) => s.text.trim())
 
     // Show progress — set initial state before generation
@@ -1719,7 +1705,7 @@ export function SlideEditor({
           onConfirm={() => {
             setRegenStep("generating")
             setShowRegenModal(true)
-            handleGenerate(voiceChangedSinceAudio ? undefined : new Set(changedSlides), "voice_changed")
+            handleGenerate(voiceChangedSinceAudio ? undefined : new Set(changedSlides))
               .then(() => {
                 // After generation finishes (even with partial failures), show complete step
                 setRegenStep("complete")
@@ -1746,7 +1732,7 @@ export function SlideEditor({
           onRetry={() => {
             setRegenStep("generating")
             setGenerating(true)
-            handleGenerate(voiceChangedSinceAudio ? undefined : new Set(changedSlides), "voice_changed")
+            handleGenerate(voiceChangedSinceAudio ? undefined : new Set(changedSlides))
               .then(() => setRegenStep("complete"))
               .catch(() => setRegenStep("complete"))
           }}
