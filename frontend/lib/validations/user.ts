@@ -5,3 +5,9 @@ export const updateProfileSchema = z.object({
 }).strict()
 
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>
+
+// User settings type for API key management
+export type UserSettings = {
+  geminiApiKey: string | null
+  nimApiKey: string | null
+}
