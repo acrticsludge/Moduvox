@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createPresetVoiceSchema } from "@/lib/validations/voice"
 import { checkPresetVoiceQuota, quotaBlockResponse } from "@/lib/quota"
 import { withApiHandler } from "@/lib/api-handler"
+import { getPreset } from "@/lib/presets"
 
 export const GET = withApiHandler(async (request: Request) => {
   const supabase = await createClient()
@@ -50,6 +51,17 @@ export const POST = withApiHandler(async (request: Request) => {
       { error: "Validation failed", details: parsed.error.flatten().fieldErrors },
       { status: 422 },
     )
+  }
+
+  // Validate gender matches built-in preset if preset_id is set
+  if (parsed.data.preset_id) {
+    const preset = getPreset(parsed.data.preset_id)
+    if (preset && parsed.data.gender !== preset.gender) {
+      return NextResponse.json({
+        error: "Gender mismatch",
+        details: { gender: [`Built-in preset "${preset.label}" requires gender "${preset.gender}".`] },
+      }, { status: 422 })
+    }
   }
 
   // Check free tier preset voice quota
