@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { deleteFile } from "@/lib/r2"
 import { withApiHandler } from "@/lib/api-handler"
+import { deleteVoicePreview } from "@/lib/generate-preview"
 
 export const DELETE = withApiHandler(async (
   _request: Request,
@@ -15,10 +16,10 @@ export const DELETE = withApiHandler(async (
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  // Fetch the voice first to check ownership and get sample_path
+  // Fetch the voice first to check ownership and get file paths
   const { data: voice, error: fetchError } = await supabase
     .from("voices")
-    .select("id, user_id, sample_path")
+    .select("id, user_id, sample_path, preview_audio_path")
     .eq("id", id)
     .single()
 
@@ -30,10 +31,11 @@ export const DELETE = withApiHandler(async (
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
-  // If it has a sample file, delete it from R2
+  // Clean up R2 files: sample + preview
   if (voice.sample_path) {
     await deleteFile(voice.sample_path)
   }
+  await deleteVoicePreview(voice.preview_audio_path)
 
   const { error: deleteError } = await supabase
     .from("voices")
