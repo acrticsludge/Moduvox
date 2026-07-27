@@ -878,7 +878,21 @@ export function SlideEditor({
   }
 
   const slideViewerRef = useRef<HTMLDivElement>(null)
+  const fullscreenContainerRef = useRef<HTMLElement | null>(null)
   const { isFullscreen, supported, toggle } = useFullscreen()
+
+  // Add/remove body class for fullscreen to hide navbar/sidebar outside this component
+  useEffect(() => {
+    if (isFullscreen) {
+      document.body.classList.add("editor-fullscreen")
+    } else {
+      document.body.classList.remove("editor-fullscreen")
+    }
+    return () => document.body.classList.remove("editor-fullscreen")
+  }, [isFullscreen])
+
+  const currentSlideNum = current?.number ?? 0
+  const totalSlides = slides.length
 
   // Ref to clean up rate limit countdown interval on unmount
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -976,7 +990,7 @@ export function SlideEditor({
     <>
       <div className="flex flex-1 flex-col">
       {/* Left — PDF-based slide viewer */}
-      <div className="relative flex flex-1 flex-col bg-zinc-100">
+      <div ref={(el) => { if (el) fullscreenContainerRef.current = el }} className="relative flex flex-1 flex-col bg-zinc-100">
         {/* Processing overlay during re-upload */}
         {reUploading ? (
           <div className="flex h-full min-h-[60vh] flex-col items-center justify-center gap-3">
@@ -1072,74 +1086,130 @@ export function SlideEditor({
           </div>
         ) : pdfUrls.length > 0 ? (
           <>
-            <div ref={slideViewerRef} id="slide-viewer" className="relative flex flex-1 items-center justify-center p-4">
+            <div
+              ref={slideViewerRef}
+              className={`relative flex flex-1 items-center justify-center transition-all ${
+                isFullscreen ? "p-0" : "p-4"
+              }`}
+            >
               <SlidePdfViewer
                 pdfUrl={pdfUrls[currentIndex] ?? null}
+                slideWidth={isFullscreen ? Math.min(window.innerWidth * 0.85, window.innerHeight * 0.8 / 0.75, 1400) : undefined}
                 onLoadError={() => {
                   console.error(`[Editor] Failed to load PDF for slide ${currentIndex + 1}`)
                 }}
               />
+
+              {/* Fullscreen hover overlay — navigation + exit */}
+              {isFullscreen && (
+                <div className="absolute inset-0 z-50 flex items-center justify-between opacity-0 transition-opacity duration-300 hover:opacity-100">
+                  {/* Previous slide */}
+                  <button
+                    type="button"
+                    onClick={() => jumpToSlide(currentSlideNum - 1)}
+                    disabled={currentIndex === 0}
+                    className="mx-4 flex h-12 w-12 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition-colors hover:bg-black/70 disabled:opacity-20 disabled:cursor-not-allowed"
+                    aria-label="Previous slide"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+                  </button>
+
+                  {/* Next slide */}
+                  <button
+                    type="button"
+                    onClick={() => jumpToSlide(currentSlideNum + 1)}
+                    disabled={currentIndex >= totalSlides - 1}
+                    className="mx-4 flex h-12 w-12 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition-colors hover:bg-black/70 disabled:opacity-20 disabled:cursor-not-allowed"
+                    aria-label="Next slide"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                  </button>
+
+                  {/* Top bar: slide counter + exit fullscreen */}
+                  <div className="absolute left-0 right-0 top-0 flex items-center justify-between p-4">
+                    <span className="rounded-full bg-black/50 px-3 py-1 text-xs text-white backdrop-blur-sm">
+                      {currentSlideNum} / {totalSlides}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => toggle(fullscreenContainerRef.current!)}
+                      className="flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition-colors hover:bg-black/70"
+                      aria-label="Exit full screen"
+                    >
+                      <Minimize2 className="h-4 w-4" />
+                    </button>
+                  </div>
+
+                  {/* Bottom hint */}
+                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-black/40 px-3 py-1 text-xs text-white/70 backdrop-blur-sm">
+                    ← → arrow keys to navigate · Esc to exit
+                  </div>
+                </div>
+              )}
             </div>
-            <div className="absolute bottom-3 right-3 flex flex-wrap justify-end gap-1.5">
-              <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-[#71717A] shadow-sm transition-colors hover:text-[#18181B]">
-                <FileText className="h-3 w-3" />
-                Re-upload
-                <input
-                  type="file"
-                  accept=".pptx"
-                  className="hidden"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0]
-                    if (f) handleReUploadFile(f)
-                    e.target.value = ""
-                    setRemoveConfirm(false)
-                  }}
-                />
-              </label>
-              <button
-                type="button"
-                onClick={() => {
-                  if (removeConfirm) {
-                    setRemoveConfirm(false)
-                    handleRemovePpt()
-                  } else {
-                    setRemoveConfirm(true)
-                  }
-                }}
-                disabled={removingPpt}
-                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium shadow-sm transition-colors ${
-                  removeConfirm
-                    ? "border-red-300 bg-red-50 text-red-600 hover:bg-red-100"
-                    : "border-zinc-200 bg-white text-[#71717A] hover:text-red-600"
-                }`}
-              >
-                {removingPpt ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : removeConfirm ? (
-                  "Confirm?"
-                ) : (
-                  "Remove PPT"
-                )}
-              </button>
-              {pdfUrls[currentIndex] && (
+
+            {/* Toolbar — hidden in fullscreen (replaced by overlay) */}
+            {!isFullscreen && (
+              <div className="absolute bottom-3 right-3 flex flex-wrap justify-end gap-1.5">
+                <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-[#71717A] shadow-sm transition-colors hover:text-[#18181B]">
+                  <FileText className="h-3 w-3" />
+                  Re-upload
+                  <input
+                    type="file"
+                    accept=".pptx"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0]
+                      if (f) handleReUploadFile(f)
+                      e.target.value = ""
+                      setRemoveConfirm(false)
+                    }}
+                  />
+                </label>
                 <button
                   type="button"
                   onClick={() => {
-                    if (supported && slideViewerRef.current) {
-                      toggle(slideViewerRef.current)
+                    if (removeConfirm) {
+                      setRemoveConfirm(false)
+                      handleRemovePpt()
                     } else {
-                      // Fallback: open PDF in new tab
+                      setRemoveConfirm(true)
+                    }
+                  }}
+                  disabled={removingPpt}
+                  className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium shadow-sm transition-colors ${
+                    removeConfirm
+                      ? "border-red-300 bg-red-50 text-red-600 hover:bg-red-100"
+                      : "border-zinc-200 bg-white text-[#71717A] hover:text-red-600"
+                  }`}
+                >
+                  {removingPpt ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : removeConfirm ? (
+                    "Confirm?"
+                  ) : (
+                    "Remove PPT"
+                  )}
+                </button>
+                {pdfUrls[currentIndex] && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                    if (supported && fullscreenContainerRef.current) {
+                      toggle(fullscreenContainerRef.current)
+                    } else {
                       window.open(pdfUrls[currentIndex]!, '_blank')
                     }
                   }}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-[#71717A] shadow-sm transition-colors hover:text-[#18181B]"
-                  title={isFullscreen ? "Exit full screen" : "Full screen"}
-                >
-                  {isFullscreen ? <Minimize2 className="h-3 w-3" /> : <Maximize2 className="h-3 w-3" />}
-                  {isFullscreen ? "Exit" : "Full screen"}
-                </button>
-              )}
-            </div>
+                  title="Full screen"
+                  >
+                    <Maximize2 className="h-3 w-3" />
+                    Full screen
+                  </button>
+                )}
+              </div>
+            )}
           </>
         ) : (
           <div className="flex h-full min-h-[60vh] items-center justify-center">

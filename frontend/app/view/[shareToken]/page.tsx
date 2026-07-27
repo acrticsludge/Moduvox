@@ -128,6 +128,16 @@ export default function ViewPresentationPage() {
   const viewerContentRef = useRef<HTMLDivElement>(null)
   const { isFullscreen, supported, toggle } = useFullscreen()
 
+  // Add/remove body class for viewer fullscreen
+  useEffect(() => {
+    if (isFullscreen) {
+      document.body.classList.add("viewer-fullscreen")
+    } else {
+      document.body.classList.remove("viewer-fullscreen")
+    }
+    return () => document.body.classList.remove("viewer-fullscreen")
+  }, [isFullscreen])
+
   useEffect(() => {
     const sessionFromUrl = searchParams.get("session")
     if (sessionFromUrl) {
@@ -640,55 +650,100 @@ export default function ViewPresentationPage() {
                 </div>
               ) : slides && slides.length > 0 ? (
                 <>
-                  <ViewSlide
-                    pdfUrl={slides[currentSlide]?.pdfUrl ?? null}
-                    slideNumber={currentSlide + 1}
-                    totalSlides={slides.length}
-                  />
-                  <div className="mt-4 flex items-center gap-4">
-                    <button
-                      type="button"
-                      onClick={() => goToSlide(currentSlide)}
-                      disabled={currentSlide === 0}
-                      className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-600 transition-colors hover:text-zinc-800 disabled:cursor-not-allowed disabled:opacity-30"
-                      aria-label="Previous slide"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
-                    </button>
-                    <span className="min-w-[60px] text-center text-sm tabular-nums text-zinc-500">
-                      {currentSlide + 1} / {slides.length}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (supported && viewerContentRef.current) {
-                          toggle(viewerContentRef.current)
-                        } else {
-                          // Fallback: open current PDF in new tab
-                          const url = slides[currentSlide]?.pdfUrl
-                          if (url) window.open(url, '_blank')
-                        }
-                      }}
-                      disabled={!slides[currentSlide]?.pdfUrl && !supported}
-                      className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-600 transition-colors hover:text-zinc-800 disabled:opacity-30"
-                      aria-label={isFullscreen ? "Exit full screen" : "Full screen"}
-                    >
-                      {isFullscreen ? (
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
-                      ) : (
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
-                      )}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => goToSlide(currentSlide + 2)}
-                      disabled={currentSlide >= slides.length - 1}
-                      className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-600 transition-colors hover:text-zinc-800 disabled:cursor-not-allowed disabled:opacity-30"
-                      aria-label="Next slide"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
-                    </button>
+                  <div className="group relative w-full max-w-5xl">
+                    <ViewSlide
+                      pdfUrl={slides[currentSlide]?.pdfUrl ?? null}
+                      slideNumber={currentSlide + 1}
+                      totalSlides={slides.length}
+                      fullscreen={isFullscreen}
+                    />
+
+                    {/* Floating fullscreen button — top-right of slide, on hover */}
+                    {supported && !isFullscreen && (
+                      <button
+                        type="button"
+                        onClick={() => toggle(viewerContentRef.current!)}
+                        className="absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-lg bg-black/40 text-white opacity-0 backdrop-blur-sm transition-opacity hover:bg-black/60 group-hover:opacity-100"
+                        aria-label="Full screen"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+                      </button>
+                    )}
+
+                    {/* Fullscreen overlay — only visible in fullscreen on hover */}
+                    {isFullscreen && (
+                      <div className="absolute inset-0 z-50 flex items-center justify-between opacity-0 transition-opacity duration-300 hover:opacity-100">
+                        {/* Previous slide */}
+                        <button
+                          type="button"
+                          onClick={() => goToSlide(currentSlide)}
+                          disabled={currentSlide === 0}
+                          className="mx-3 flex h-12 w-12 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition-colors hover:bg-black/70 disabled:opacity-20 disabled:cursor-not-allowed"
+                          aria-label="Previous slide"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+                        </button>
+
+                        {/* Next slide */}
+                        <button
+                          type="button"
+                          onClick={() => goToSlide(currentSlide + 2)}
+                          disabled={currentSlide >= slides.length - 1}
+                          className="mx-3 flex h-12 w-12 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition-colors hover:bg-black/70 disabled:opacity-20 disabled:cursor-not-allowed"
+                          aria-label="Next slide"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                        </button>
+
+                        {/* Top bar: slide counter + exit fullscreen */}
+                        <div className="absolute left-0 right-0 top-0 flex items-center justify-between p-4">
+                          <span className="rounded-full bg-black/50 px-3 py-1 text-xs text-white backdrop-blur-sm">
+                            {currentSlide + 1} / {slides.length}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => toggle(viewerContentRef.current!)}
+                            className="flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition-colors hover:bg-black/70"
+                            aria-label="Exit full screen"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+                          </button>
+                        </div>
+
+                        {/* Bottom hint */}
+                        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-black/40 px-3 py-1 text-xs text-white/70 backdrop-blur-sm">
+                          ← → to navigate · Esc to exit
+                        </div>
+                      </div>
+                    )}
                   </div>
+
+                  {/* Normal slide navigation (hidden in fullscreen) */}
+                  {!isFullscreen && (
+                    <div className="mt-4 flex items-center gap-4">
+                      <button
+                        type="button"
+                        onClick={() => goToSlide(currentSlide)}
+                        disabled={currentSlide === 0}
+                        className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-600 transition-colors hover:text-zinc-800 disabled:cursor-not-allowed disabled:opacity-30"
+                        aria-label="Previous slide"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
+                      </button>
+                      <span className="min-w-[60px] text-center text-sm tabular-nums text-zinc-500">
+                        {currentSlide + 1} / {slides.length}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => goToSlide(currentSlide + 2)}
+                        disabled={currentSlide >= slides.length - 1}
+                        className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-600 transition-colors hover:text-zinc-800 disabled:cursor-not-allowed disabled:opacity-30"
+                        aria-label="Next slide"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
+                      </button>
+                    </div>
+                  )}
                 </>
               ) : (
                 <div className="flex flex-1 flex-col items-center justify-center gap-4">
@@ -718,26 +773,28 @@ export default function ViewPresentationPage() {
               )}
             </main>
           </div>
-        <ViewAudioBar key={audioRefreshKey} seekToSlideRef={seekToSlideRef}
-          shareToken={shareToken}
-          sessionToken={sessionToken}
-          viewerId={state.viewerId}
-          presentationId={viewDataRef.current?.presentation_id || ""}
-          slideCount={viewDataRef.current?.slide_count}
-          totalDurationMs={viewDataRef.current?.total_duration_ms}
-          audioUrl={viewDataRef.current?.audio_url || undefined}
-          versionStatus={versionStatus}
-          onRefresh={applyChanges}
-          refreshing={refreshing}
-          slideTimings={viewDataRef.current?.slide_timings}
-          onSlideChange={(sn) => {
-            setCurrentSlide(sn - 1)
-            // Preload slides around the new one
-            preloadSlides(sn, slides)
-          }}
-          firstWatch={firstWatch}
-          onDurationReady={(sec) => setRealDurationMs(sec * 1000)}
-        />
+        <div className={`transition-all duration-300 ${isFullscreen ? 'fixed bottom-0 left-0 right-0 z-50 opacity-0 hover:opacity-100' : ''}`}>
+          <ViewAudioBar key={audioRefreshKey} seekToSlideRef={seekToSlideRef}
+            shareToken={shareToken}
+            sessionToken={sessionToken}
+            viewerId={state.viewerId}
+            presentationId={viewDataRef.current?.presentation_id || ""}
+            slideCount={viewDataRef.current?.slide_count}
+            totalDurationMs={viewDataRef.current?.total_duration_ms}
+            audioUrl={viewDataRef.current?.audio_url || undefined}
+            versionStatus={versionStatus}
+            onRefresh={applyChanges}
+            refreshing={refreshing}
+            slideTimings={viewDataRef.current?.slide_timings}
+            onSlideChange={(sn) => {
+              setCurrentSlide(sn - 1)
+              // Preload slides around the new one
+              preloadSlides(sn, slides)
+            }}
+            firstWatch={firstWatch}
+            onDurationReady={(sec) => setRealDurationMs(sec * 1000)}
+          />
+        </div>
           <ViewFooter />
         </div>
       )
