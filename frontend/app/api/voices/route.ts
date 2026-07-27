@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server"
 import { createPresetVoiceSchema } from "@/lib/validations/voice"
 import { checkPresetVoiceQuota, quotaBlockResponse } from "@/lib/quota"
 import { withApiHandler } from "@/lib/api-handler"
+import { getPreset } from "@/lib/presets"
+import { generateVoicePreview } from "@/lib/generate-preview"
 
 export const GET = withApiHandler(async (request: Request) => {
   const supabase = await createClient()
@@ -52,6 +54,17 @@ export const POST = withApiHandler(async (request: Request) => {
     )
   }
 
+  // Validate gender matches built-in preset if preset_id is set
+  if (parsed.data.preset_id) {
+    const preset = getPreset(parsed.data.preset_id)
+    if (preset && parsed.data.gender !== preset.gender) {
+      return NextResponse.json({
+        error: "Gender mismatch",
+        details: { gender: [`Built-in preset "${preset.label}" requires gender "${preset.gender}".`] },
+      }, { status: 422 })
+    }
+  }
+
   // Check free tier preset voice quota
   const presetCheck = await checkPresetVoiceQuota(supabase, user.id)
   if (!presetCheck.allowed) {
@@ -78,6 +91,9 @@ export const POST = withApiHandler(async (request: Request) => {
     console.error("POST /api/voices:", error.message)
     return NextResponse.json({ error: "Failed to create voice" }, { status: 500 })
   }
+
+  // Fire-and-forget preview generation (best-effort, non-blocking)
+  Promise.resolve().then(() => generateVoicePreview(data as any))
 
   return NextResponse.json({ data }, { status: 201 })
 })
