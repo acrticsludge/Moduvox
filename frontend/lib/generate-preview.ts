@@ -6,14 +6,7 @@
 
 import { generateWithPreset, generateWithClone } from "@/lib/voxcpm"
 import { downloadFileAsBuffer, uploadFile, createDownloadUrl, deleteFile } from "@/lib/r2"
-
-const PRESET_VOICE_MAP: Record<string, string> = {
-  "calm-female": "A calm, warm female voice. Speaks clearly and steadily.",
-  "energetic-male": "An energetic, upbeat male voice. Engaging and lively.",
-  "soft-narrator": "A soft, gentle narrator voice. Measured and soothing.",
-  "professional-tone": "A clear, authoritative professional voice. Formal and confident.",
-  "warm-friendly": "A warm, friendly conversational voice. Approachable and kind.",
-}
+import { PRESET_VOICE_MAP } from "@/lib/presets"
 
 const EXAMPLE_TEXT =
   "At Moduvox, we turn slides into narrated training videos using your own voice. This preview shows how your presentation will sound."

@@ -4,18 +4,11 @@ import { createClient } from "@/lib/supabase/server"
 import { generateWithPreset, generateWithClone } from "@/lib/voxcpm"
 import { createDownloadUrl, downloadFileAsBuffer, uploadFile, fileExists } from "@/lib/r2"
 import { withApiHandler } from "@/lib/api-handler"
+import { PRESET_VOICE_MAP } from "@/lib/presets"
 
 const testVoiceSchema = z.object({
   voice_id: z.string().uuid("Invalid voice ID"),
 }).strict()
-
-const PRESET_VOICE_MAP: Record<string, string> = {
-  "calm-female": "A calm, warm female voice. Speaks clearly and steadily.",
-  "energetic-male": "An energetic, upbeat male voice. Engaging and lively.",
-  "soft-narrator": "A soft, gentle narrator voice. Measured and soothing.",
-  "professional-tone": "A clear, authoritative professional voice. Formal and confident.",
-  "warm-friendly": "A warm, friendly conversational voice. Approachable and kind.",
-}
 
 const EXAMPLE_TEXT =
   "At Moduvox, we turn slides into narrated training videos using your own voice. This preview shows how your presentation will sound."

@@ -431,6 +431,7 @@ function AddVoiceModal({
                     onClick={() => {
                       if (selectedPreset === pv.id) {
                         setSelectedPreset(null)
+                        setVoiceGender("")
                       } else {
                         setSelectedPreset(pv.id)
                         setVoiceGender(pv.gender || "")

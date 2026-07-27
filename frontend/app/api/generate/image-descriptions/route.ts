@@ -75,10 +75,26 @@ function validateImage(mimeType: string, data: string): string | null {
     return `Unsupported image format: ${mimeType}. Accepted: PNG, JPEG, WebP.`
   }
 
-  // Estimate decoded size (base64 → binary is ~0.75 ratio)
-  const decodedBytes = Math.ceil(data.length * 0.75)
-  if (decodedBytes > MAX_IMAGE_SIZE_BYTES) {
-    return `Image too large (${(decodedBytes / 1024 / 1024).toFixed(1)}MB). Maximum is 5MB.`
+  // Verify base64 can be decoded and is not corrupt
+  let decodedBuffer: Buffer
+  try {
+    decodedBuffer = Buffer.from(data, "base64")
+  } catch {
+    return "Corrupt image data: invalid base64 encoding."
+  }
+
+  if (decodedBuffer.length === 0 && data.length > 0) {
+    return "Corrupt image data: base64 decoded to empty buffer."
+  }
+
+  // Check decoded size vs expected size to catch truncation
+  const expectedBytes = Math.ceil(data.length * 0.75)
+  if (decodedBuffer.length < expectedBytes - 8) {
+    return `Image data appears truncated (decoded ${decodedBuffer.length} bytes, expected ~${expectedBytes}).`
+  }
+
+  if (decodedBuffer.length > MAX_IMAGE_SIZE_BYTES) {
+    return `Image too large (${(decodedBuffer.length / 1024 / 1024).toFixed(1)}MB). Maximum is 5MB.`
   }
 
   return null
@@ -104,6 +120,28 @@ function formatDescription(desc: string): string {
   if (!/[.!?]$/.test(text)) text += "."
 
   return text
+}
+
+// ── Validate description format ─────────────────────────────────
+
+/**
+ * Validate that AI output follows the [Visual type]: format requested in the prompt.
+ * If missing, log a warning and prepend "Image: " to maintain structure.
+ */
+function validateDescriptionFormat(desc: string): string {
+  if (!desc) return desc
+
+  if (/^no significant visual content\.?$/i.test(desc)) {
+    return desc
+  }
+
+  const VISUAL_TYPES = /^(Chart|Diagram|Screenshot|Photo|Icon|Table|Logo|Text-only|Mixed-content|Illustration|Graph|Image):/i
+  if (!VISUAL_TYPES.test(desc)) {
+    console.warn(`[image-descriptions] Description missing visual type marker, prepending "Image: ". Raw: "${desc.slice(0, 60)}..."`)
+    return `Image: ${desc}`
+  }
+
+  return desc
 }
 
 // ── Nemotron: analyze a single image ─────────────────────────────
@@ -379,7 +417,7 @@ export const POST = withApiHandler(async (request: Request) => {
 
       // Format description if successful
       if (!result.error && result.description) {
-        result.description = formatDescription(result.description)
+        result.description = validateDescriptionFormat(formatDescription(result.description))
       }
 
       // ── If Nemotron succeeded (or gave non-fallback error) ──
@@ -399,7 +437,7 @@ export const POST = withApiHandler(async (request: Request) => {
       if (geminiClient) {
         const geminiResult = await analyzeOneImageWithGemini(image, geminiClient)
         if (geminiResult.description) {
-          geminiResult.description = formatDescription(geminiResult.description)
+          geminiResult.description = validateDescriptionFormat(formatDescription(geminiResult.description))
         }
         slideDescriptions.push(geminiResult)
       } else {

@@ -493,7 +493,6 @@ export default function PresentationCreatePage() {
         ) : (
           <ErrorBoundary>
             <SlideEditor
-              voiceSelected={!!selectedVoiceId}
               file={uploadedFile}
               presentationId={params.presentationId}
               narrations={narrations}

@@ -345,6 +345,7 @@ function parseCommentsXml(xml: string, authorMap: Map<number, string>): SlideCom
 
 const MAX_IMAGE_DIMENSION = 400
 const MAX_IMAGES_PER_SLIDE = 5
+const LARGE_THRESHOLD = 65536 // 64KB — btoa safety limit
 
 /**
  * Parse image relationships per slide and extract image data from ppt/media/.
@@ -378,6 +379,13 @@ async function parseImageIndex(
           const target = rel.getAttribute("Target") || ""
           const filename = target.split("/").pop() || ""
           const ext = filename.split(".").pop()?.toLowerCase() || ""
+
+          const VECTOR_EXTS = new Set(["emf", "wmf", "eps"])
+          if (VECTOR_EXTS.has(ext)) {
+            console.warn(`[pptx-renderer] Skipping unsupported vector image: ${filename}`)
+            continue
+          }
+
           const mimeType =
             ext === "png" ? "image/png" :
             ext === "jpg" || ext === "jpeg" ? "image/jpeg" :
@@ -403,20 +411,33 @@ async function parseImageIndex(
 
         try {
           const binaryData = await mediaFile.async("arraybuffer")
-          const base64 = arrayBufferToBase64(binaryData)
-          const origDataUrl = `data:${img.mimeType};base64,${base64}`
 
-          // Resize via canvas to keep payload manageable
           let resizedDataUrl: string
           try {
-            resizedDataUrl = await resizeImage(
-              origDataUrl,
-              MAX_IMAGE_DIMENSION,
-              img.mimeType,
-            )
+            if (binaryData.byteLength > LARGE_THRESHOLD) {
+              // Large image: resize via Blob URL first to avoid btoa on huge data
+              const blob = new Blob([binaryData], { type: img.mimeType })
+              const objectUrl = URL.createObjectURL(blob)
+              try {
+                resizedDataUrl = await resizeImage(objectUrl, MAX_IMAGE_DIMENSION, img.mimeType)
+              } finally {
+                URL.revokeObjectURL(objectUrl)
+              }
+            } else {
+              // Small image: existing path is safe for btoa
+              const base64 = arrayBufferToBase64(binaryData)
+              const origDataUrl = `data:${img.mimeType};base64,${base64}`
+              resizedDataUrl = await resizeImage(origDataUrl, MAX_IMAGE_DIMENSION, img.mimeType)
+            }
           } catch {
-            // SVG images can't be rendered on canvas — include as-is
-            resizedDataUrl = origDataUrl
+            // If resize fails on large image, skip it (can't safely fall back to btoa)
+            if (binaryData.byteLength > LARGE_THRESHOLD) {
+              console.warn(`[pptx-renderer] Skipping image ${img.target}: resize failed on large image`)
+              continue
+            }
+            // Small images that fail resize (e.g. SVG) — include as-is
+            const base64 = arrayBufferToBase64(binaryData)
+            resizedDataUrl = `data:${img.mimeType};base64,${base64}`
           }
 
           images.push({

@@ -66,12 +66,26 @@ export const POST = withApiHandler(async (
 
   const combined = concatWavBuffers(wavBuffers)
 
-  // Write combined.wav (overwrites any stale version)
-  await deleteFile(combinedKey)
-  const uploadResult = await uploadFile(combinedKey, combined, "audio/wav")
-  if (!uploadResult.success) {
+  // Write to a temp key first to avoid delete-before-write data loss.
+  // If the R2 write succeeds, remove the old combined.wav and upload in its place.
+  const tempKey = combinedKey.replace(".wav", "-rebuild.wav")
+  const tempResult = await uploadFile(tempKey, combined, "audio/wav")
+  if (!tempResult.success) {
     return NextResponse.json({ error: "Failed to save combined audio" }, { status: 500 })
   }
+
+  // Delete old combined.wav
+  await deleteFile(combinedKey)
+
+  // Write to real key (buffer still in memory)
+  const uploadResult = await uploadFile(combinedKey, combined, "audio/wav")
+  if (!uploadResult.success) {
+    console.error(`[rebuild] Failed to write final combined.wav — temp file preserved at ${tempKey}`)
+    return NextResponse.json({ error: "Failed to save combined audio" }, { status: 500 })
+  }
+
+  // Clean up temp file
+  await deleteFile(tempKey).catch(() => {})
 
   // Bump audio_version so viewers know to refresh
   try {

@@ -31,7 +31,6 @@ type Voice = {
 type ImageDesc = { index: number; description: string; error?: string }
 
 export function SlideEditor({
-  voiceSelected,
   file,
   presentationId,
   narrations: externalNarrations,
@@ -58,7 +57,6 @@ export function SlideEditor({
   selectedVoiceId,
   ultimateMode,
 }: {
-  voiceSelected: boolean
   file: File | null
   presentationId: string
   narrations?: Record<number, string>
@@ -125,6 +123,7 @@ export function SlideEditor({
   const [generationSummary, setGenerationSummary] = useState<{ success: number; failed: number } | null>(null)
   const [isInitialGenerate, setIsInitialGenerate] = useState(false)
   const [showMobilePanel, setShowMobilePanel] = useState(false)
+  const [retryCount, setRetryCount] = useState(0)
   const [voices, setVoices] = useState<Voice[]>([])
   const [voicesLoading, setVoicesLoading] = useState(true)
   const originalNarrationsRef = useRef<Record<number, string>>({})
@@ -220,45 +219,6 @@ export function SlideEditor({
       // Clear any previous error
       setLoadError("")
 
-      let path = ""
-
-      if (file) {
-        // Step 1: Upload new file via presigned URL
-        try {
-          const res = await fetch(`/api/presentations/${presentationId}/upload`, { method: "POST" })
-          const json = await res.json()
-          if (json.data?.presignedUrl) {
-            path = json.data.path as string
-            // Always save the path so editor state persists on reload
-            // (the R2 upload may fail locally but works on Vercel production)
-            onStoragePathChange?.(path)
-            // Try upload in background (don't block editor for upload result)
-            const xhr = new XMLHttpRequest()
-            xhr.open("PUT", json.data.presignedUrl)
-            xhr.setRequestHeader("Content-Type", "application/vnd.openxmlformats-officedocument.presentationml.presentation")
-            xhr.timeout = 120_000 // 2 min
-            xhr.upload.onprogress = (e) => {
-              if (e.lengthComputable) {
-                setUploadProgress(Math.round((e.loaded / e.total) * 100))
-              }
-            }
-            xhr.onerror = () => {
-              console.error("[Upload] XHR error — upload failed")
-              setLoadError("Upload failed. Check your connection and try again.")
-            }
-            xhr.ontimeout = () => {
-              console.error("[Upload] XHR timeout — upload timed out")
-              setLoadError("Upload timed out. Try a smaller file or check your connection.")
-            }
-            xhr.send(file)
-          }
-        } catch {
-          if (!cancelled) setLoadError("Failed to upload presentation.")
-        }
-      } else {
-        path = externalStoragePath!
-      }
-
       // Extract text content for slides (parse early to get slide count)
       let parsedSlides: ParsedSlide[] | null = null
       if (externalSlideData && externalSlideData.length > 0 && !file) {
@@ -291,40 +251,96 @@ export function SlideEditor({
         }
       }
 
-      // Confirm upload and start PDF conversion
-      if (path) {
-        const slideCount = parsedSlides?.length ?? 1
+      // Post-upload logic: confirm upload and poll for PDF conversion
+      // Only runs after the XHR upload succeeds, preventing a broken state
+      // where the confirm route marks the presentation as "ready" before the
+      // file actually arrives in storage.
+      async function afterUpload(path: string) {
+        if (path) {
+          const slideCount = parsedSlides?.length ?? 1
 
-        if (file) {
-          // Fresh upload: confirm upload and trigger worker conversion
-          try {
-            const confirmRes = await fetch(`/api/presentations/${presentationId}/upload/confirm`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ path, slideCount }),
-            })
+          if (file) {
+            // Fresh upload: confirm upload and trigger worker conversion
+            try {
+              const confirmRes = await fetch(`/api/presentations/${presentationId}/upload/confirm`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ path, slideCount }),
+              })
             if (!confirmRes.ok) {
               if (!cancelled) setLoadError("Failed to confirm upload.")
             } else if (!cancelled) {
+              const confirmJson = await confirmRes.json()
+              if (confirmJson.warning) {
+                toastSuccess(confirmJson.warning)
+              }
               setConversionStatus("converting")
               pollForPdfs(presentationId, slideCount)
             }
           } catch {
             if (!cancelled) setLoadError("Failed to confirm upload.")
           }
-        } else {
-          // Reload with existing storage path: skip confirm, check for PDFs directly
-          setConversionStatus("converting")
-          pollForPdfs(presentationId, slideCount)
+          } else {
+            // Reload with existing storage path: skip confirm, check for PDFs directly
+            setConversionStatus("converting")
+            pollForPdfs(presentationId, slideCount)
+          }
         }
+
+        if (!cancelled) { setLoading(false); setUploadProgress(0) }
       }
 
-      if (!cancelled) { setLoading(false); setUploadProgress(0) }
+      let path = ""
+
+      if (file) {
+        // Step 1: Upload new file via presigned URL
+        try {
+          const res = await fetch(`/api/presentations/${presentationId}/upload`, { method: "POST" })
+          const json = await res.json()
+          if (json.data?.presignedUrl) {
+            path = json.data.path as string
+            // Always save the path so editor state persists on reload
+            // (the R2 upload may fail locally but works on Vercel production)
+            onStoragePathChange?.(path)
+            const xhr = new XMLHttpRequest()
+            xhr.open("PUT", json.data.presignedUrl)
+            xhr.setRequestHeader("Content-Type", "application/vnd.openxmlformats-officedocument.presentationml.presentation")
+            xhr.timeout = 120_000 // 2 min
+            xhr.upload.onprogress = (e) => {
+              if (e.lengthComputable) {
+                setUploadProgress(Math.round((e.loaded / e.total) * 100))
+              }
+            }
+            xhr.onload = () => {
+              if (xhr.status === 200) {
+                afterUpload(path)
+              } else {
+                console.error("[Upload] XHR error — status", xhr.status)
+                setLoadError("Upload failed. Check your connection and try again.")
+              }
+            }
+            xhr.onerror = () => {
+              console.error("[Upload] XHR error — upload failed")
+              setLoadError("Upload failed. Check your connection and try again.")
+            }
+            xhr.ontimeout = () => {
+              console.error("[Upload] XHR timeout — upload timed out")
+              setLoadError("Upload timed out. Try a smaller file or check your connection.")
+            }
+            xhr.send(file)
+          }
+        } catch {
+          if (!cancelled) setLoadError("Failed to upload presentation.")
+        }
+      } else {
+        path = externalStoragePath!
+        await afterUpload(path)
+      }
     }
 
     processFile()
     return () => { cancelled = true }
-  }, [file, presentationId])
+  }, [file, presentationId, retryCount])
 
   // Auto-generate narration when slides are first parsed
   useEffect(() => {
@@ -375,7 +391,7 @@ export function SlideEditor({
 
   // Compute voice change message for the banner
   const voiceChangeMessage = (() => {
-    if (!voiceChangedSinceAudio || audioGenerated) return ""
+    if (!voiceChangedSinceAudio) return ""
     const snap = generatedWithVoiceRef.current
     if (!snap) return "Voice settings changed. Regenerate audio to apply."
 
@@ -531,6 +547,8 @@ export function SlideEditor({
     setAudioGenError(null)
     setGeneratingAudio(true)
     setAudioGenProgress({ current: 0, total: slideTexts.length })
+    // Snapshot voice settings at START of generation — mid-generation changes are ignored
+    generatedWithVoiceRef.current = { voiceId: selectedVoiceId ?? null, description: voiceDescription ?? "", ultimateMode: ultimateMode ?? false }
 
     try {
       await parallelBatches(
@@ -577,8 +595,23 @@ export function SlideEditor({
 
     // Rebuild combined.wav atomically from all per-slide WAVs, then bump audio_version.
     // This prevents race conditions where viewers see stale or partial combined audio.
-    await fetch(`/api/presentations/${presentationId}/audio/rebuild`, { method: "POST" })
-      .catch((err) => console.error("[SlideEditor] Rebuild failed:", err))
+    try {
+      const res = await fetch(`/api/presentations/${presentationId}/audio/rebuild`, { method: "POST" })
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}))
+        throw new Error(json.error || `Rebuild failed (HTTP ${res.status})`)
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Audio rebuild failed"
+      console.error(`[SlideEditor] Rebuild failed:`, message)
+      setAudioGenError(message)
+      setAudioGenFailed(true)
+      toastError(message)
+      setRegenStep("complete")
+      setGeneratingAudio(false)
+      setAudioGenProgress(null)
+      return
+    }
 
     // All slides generated successfully — use cache-busting param to force AudioPlayer re-fetch
     const combinedUrl = `/api/presentations/${presentationId}/audio/combined?v=${Date.now()}`
@@ -586,7 +619,6 @@ export function SlideEditor({
     onAudioUrlChange?.(combinedUrl)
     setInternalAudioGenerated(true)
     onAudioGeneratedChange?.(true)
-    generatedWithVoiceRef.current = { voiceId: selectedVoiceId ?? null, description: voiceDescription ?? "", ultimateMode: ultimateMode ?? false }
     setRegenStep("complete")
     setGeneratingAudio(false)
     setAudioGenProgress(null)
@@ -617,6 +649,9 @@ export function SlideEditor({
 
     // Show progress — set initial state before generation
     setAudioGenProgress({ current: 0, total: slideTexts.length })
+
+    // Snapshot voice settings at START of generation — mid-generation changes are ignored
+    generatedWithVoiceRef.current = { voiceId: selectedVoiceId ?? null, description: voiceDescription ?? "", ultimateMode: ultimateMode ?? false }
 
     if (slideTexts.length > 0) {
       try {
@@ -649,6 +684,8 @@ export function SlideEditor({
       } catch (err) {
         const message = err instanceof Error ? err.message : "Audio generation failed"
         console.error(`[SlideEditor] Audio generation failed:`, message)
+        setAudioGenError(message)
+        setAudioGenFailed(true)
         setGenerating(false)
         setAudioGenProgress(null)
         return
@@ -661,8 +698,22 @@ export function SlideEditor({
     })
 
     // Rebuild combined.wav atomically, then bump audio_version
-    await fetch(`/api/presentations/${presentationId}/audio/rebuild`, { method: "POST" })
-      .catch((err) => console.error("[SlideEditor] Rebuild failed:", err))
+    try {
+      const res = await fetch(`/api/presentations/${presentationId}/audio/rebuild`, { method: "POST" })
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}))
+        throw new Error(json.error || `Rebuild failed (HTTP ${res.status})`)
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Audio rebuild failed"
+      console.error(`[SlideEditor] Rebuild failed:`, message)
+      setAudioGenError(message)
+      setAudioGenFailed(true)
+      toastError(message)
+      setGenerating(false)
+      setAudioGenProgress(null)
+      return
+    }
 
     // All slides generated successfully — use cache-busting param to force AudioPlayer re-fetch
     const combinedUrl = `/api/presentations/${presentationId}/audio/combined?v=${Date.now()}`
@@ -670,7 +721,6 @@ export function SlideEditor({
     onAudioUrlChange?.(combinedUrl)
     setInternalAudioGenerated(true)
     onAudioGeneratedChange?.(true)
-    generatedWithVoiceRef.current = { voiceId: selectedVoiceId ?? null, description: voiceDescription ?? "", ultimateMode: ultimateMode ?? false }
 
     // Clear changed status for regenerated slides
     if (selectedSlides) {
@@ -763,6 +813,7 @@ export function SlideEditor({
 
   function applyReUpload() {
     if (!pendingSlides.length) return
+    const activeSlideNumbers = pendingSlides.map((_, i) => i + 1)
     setLastRegenCount(0)
 
     const isReplacement = pendingDiff?.type === "replacement"
@@ -870,13 +921,17 @@ export function SlideEditor({
                   headers: { "Content-Type": "application/vnd.openxmlformats-officedocument.presentationml.presentation" },
                 })
                 if (uploadRes.ok) {
-                  const reSlideCount = pendingSlides.length > 0 ? pendingSlides.length : 1
+                  const reSlideCount = activeSlideNumbers.length > 0 ? activeSlideNumbers.length : 1
                   const confirmRes = await fetch(`/api/presentations/${presentationId}/upload/confirm`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ path: json.data.path, slideCount: reSlideCount }),
                   })
                   if (confirmRes.ok) {
+                    const confirmJson = await confirmRes.json()
+                    if (confirmJson.warning) {
+                      toastSuccess(confirmJson.warning)
+                    }
                     setConversionStatus("converting")
                     pollForPdfs(presentationId, reSlideCount)
                   }
@@ -891,7 +946,17 @@ export function SlideEditor({
         setPendingFile(null)
       }
       uploadAndRefresh()
+      fetch(`/api/presentations/${presentationId}/slides/cleanup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ activeSlideNumbers }),
+      }).catch(() => {})
     } else {
+      fetch(`/api/presentations/${presentationId}/slides/cleanup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ activeSlideNumbers }),
+      }).catch(() => {})
       setReUploading(false)
       setPendingFile(null)
     }
@@ -987,10 +1052,24 @@ export function SlideEditor({
     )
   }
 
+  function handleLoadRetry() {
+    setLoadError("")
+    setLoading(true)
+    setRetryCount((c) => c + 1)
+  }
+
   if (loadError) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center p-8">
+      <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8">
         <p className="text-sm text-red-600">{loadError}</p>
+        <button
+          type="button"
+          onClick={handleLoadRetry}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-4 py-2 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-50"
+        >
+          <RefreshCw className="h-3.5 w-3.5" />
+          Retry
+        </button>
       </div>
     )
   }
@@ -1354,6 +1433,28 @@ export function SlideEditor({
           )}
         </div>
 
+        {/* Re-generate AI Narrations — re-run Gemini narration generation */}
+        {Object.keys(narrations).length > 0 && !audioGenFailed && (
+          <Button
+            onClick={async () => { await generateNarrations(slides, true) }}
+            disabled={generatingNarrations || generatingAudio}
+            variant="outline"
+            className="w-full"
+          >
+            {generatingNarrations ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Generating…
+              </>
+            ) : (
+              <>
+                <RefreshCw className="h-4 w-4" />
+                Re-generate AI Narrations
+              </>
+            )}
+          </Button>
+        )}
+
         {/* Generate Audio — shown when narration exists but TTS not done */}
         {Object.keys(narrations).length > 0 && !audioGenerated && !generationFailed && !audioGenFailed && (
           <Button
@@ -1575,6 +1676,28 @@ export function SlideEditor({
                 </p>
               )}
             </div>
+
+            {/* Re-generate AI Narrations — re-run Gemini narration generation */}
+            {Object.keys(narrations).length > 0 && !audioGenFailed && (
+              <Button
+                onClick={async () => { await generateNarrations(slides, true) }}
+                disabled={generatingNarrations || generatingAudio}
+                variant="outline"
+                className="w-full"
+              >
+                {generatingNarrations ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Generating…
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="h-4 w-4" />
+                    Re-generate AI Narrations
+                  </>
+                )}
+              </Button>
+            )}
 
             {/* Generate Audio — shown when narration exists but TTS not done */}
             {Object.keys(narrations).length > 0 && !audioGenerated && !generationFailed && !audioGenFailed && (

@@ -2,12 +2,27 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Mic, Square, Play, RotateCcw, Loader2, AlertCircle } from "lucide-react";
+import { toastError } from "@/components/ui/CustomToast"
 
 /** Convert an audio blob (any format) to 16-bit mono WAV using Web Audio API. */
 async function convertToWav(blob: Blob): Promise<Blob> {
   const audioCtx = new AudioContext()
   const arrayBuffer = await blob.arrayBuffer()
-  const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer)
+  let audioBuffer = await audioCtx.decodeAudioData(arrayBuffer)
+
+  const targetSampleRate = 16000
+  if (audioBuffer.sampleRate !== targetSampleRate) {
+    const offlineCtx = new OfflineAudioContext(
+      audioBuffer.numberOfChannels,
+      Math.ceil(audioBuffer.duration * targetSampleRate),
+      targetSampleRate
+    )
+    const source = offlineCtx.createBufferSource()
+    source.buffer = audioBuffer
+    source.connect(offlineCtx.destination)
+    source.start()
+    audioBuffer = await offlineCtx.startRendering()
+  }
 
   const numChannels = 1 // mono
   const sampleRate = audioBuffer.sampleRate
@@ -127,10 +142,9 @@ export function VoiceRecorder({
       });
       streamRef.current = stream;
 
-      // Determine supported mime type
-      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-        ? "audio/webm;codecs=opus"
-        : "audio/webm";
+      // Determine supported mime type (Safari doesn't support audio/webm)
+      const types = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/mp4;codecs=mp4a.40.2", ""]
+      const mimeType = types.find(t => MediaRecorder.isTypeSupported(t)) || ""
 
       const recorder = new MediaRecorder(stream, { mimeType });
       mediaRecorderRef.current = recorder;
@@ -142,6 +156,19 @@ export function VoiceRecorder({
 
       recorder.onstop = async () => {
         const blob = new Blob(chunksRef.current, { type: mimeType });
+
+        // Validate recording is long enough
+        const elapsedMs = Date.now() - startTimeRef.current;
+        if (elapsedMs < 2000) {
+          chunksRef.current = [];
+          URL.revokeObjectURL(audioUrl || "");
+          setAudioUrl(null);
+          setDuration(0);
+          setState("idle");
+          toastError("Recording too short — say more and try again");
+          return;
+        }
+
         const url = URL.createObjectURL(blob);
         setAudioUrl(url);
         setDuration(0);

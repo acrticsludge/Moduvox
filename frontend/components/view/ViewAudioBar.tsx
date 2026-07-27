@@ -125,6 +125,7 @@ export function ViewAudioBar({
     // force=true bypasses first-watch clamp (used by sidebar / prev-next navigation).
     // force=false (default) clamps to maxWatched so seek-bar and skip buttons can't skip ahead.
     const clamped = (firstWatchRef.current && !force) ? Math.min(targetSec, maxWatchedRef.current) : targetSec
+    maxWatchedRef.current = Math.max(maxWatchedRef.current, targetSec)
     howl.seek(clamped)
     setCurrentTime(clamped)
     currentTimeRef.current = clamped

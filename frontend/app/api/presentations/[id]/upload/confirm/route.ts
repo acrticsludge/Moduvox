@@ -30,24 +30,32 @@ export const POST = withApiHandler(async (
 
   // Check file size via HEAD request
   const MAX_FILE_SIZE = 100 * 1024 * 1024 // 100MB
+  let contentLength: string | null = null
   try {
     const headRes = await fetch(downloadUrl, { method: "HEAD" })
-    const contentLength = headRes.headers.get("content-length")
-    if (contentLength) {
-      const size = parseInt(contentLength, 10)
-      if (size > MAX_FILE_SIZE) {
-        const { deleteFile } = await import("@/lib/r2")
-        await deleteFile(filePath)
-        return NextResponse.json({
-          error: `File too large (${(size / 1024 / 1024).toFixed(1)}MB). Maximum is 100MB.`,
-        }, { status: 413 })
-      }
-      if (size > 50 * 1024 * 1024) {
-        console.warn(`[Upload] Large file: ${(size / 1024 / 1024).toFixed(1)}MB`)
-      }
-    }
-  } catch (err) {
-    console.error("[Upload] Failed to check file size:", err)
+    contentLength = headRes.headers.get("content-length")
+  } catch {
+    return NextResponse.json({ error: "Could not verify file size" }, { status: 400 })
+  }
+
+  if (!contentLength || parseInt(contentLength, 10) <= 0) {
+    return NextResponse.json({ error: "File is empty" }, { status: 400 })
+  }
+
+  const size = parseInt(contentLength, 10)
+  if (size > MAX_FILE_SIZE) {
+    const { deleteFile } = await import("@/lib/r2")
+    await deleteFile(filePath)
+    return NextResponse.json({
+      error: `File too large (${(size / 1024 / 1024).toFixed(1)}MB). Maximum is 100MB.`,
+    }, { status: 413 })
+  }
+
+  const responseData: { data: { status: string }; warning?: string } = {
+    data: { status: "processing" },
+  }
+  if (size > 50 * 1024 * 1024) {
+    responseData.warning = "Large file — may take longer to process"
   }
 
   let magicBytes: Buffer | null = null
@@ -122,7 +130,5 @@ export const POST = withApiHandler(async (
     }
   }
 
-  return NextResponse.json({
-    data: { status: "processing" },
-  })
+  return NextResponse.json(responseData)
 })

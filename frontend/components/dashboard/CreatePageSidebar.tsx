@@ -1,9 +1,10 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { Mic, Play, Loader2, Info } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
+import { toastError } from "@/components/ui/CustomToast"
 import {
   Select,
   SelectContent,
@@ -125,6 +126,12 @@ export function CreatePageSidebar({
   async function handlePlayVoicePreview(voiceId: string, e: React.MouseEvent) {
     e.stopPropagation() // don't select the voice
 
+    // Throttle: if any voice is currently loading, ignore
+    if (Object.values(voicePreviews).some((v) => v.loading)) {
+      toastError("A preview is already generating")
+      return
+    }
+
     // If already loading or already have a URL, toggle playback
     const existing = voicePreviews[voiceId]
     if (existing?.loading) return
@@ -191,6 +198,7 @@ export function CreatePageSidebar({
                               onClick={(e) => handlePlayVoicePreview(v.id, e)}
                               className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
                               aria-label={`Preview ${v.name}`}
+                              title={voicePreviews[v.id]?.url ? undefined : "Generate preview"}
                             >
                               {voicePreviews[v.id]?.loading ? (
                                 <Loader2 className="h-3 w-3 animate-spin" />
@@ -208,6 +216,7 @@ export function CreatePageSidebar({
                               className="mt-1 w-full rounded"
                               style={{ height: 28 }}
                               autoPlay
+                              onEnded={() => setVoicePreviews((prev) => ({ ...prev, [v.id]: { loading: false } }))}
                             />
                           )}
                         </SelectItem>
@@ -226,6 +235,7 @@ export function CreatePageSidebar({
                               onClick={(e) => handlePlayVoicePreview(v.id, e)}
                               className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
                               aria-label={`Preview ${v.name}`}
+                              title={voicePreviews[v.id]?.url ? undefined : "Generate preview"}
                             >
                               {voicePreviews[v.id]?.loading ? (
                                 <Loader2 className="h-3 w-3 animate-spin" />
@@ -243,6 +253,7 @@ export function CreatePageSidebar({
                               className="mt-1 w-full rounded"
                               style={{ height: 28 }}
                               autoPlay
+                              onEnded={() => setVoicePreviews((prev) => ({ ...prev, [v.id]: { loading: false } }))}
                             />
                           )}
                         </SelectItem>

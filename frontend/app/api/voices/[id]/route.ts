@@ -36,6 +36,9 @@ export const DELETE = withApiHandler(async (
     await deleteFile(voice.sample_path)
   }
   await deleteVoicePreview(voice.preview_audio_path)
+  // Also delete by computed key pattern to catch in-flight preview generation
+  const computedPreviewKey = `${voice.user_id}/previews/${voice.id}.wav`
+  await deleteFile(computedPreviewKey)
 
   const { error: deleteError } = await supabase
     .from("voices")
