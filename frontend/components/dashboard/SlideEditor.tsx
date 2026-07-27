@@ -373,6 +373,23 @@ export function SlideEditor({
     setVoiceChangedSinceAudio(voiceChanged || descChanged || ultChanged)
   }, [selectedVoiceId, voiceDescription, ultimateMode, audioGenerated])
 
+  // Compute voice change message for the banner
+  const voiceChangeMessage = (() => {
+    if (!voiceChangedSinceAudio || audioGenerated) return ""
+    const snap = generatedWithVoiceRef.current
+    if (!snap) return "Voice settings changed. Regenerate audio to apply."
+
+    const oldVoice = voices.find((v) => v.id === snap.voiceId)
+    const newVoice = voices.find((v) => v.id === selectedVoiceId)
+    const oldName = oldVoice?.name ?? snap.voiceId ?? "previous voice"
+    const newName = newVoice?.name ?? selectedVoiceId ?? "new voice"
+
+    if (oldName !== newName) return `Voice changed from "${oldName}" to "${newName}". Regenerate audio to apply.`
+    if (snap.description !== (voiceDescription ?? "")) return "Voice description changed. Regenerate audio to apply."
+    if (snap.ultimateMode !== (ultimateMode ?? false)) return "Ultimate clone mode changed. Regenerate audio to apply."
+    return "Voice settings changed. Regenerate audio to apply."
+  })()
+
   // Shared helper: generate narrations via API. Returns the new narrations map, or null on failure.
   async function generateNarrations(
     targetSlides: ParsedSlide[],
@@ -1386,7 +1403,7 @@ export function SlideEditor({
             {/* Voice changed banner */}
             {voiceChangedSinceAudio && (
               <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
-                Voice settings changed. Regenerate audio to apply the new voice.
+                {voiceChangeMessage}
               </div>
             )}
 
@@ -1608,7 +1625,7 @@ export function SlideEditor({
                 {/* Voice changed banner */}
                 {voiceChangedSinceAudio && (
                   <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
-                    Voice settings changed. Regenerate audio to apply the new voice.
+                    {voiceChangeMessage}
                   </div>
                 )}
 
