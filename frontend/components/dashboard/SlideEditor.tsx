@@ -575,6 +575,11 @@ export function SlideEditor({
       failed: 0,
     })
 
+    // Rebuild combined.wav atomically from all per-slide WAVs, then bump audio_version.
+    // This prevents race conditions where viewers see stale or partial combined audio.
+    await fetch(`/api/presentations/${presentationId}/audio/rebuild`, { method: "POST" })
+      .catch((err) => console.error("[SlideEditor] Rebuild failed:", err))
+
     // All slides generated successfully — use cache-busting param to force AudioPlayer re-fetch
     const combinedUrl = `/api/presentations/${presentationId}/audio/combined?v=${Date.now()}`
     setInternalAudioUrl(combinedUrl)
@@ -654,6 +659,10 @@ export function SlideEditor({
       success: slideTexts.length,
       failed: 0,
     })
+
+    // Rebuild combined.wav atomically, then bump audio_version
+    await fetch(`/api/presentations/${presentationId}/audio/rebuild`, { method: "POST" })
+      .catch((err) => console.error("[SlideEditor] Rebuild failed:", err))
 
     // All slides generated successfully — use cache-busting param to force AudioPlayer re-fetch
     const combinedUrl = `/api/presentations/${presentationId}/audio/combined?v=${Date.now()}`
