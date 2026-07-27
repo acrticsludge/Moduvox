@@ -4,6 +4,7 @@ import { createPresetVoiceSchema } from "@/lib/validations/voice"
 import { checkPresetVoiceQuota, quotaBlockResponse } from "@/lib/quota"
 import { withApiHandler } from "@/lib/api-handler"
 import { getPreset } from "@/lib/presets"
+import { generateVoicePreview } from "@/lib/generate-preview"
 
 export const GET = withApiHandler(async (request: Request) => {
   const supabase = await createClient()
@@ -90,6 +91,9 @@ export const POST = withApiHandler(async (request: Request) => {
     console.error("POST /api/voices:", error.message)
     return NextResponse.json({ error: "Failed to create voice" }, { status: 500 })
   }
+
+  // Fire-and-forget preview generation (best-effort, non-blocking)
+  Promise.resolve().then(() => generateVoicePreview(data as any))
 
   return NextResponse.json({ data }, { status: 201 })
 })
