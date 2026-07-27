@@ -46,14 +46,20 @@ export function SlidePdfViewer({
     setRetryKey((k) => k + 1)
   }, [])
 
-  // Measure available container width with ResizeObserver
+  // Measure parent container width with ResizeObserver.
+  // We measure the PARENT (via a sentinel child) so that this component
+  // always uses explicit pixel dimensions — no CSS aspect-ratio, no width:100%.
+  // This avoids excess vertical space in flex containers like the editor.
   useEffect(() => {
-    const el = containerRef.current
-    if (!el || externalWidth !== undefined) return
+    if (externalWidth !== undefined) return
+
+    // The containerRef is set on this component's root div.
+    // We need its parent's width. Use a sentinel child or measure offsetParent.
+    const el = containerRef.current?.parentElement
+    if (!el) return
 
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
-        // Round up to avoid jitter from sub-pixel values
         setContainerWidth(Math.ceil(entry.contentRect.width))
       }
     })
@@ -64,16 +70,16 @@ export function SlidePdfViewer({
     return () => observer.disconnect()
   }, [externalWidth])
 
-  // Calculate slide pixel dimensions.
-  // When externalWidth is set, use fixed pixels. Otherwise defer to container measurement.
+  // Calculate explicit pixel dimensions.
+  // Before measurement, use a responsive CSS placeholder.
   const hasMeasured = containerWidth > 0 || externalWidth !== undefined
-  const slideWidth = externalWidth ?? (containerWidth > 0 ? Math.min(containerWidth, MAX_SLIDE_WIDTH) : 800)
+  const slideWidth = externalWidth ?? (containerWidth > 0 ? Math.min(containerWidth, MAX_SLIDE_WIDTH) : MAX_SLIDE_WIDTH)
   const slideHeight = Math.round(slideWidth * aspectRatio)
 
-  // Responsive sizing: fill container width with CSS, cap at max, maintain aspect ratio.
-  // When externalWidth is provided, use exact pixel dimensions instead.
+  // Once measured, use exact pixel dimensions (compact, no excess space).
+  // Before measurement, use a responsive placeholder to avoid flashes.
   const sizingStyle: React.CSSProperties =
-    externalWidth !== undefined
+    hasMeasured
       ? { width: slideWidth, height: slideHeight }
       : { width: "100%", maxWidth: MAX_SLIDE_WIDTH, aspectRatio: `${aspectRatio}` }
 
