@@ -27,6 +27,7 @@ const RequestSchema = z.object({
 })
 
 const MAX_IMAGES_PER_REQUEST = 20
+const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024 // 5MB per image after base64 decode
 
 // ── Constants ────────────────────────────────────────────────────
 
@@ -37,18 +38,23 @@ const NEMOTRON_TIMEOUT_MS = 120_000
 const NEMOTRON_RETRY_TIMEOUT_MS = 60_000
 const GEMINI_TIMEOUT_MS = 25_000
 
+const VALID_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/webp"])
+
 const IMAGE_PROMPT =
   "Examine this image from a business presentation slide. " +
-  "Describe what is shown, read any visible text, identify chart types or diagrams, " +
-  "explain data trends if applicable, and state the purpose of the visual. " +
-  "Keep the description concise (2-3 sentences). " +
-  "If the image has no significant visual content, say 'No significant visual content detected.'"
+  "Provide a description in this exact format:\n" +
+  "[Visual type]: [description]. [Key data or insight if applicable].\n\n" +
+  "Visual types: Chart, Diagram, Screenshot, Photo, Icon, Table, Logo, Text-only, or Mixed-content.\n" +
+  "Be specific about numbers, labels, and trends if present. Keep it 2-3 sentences. " +
+  "If no significant visual content, say 'No significant visual content.'"
 
 const GEMINI_PROMPT =
-  "Examine these images from a business presentation slide. For each image, describe what is shown, " +
-  "read any visible text, identify chart types or diagrams, explain data trends if applicable, and " +
-  "state the purpose of the visual. Keep each description concise (2-3 sentences). Number each description. " +
-  "If an image has no significant visual content, say 'No significant visual content detected.'"
+  "Examine these images from a business presentation slide. For each image, provide a description in this format:\n" +
+  "[Visual type]: [description]. [Key data or insight if applicable].\n\n" +
+  "Visual types: Chart, Diagram, Screenshot, Photo, Icon, Table, Logo, Text-only, or Mixed-content.\n" +
+  "Be specific about numbers, labels, and trends if present. Keep each description concise (2-3 sentences). " +
+  "Number each description. " +
+  "If an image has no significant visual content, say 'No significant visual content.'"
 
 // ── Type definitions ─────────────────────────────────────────────
 
@@ -57,6 +63,47 @@ type ImageResult = { index: number; description: string; error?: string }
 interface ResolvedNimKey {
   key: string
   isUserKey: boolean // false = project key (needs token bucket)
+}
+
+// ── Image validation ────────────────────────────────────────────
+
+/**
+ * Validate an image before sending to AI. Returns an error string or null if valid.
+ */
+function validateImage(mimeType: string, data: string): string | null {
+  if (!VALID_MIME_TYPES.has(mimeType)) {
+    return `Unsupported image format: ${mimeType}. Accepted: PNG, JPEG, WebP.`
+  }
+
+  // Estimate decoded size (base64 → binary is ~0.75 ratio)
+  const decodedBytes = Math.ceil(data.length * 0.75)
+  if (decodedBytes > MAX_IMAGE_SIZE_BYTES) {
+    return `Image too large (${(decodedBytes / 1024 / 1024).toFixed(1)}MB). Maximum is 5MB.`
+  }
+
+  return null
+}
+
+// ── Description post-processor ──────────────────────────────────
+
+/**
+ * Normalize AI-generated description for consistent display.
+ */
+function formatDescription(desc: string): string {
+  let text = desc.trim()
+
+  if (!text) return ""
+
+  // Strip common AI prefixes
+  text = text.replace(/^(here is|this image shows|the image depicts|the screenshot shows|in this image)\s*/i, "")
+
+  // Capitalize first letter
+  text = text.charAt(0).toUpperCase() + text.slice(1)
+
+  // Ensure period at end
+  if (!/[.!?]$/.test(text)) text += "."
+
+  return text
 }
 
 // ── Nemotron: analyze a single image ─────────────────────────────
@@ -298,6 +345,13 @@ export const POST = withApiHandler(async (request: Request) => {
     const slideDescriptions: ImageResult[] = []
 
     for (const image of slide.images) {
+      // ── Validate image before sending to AI ──
+      const validationError = validateImage(image.mimeType, image.data)
+      if (validationError) {
+        slideDescriptions.push({ index: image.index, description: "", error: validationError })
+        continue
+      }
+
       // ── Attempt 1: Nemotron (user key → project key) ──
       let result = await tryNemotronSingleImage(image, userNimKey, projectNimKey)
 
@@ -323,6 +377,11 @@ export const POST = withApiHandler(async (request: Request) => {
         // Immediate Gemini fallback — don't retry
       }
 
+      // Format description if successful
+      if (!result.error && result.description) {
+        result.description = formatDescription(result.description)
+      }
+
       // ── If Nemotron succeeded (or gave non-fallback error) ──
       if (!result.error) {
         slideDescriptions.push(result)
@@ -339,6 +398,9 @@ export const POST = withApiHandler(async (request: Request) => {
       const geminiClient = getGeminiClient()
       if (geminiClient) {
         const geminiResult = await analyzeOneImageWithGemini(image, geminiClient)
+        if (geminiResult.description) {
+          geminiResult.description = formatDescription(geminiResult.description)
+        }
         slideDescriptions.push(geminiResult)
       } else {
         slideDescriptions.push({ index: image.index, description: "", error: "Analysis failed" })
