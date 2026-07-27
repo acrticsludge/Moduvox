@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { GoogleGenerativeAI } from "@google/generative-ai"
 import { createClient } from "@/lib/supabase/server"
 import { withApiHandler } from "@/lib/api-handler"
-import { checkRateLimit } from "@/lib/rate-limiter"
+import { checkDbRateLimit } from "@/lib/rate-limiter"
 import { acquireNemotronToken } from "@/lib/nim-rate-limiter"
 import { decrypt } from "@/lib/encryption"
 import { gzipSync } from "node:zlib"
@@ -333,7 +333,7 @@ export const POST = withApiHandler(async (request: Request) => {
   }
 
   // Rate limit: 10 req/min/user
-  const rateCheck = checkRateLimit(`image-desc:${user.id}`, 10, 60 * 1000)
+  const rateCheck = await checkDbRateLimit(`image-desc:${user.id}`, 10, 60 * 1000)
   if (!rateCheck.allowed) {
     return NextResponse.json({ error: "Too many requests. Please wait a moment." }, { status: 429 })
   }

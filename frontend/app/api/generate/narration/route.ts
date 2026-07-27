@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { z } from "zod"
 import { GoogleGenerativeAI } from "@google/generative-ai"
 import { withApiHandler } from "@/lib/api-handler"
 import { createClient } from "@/lib/supabase/server"
@@ -6,30 +7,21 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { sha256Hex } from "@/lib/crypto"
 import { logAuditFromRequest } from "@/lib/audit"
 import { sanitizeNarration } from "@/lib/sanitize-narration"
+import { checkDbRateLimit } from "@/lib/rate-limiter"
 
-type SlideInput = {
-  number: number
-  title: string
-  bullets: string[]
-}
-
-// ── Rate limiter (shared-key only) ──────────────────────────
-const rateLimitMap = new Map<string, number[]>()
-const RATE_LIMIT_WINDOW = 60_000 // 1 minute
-const RATE_LIMIT_MAX = 5         // matches Gemini 2.5 Flash free tier
-
-function checkRateLimit(key: string): boolean {
-  const now = Date.now()
-  let timestamps = rateLimitMap.get(key) || []
-
-  // Prune stale entries
-  timestamps = timestamps.filter((t) => now - t < RATE_LIMIT_WINDOW)
-  if (timestamps.length >= RATE_LIMIT_MAX) return false
-
-  timestamps.push(now)
-  rateLimitMap.set(key, timestamps)
-  return true
-}
+const narrationSchema = z.object({
+  slides: z.array(z.object({
+    number: z.number().int().positive(),
+    title: z.string(),
+    bullets: z.array(z.string()),
+  })).min(1).max(30),
+  instructions: z.string().optional(),
+  slideInstructions: z.record(z.string(), z.string()).optional(),
+  presentationId: z.string().uuid(),
+  voiceId: z.string().uuid().optional(),
+  voiceDescription: z.string().optional(),
+  ultimateMode: z.boolean().optional(),
+})
 
 // ── Safe JSON extraction from Gemini output ────────────────
 function extractNarrationsJSON(text: string): Record<string, string> | null {
@@ -72,19 +64,12 @@ export const POST = withApiHandler(async (request: Request) => {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { slides, instructions, slideInstructions, presentationId, voiceId, voiceDescription, ultimateMode } = await request.json()
-
-    if (!slides || !Array.isArray(slides) || slides.length === 0) {
-      return NextResponse.json({ error: "Slides array is required" }, { status: 400 })
+    const body = await request.json()
+    const parsed = narrationSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
     }
-
-    if (slides.length > 30) {
-      return NextResponse.json({ error: "Maximum 30 slides per presentation" }, { status: 400 })
-    }
-
-    if (!presentationId) {
-      return NextResponse.json({ error: "presentationId is required" }, { status: 400 })
-    }
+    const { slides, instructions, slideInstructions, presentationId, voiceId, voiceDescription, ultimateMode } = parsed.data
 
     // Verify ownership
     const { data: presentation } = await supabase
@@ -112,11 +97,14 @@ export const POST = withApiHandler(async (request: Request) => {
 
     // Rate limit only applies when using the shared key
     const usingSharedKey = !userData?.gemini_api_key
-    if (usingSharedKey && !checkRateLimit(user.id)) {
-      return NextResponse.json({
-        error: "rate_limited",
-        message: "Shared key quota reached. To unlock unlimited generation, add your own Gemini API key in Settings.",
-      }, { status: 429 })
+    if (usingSharedKey) {
+      const { allowed } = await checkDbRateLimit(`narration:${user.id}`, 5, 60_000)
+      if (!allowed) {
+        return NextResponse.json({
+          error: "rate_limited",
+          message: "Shared key quota reached. To unlock unlimited generation, add your own Gemini API key in Settings.",
+        }, { status: 429 })
+      }
     }
 
     const genAI = new GoogleGenerativeAI(apiKey)
@@ -127,7 +115,7 @@ export const POST = withApiHandler(async (request: Request) => {
     const BULLET_CAP = 500 // max chars per bullet
 
     const slideBlocks = slides.map(
-      (s: SlideInput) =>
+      (s) =>
         `Slide ${s.number}:
 Title: ${s.title.slice(0, TITLE_CAP)}
 Bullets:

@@ -1,10 +1,4 @@
-/**
- * Simple in-memory rate limiter.
- *
- * NOTE: On Vercel serverless, each function instance has its own memory.
- * This is a best-effort rate limiter — not guaranteed across instances.
- * For production-critical rate limiting, use a distributed store (Upstash Redis, etc.).
- */
+import { createAdminClient } from "./supabase/admin"
 
 interface RateLimitEntry {
   count: number
@@ -22,14 +16,10 @@ setInterval(() => {
 }, 300_000)
 
 /**
- * Check if an action is rate limited.
- *
- * @param key - Unique key (e.g., "waitlist:user_123" or "ip:1.2.3.4")
- * @param limit - Maximum number of actions allowed within the window
- * @param windowMs - Time window in milliseconds
- * @returns Object with `allowed` boolean and `remaining` count
+ * In-memory rate limiter (fallback when Supabase is unreachable).
+ * Not guaranteed across serverless instances.
  */
-export function checkRateLimit(
+export function checkMemoryRateLimit(
   key: string,
   limit: number,
   windowMs: number,
@@ -50,4 +40,60 @@ export function checkRateLimit(
   }
 
   return { allowed: true, remaining, resetAt: entry.resetAt }
+}
+
+/**
+ * DB-backed rate limiter using Supabase.
+ * Effective across serverless instances (unlike in-memory).
+ * Falls back to in-memory limiter on DB error.
+ *
+ * Requires a `rate_limits` table:
+ *   CREATE TABLE rate_limits (
+ *     id BIGSERIAL PRIMARY KEY,
+ *     key TEXT NOT NULL,
+ *     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+ *   );
+ *   CREATE INDEX idx_rate_limits_key_created ON rate_limits (key, created_at);
+ */
+export async function checkDbRateLimit(
+  key: string,
+  limit: number,
+  windowMs: number,
+): Promise<{ allowed: boolean; remaining: number; resetAt: number }> {
+  const supabase = createAdminClient()
+  const now = new Date()
+  const windowStart = new Date(now.getTime() - windowMs)
+
+  try {
+    const { count, error } = await supabase
+      .from("rate_limits")
+      .select("*", { count: "exact", head: true })
+      .eq("key", key)
+      .gte("created_at", windowStart.toISOString())
+
+    if (error) {
+      console.error("[rate-limiter] DB query failed:", error.message)
+      return checkMemoryRateLimit(key, limit, windowMs)
+    }
+
+    const currentCount = count || 0
+    if (currentCount >= limit) {
+      return { allowed: false, remaining: 0, resetAt: now.getTime() + windowMs }
+    }
+
+    // Log this request
+    try {
+      await supabase.from("rate_limits").insert({
+        key,
+        created_at: now.toISOString(),
+      })
+    } catch {
+      // fire-and-forget insert is acceptable
+    }
+
+    return { allowed: true, remaining: limit - currentCount - 1, resetAt: now.getTime() + windowMs }
+  } catch (err) {
+    console.error("[rate-limiter] DB exception:", err)
+    return checkMemoryRateLimit(key, limit, windowMs)
+  }
 }

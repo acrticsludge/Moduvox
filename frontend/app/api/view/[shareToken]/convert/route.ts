@@ -50,7 +50,7 @@ export const POST = withApiHandler(async (
   const slidePutUrls: Record<string, string> = {}
   for (let i = 1; i <= slideCount; i++) {
     const pdfKey = `${presentation.user_id}/pdf/${presentation.id}/slide-${i}.pdf`
-    const putUrl = await createUploadUrl(pdfKey, "application/pdf", 3600)
+    const putUrl = await createUploadUrl(pdfKey, "application/pdf", 300)
     if (putUrl) {
       slidePutUrls[String(i)] = putUrl
     } else {

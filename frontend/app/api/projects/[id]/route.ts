@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { updateProjectSchema } from "@/lib/validations/project"
 import { withApiHandler } from "@/lib/api-handler"
+import { validateUuid } from "@/lib/validate-uuid"
 
 export const PATCH = withApiHandler(async (
   request: Request,
@@ -9,6 +10,10 @@ export const PATCH = withApiHandler(async (
 ) => {
   const supabase = await createClient()
   const { id } = await params
+  const validation = validateUuid(id, "project id")
+  if (!validation.valid) {
+    return NextResponse.json({ error: validation.error }, { status: 400 })
+  }
 
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) {
@@ -65,6 +70,10 @@ export const DELETE = withApiHandler(async (
 ) => {
   const supabase = await createClient()
   const { id } = await params
+  const validation = validateUuid(id, "project id")
+  if (!validation.valid) {
+    return NextResponse.json({ error: validation.error }, { status: 400 })
+  }
 
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) {

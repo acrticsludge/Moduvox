@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { deleteFile } from "@/lib/r2"
 import { withApiHandler } from "@/lib/api-handler"
 import { deleteVoicePreview } from "@/lib/generate-preview"
+import { validateUuid } from "@/lib/validate-uuid"
 
 export const DELETE = withApiHandler(async (
   _request: Request,
@@ -10,6 +11,10 @@ export const DELETE = withApiHandler(async (
 ) => {
   const supabase = await createClient()
   const { id } = await params
+  const validation = validateUuid(id, "voice id")
+  if (!validation.valid) {
+    return NextResponse.json({ error: validation.error }, { status: 400 })
+  }
 
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) {
@@ -44,6 +49,7 @@ export const DELETE = withApiHandler(async (
     .from("voices")
     .delete()
     .eq("id", id)
+    .eq("user_id", user.id)
 
   if (deleteError) {
     return NextResponse.json({ error: deleteError.message }, { status: 500 })

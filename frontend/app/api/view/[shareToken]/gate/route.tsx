@@ -51,31 +51,34 @@ export const POST = withApiHandler(async (
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
   }
 
-  // Verify reCAPTCHA v3 token (skip if not configured â€” dev mode)
-  if (process.env.RECAPTCHA_SECRET_KEY && process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY) {
-    const recaptchaToken = body.recaptcha_token as string | undefined
-    if (!recaptchaToken) {
-      return NextResponse.json({ error: "Security verification failed." }, { status: 403 })
-    }
+  // Verify reCAPTCHA v3 token (fail closed if not configured)
+  if (!process.env.RECAPTCHA_SECRET_KEY || !process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY) {
+    console.warn("[gate] reCAPTCHA not configured — failing closed")
+    return NextResponse.json({ error: "Security check unavailable" }, { status: 503 })
+  }
 
-    const verifyRes = await fetch("https://www.google.com/recaptcha/api/siteverify", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        secret: process.env.RECAPTCHA_SECRET_KEY,
-        response: recaptchaToken,
-      }),
-    })
-    const verifyJson = await verifyRes.json()
-    if (!verifyJson.success) {
-      console.error("reCAPTCHA v3 verification failed:", verifyJson)
-      return NextResponse.json({ error: "Security check failed. Please try again." }, { status: 403 })
-    }
-    // Check score â€” reject if below 0.5 (likely bot)
-    if (typeof verifyJson.score === "number" && verifyJson.score < 0.5) {
-      console.error("reCAPTCHA v3 low score:", verifyJson.score)
-      return NextResponse.json({ error: "Security check failed. Please try again." }, { status: 403 })
-    }
+  const recaptchaToken = body.recaptcha_token as string | undefined
+  if (!recaptchaToken) {
+    return NextResponse.json({ error: "Security verification failed." }, { status: 403 })
+  }
+
+  const verifyRes = await fetch("https://www.google.com/recaptcha/api/siteverify", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      secret: process.env.RECAPTCHA_SECRET_KEY,
+      response: recaptchaToken,
+    }),
+  })
+  const verifyJson = await verifyRes.json()
+  if (!verifyJson.success) {
+    console.error("reCAPTCHA v3 verification failed:", verifyJson)
+    return NextResponse.json({ error: "Security check failed. Please try again." }, { status: 403 })
+  }
+  // Check score — reject if below 0.5 (likely bot)
+  if (typeof verifyJson.score === "number" && verifyJson.score < 0.5) {
+    console.error("reCAPTCHA v3 low score:", verifyJson.score)
+    return NextResponse.json({ error: "Security check failed. Please try again." }, { status: 403 })
   }
 
   // Validate email + name + consent (and password if set)
@@ -130,7 +133,7 @@ export const POST = withApiHandler(async (
 
     const { data: viewer, error: viewerError } = await supabase
       .from("viewers")
-      .upsert({
+      .insert({
         presentation_id: presentation.id,
         viewer_email: parsed.data.viewer_email,
         viewer_name: parsed.data.viewer_name,
@@ -141,9 +144,6 @@ export const POST = withApiHandler(async (
         viewed_at: new Date().toISOString(),
         ip_address: ipAddress,
         user_agent: userAgent,
-      }, {
-        onConflict: "presentation_id, viewer_email",
-        ignoreDuplicates: false,
       })
       .select("id, session_token, viewer_email, viewer_name")
       .single()

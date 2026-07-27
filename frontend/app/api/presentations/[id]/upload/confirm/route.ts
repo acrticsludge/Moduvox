@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createDownloadUrl, createUploadUrl } from "@/lib/r2"
 import { withApiHandler } from "@/lib/api-handler"
+import { z } from "zod"
 
 export const POST = withApiHandler(async (
   request: Request,
@@ -15,11 +16,26 @@ export const POST = withApiHandler(async (
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
+  const confirmSchema = z.object({
+    path: z.string().min(1).regex(/^[a-f0-9-]+\/[a-f0-9-]+\.pptx$/, "Invalid file path format"),
+    slideCount: z.number().int().positive().optional(),
+  })
+
   const body = await request.json()
-  const filePath = body.path as string
-  const slideCount = (body.slideCount as number) ?? 1
-  if (!filePath) {
-    return NextResponse.json({ error: "No file path provided" }, { status: 400 })
+  const parsed = confirmSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
+  }
+
+  const { path: filePath, slideCount = 1 } = parsed.data
+
+  if (filePath.includes("..") || filePath.startsWith("/")) {
+    return NextResponse.json({ error: "Invalid path" }, { status: 400 })
+  }
+
+  const userPrefix = filePath.split("/")[0]
+  if (userPrefix !== user.id) {
+    return NextResponse.json({ error: "Access denied" }, { status: 403 })
   }
 
   // Verify file type via magic bytes (PPTX/ZIP header: PK\x03\x04)

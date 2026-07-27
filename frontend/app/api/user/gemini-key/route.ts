@@ -16,15 +16,13 @@ export const GET = withApiHandler(async () => {
     .eq("id", user.id)
     .single()
 
-  // Decrypt the stored key before returning (client needs plaintext)
   let geminiApiKey: string | null = null
   if (data?.gemini_api_key) {
     try {
       geminiApiKey = decrypt(data.gemini_api_key)
     } catch {
-      // If decryption fails, key might be in plaintext from before encryption was added
-      // Return it as-is (migration path)
-      geminiApiKey = data.gemini_api_key
+      // Decryption failed — key may be corrupted or encryption key was rotated
+      console.warn("[gemini-key] Failed to decrypt stored key for user", user.id)
     }
   }
 

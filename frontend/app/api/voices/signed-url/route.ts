@@ -17,8 +17,13 @@ export const GET = withApiHandler(async (request: Request) => {
   const { searchParams } = new URL(request.url)
   const path = searchParams.get("path")
 
-  if (!path) {
-    return NextResponse.json({ error: "Missing path parameter" }, { status: 400 })
+  if (!path || path.includes("..") || path.startsWith("/")) {
+    return NextResponse.json({ error: "Invalid path" }, { status: 400 })
+  }
+
+  const pathParts = path.split("/")
+  if (pathParts.length < 2 || pathParts[0] !== user.id) {
+    return NextResponse.json({ error: "Access denied" }, { status: 403 })
   }
 
   const audioUrl = await createDownloadUrl(path, 300)

@@ -5,6 +5,7 @@ import { withApiHandler } from "@/lib/api-handler"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sendEmail } from "@/lib/email"
 import { FeedbackNotificationEmail } from "@/emails/feedback-notification"
+import { createClient } from "@/lib/supabase/server"
 
 const COOLDOWN_MS = 12 * 60 * 60 * 1000
 const COOKIE_NAME = "feedback_submitted_at"
@@ -78,6 +79,8 @@ export const POST = withApiHandler(async (request: Request) => {
         console.error("reCAPTCHA v3 low score:", verifyJson.score)
         return NextResponse.json({ error: "Security check failed. Please try again." }, { status: 403 })
       }
+    } else {
+      console.warn("[feedback] reCAPTCHA not configured — skipping verification")
     }
 
     // Extract IP for reference
@@ -85,8 +88,35 @@ export const POST = withApiHandler(async (request: Request) => {
       || request.headers.get("x-real-ip")
       || "unknown"
 
-    // ── Persist to database ───────────────────────────────────
+    // ── Check authentication & rate limit ──────────────────────
     const supabase = createAdminClient()
+
+    let userId: string | null = null
+    try {
+      const serverSupabase = await createClient()
+      const { data: { user } } = await serverSupabase.auth.getUser()
+      userId = user?.id ?? null
+    } catch {
+      // Proceed as anonymous
+    }
+
+    // Stricter rate limiting for anonymous users (DB-backed)
+    if (!userId) {
+      const { count } = await supabase
+        .from("feedback")
+        .select("id", { count: "exact", head: true })
+        .eq("ip_address", ipAddress)
+        .gte("created_at", new Date(Date.now() - COOLDOWN_MS).toISOString())
+
+      if (count && count >= 1) {
+        return NextResponse.json(
+          { error: "You've already submitted feedback recently." },
+          { status: 429 },
+        )
+      }
+    }
+
+    // ── Persist to database ───────────────────────────────────
     const { error: dbError } = await supabase.from("feedback").insert({
       name: parsed.data.name,
       email: parsed.data.email || "",
@@ -95,6 +125,7 @@ export const POST = withApiHandler(async (request: Request) => {
       message: parsed.data.message,
       can_contact: parsed.data.can_contact,
       ip_address: ipAddress,
+      user_id: userId,
     })
 
     if (dbError) {

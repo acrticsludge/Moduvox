@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { submitWaitlistSchema } from "@/lib/validations/waitlist"
-import { checkRateLimit } from "@/lib/rate-limiter"
+import { checkDbRateLimit } from "@/lib/rate-limiter"
 import { withApiHandler } from "@/lib/api-handler"
 
 export const POST = withApiHandler(async (request: Request) => {
@@ -14,7 +14,7 @@ export const POST = withApiHandler(async (request: Request) => {
   }
 
   // Rate limit: 3 submissions per user per hour
-  const { allowed, remaining, resetAt } = checkRateLimit(`waitlist:${user.id}`, 3, 3_600_000)
+  const { allowed, remaining, resetAt } = await checkDbRateLimit(`waitlist:${user.id}`, 3, 3_600_000)
   if (!allowed) {
     return NextResponse.json({
       error: "Too many requests. Please try again later.",

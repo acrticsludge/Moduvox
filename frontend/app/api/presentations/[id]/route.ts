@@ -4,6 +4,7 @@ import { deleteFile } from "@/lib/r2"
 import { updatePresentationSchema } from "@/lib/validations/presentation"
 import { withApiHandler } from "@/lib/api-handler"
 import { logAuditFromRequest } from "@/lib/audit"
+import { validateUuid } from "@/lib/validate-uuid"
 
 export const PATCH = withApiHandler(async (
   request: Request,
@@ -11,6 +12,10 @@ export const PATCH = withApiHandler(async (
 ) => {
   const supabase = await createClient()
   const { id: presentationId } = await params
+  const validation = validateUuid(presentationId, "presentation id")
+  if (!validation.valid) {
+    return NextResponse.json({ error: validation.error }, { status: 400 })
+  }
 
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) {
@@ -115,6 +120,10 @@ export const DELETE = withApiHandler(async (
 ) => {
   const supabase = await createClient()
   const { id: presentationId } = await params
+  const validation = validateUuid(presentationId, "presentation id")
+  if (!validation.valid) {
+    return NextResponse.json({ error: validation.error }, { status: 400 })
+  }
 
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) {

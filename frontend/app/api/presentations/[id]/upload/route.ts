@@ -36,7 +36,7 @@ export const POST = withApiHandler(async (
   const presignedUrl = await createUploadUrl(
     filePath,
     "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-    3600,
+    300,
   )
 
   if (!presignedUrl) {

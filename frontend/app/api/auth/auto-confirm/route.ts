@@ -3,6 +3,11 @@ import { createAdminClient } from "@/lib/supabase/admin"
 
 export async function POST(request: Request) {
   try {
+    const adminKey = request.headers.get("x-admin-key")
+    if (adminKey !== process.env.ADMIN_API_KEY) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+
     const { userId, email, password } = await request.json()
     if (!userId || typeof userId !== "string") {
       return NextResponse.json({ error: "userId is required" }, { status: 400 })

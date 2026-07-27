@@ -8,8 +8,8 @@ const verifySchema = z.object({
 
 export const POST = withApiHandler(async (request: Request) => {
   if (!process.env.RECAPTCHA_SECRET_KEY) {
-    // No key configured — allow in dev mode
-    return NextResponse.json({ data: { success: true, score: 1 } })
+    console.warn("[verify-captcha] RECAPTCHA_SECRET_KEY not configured — failing closed")
+    return NextResponse.json({ error: "Security check unavailable" }, { status: 503 })
   }
 
   let body: unknown

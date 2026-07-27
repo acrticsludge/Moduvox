@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server"
+import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { listFiles, deleteFile } from "@/lib/r2"
 import { withApiHandler } from "@/lib/api-handler"
+
+const cleanupSchema = z.object({
+  activeSlideNumbers: z.array(z.number().int().positive()).optional(),
+})
 
 export const POST = withApiHandler(async (
   request: Request,
@@ -28,7 +33,11 @@ export const POST = withApiHandler(async (
   }
 
   const body = await request.json()
-  const { activeSlideNumbers } = body as { activeSlideNumbers?: number[] }
+  const parsed = cleanupSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
+  }
+  const { activeSlideNumbers } = parsed.data
   const activeSet = activeSlideNumbers ? new Set(activeSlideNumbers) : null
 
   const audioPrefix = `${user.id}/audio/${presentationId}/`
