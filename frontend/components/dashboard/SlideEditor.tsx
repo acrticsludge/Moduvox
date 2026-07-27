@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import { Play, Loader2, ExternalLink, FileText, ChevronRight, Share2, Check, RefreshCw } from "lucide-react"
+import { Play, Loader2, ExternalLink, FileText, ChevronRight, Share2, Check, RefreshCw, Maximize2, Minimize2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
@@ -10,12 +10,14 @@ import { parsePptxText, type ParsedSlide } from "@/lib/pptx-renderer"
 import { compareSlides, type SlideDiff } from "@/lib/pptx-renderer"
 import { describeSlideImages } from "@/lib/image-analysis"
 import { toastSuccess, toastError } from "@/components/ui/CustomToast"
+import { parallelBatches } from "@/lib/async"
 import { ReUploadModal } from "./ReUploadModal"
 import { RegenerateModal, type RegenStep } from "./RegenerateModal"
 import { SlideParsedData } from "./SlideParsedData"
 import { AudioPlayer } from "./AudioPlayer"
 import { SharePresentationModal } from "./SharePresentationModal"
 import { SlidePdfViewer } from "@/components/shared/SlidePdfViewer"
+import { useFullscreen } from "@/lib/use-fullscreen"
 
 type Voice = {
   id: string
@@ -501,47 +503,48 @@ export function SlideEditor({
     setGeneratingAudio(true)
     setAudioGenProgress({ current: 0, total: slideTexts.length })
 
-    let failedCount = 0
+    try {
+      await parallelBatches(
+        slideTexts,
+        async (slide) => {
+          const res = await fetch("/api/generate/audio/slide", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              slide_number: slide.number,
+              text: slide.text,
+              voice_description: voiceDescription || "Natural, clear, professional speaking voice",
+              cfg_value: 2.0,
+              presentation_id: presentationId,
+              voice_id: selectedVoiceId || undefined,
+            }),
+          })
 
-    for (let i = 0; i < slideTexts.length; i++) {
-      setAudioGenProgress({ current: i + 1, total: slideTexts.length, slideTitle: slideTexts[i].title })
-
-      try {
-        const res = await fetch("/api/generate/audio/slide", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            slide_number: slideTexts[i].number,
-            text: slideTexts[i].text,
-            voice_description: voiceDescription || "Natural, clear, professional speaking voice",
-            cfg_value: 2.0,
-            presentation_id: presentationId,
-            voice_id: selectedVoiceId || undefined,
-          }),
-        })
-
-        if (!res.ok) {
-          const json = await res.json().catch(() => ({}))
-          throw new Error(typeof json.error === "string" ? json.error : `Slide ${slideTexts[i].number} failed`)
-        }
-      } catch (err) {
-        failedCount++
-        console.error(`[SlideEditor] Slide ${slideTexts[i].number} audio failed:`, err)
-      }
-    }
-
-    setGenerationSummary({
-      success: slideTexts.length - failedCount,
-      failed: failedCount,
-    })
-
-    if (failedCount > 0) {
+          if (!res.ok) {
+            const json = await res.json().catch(() => ({}))
+            throw new Error(typeof json.error === "string" ? json.error : `Slide ${slide.number} failed`)
+          }
+        },
+        (completed, total) => {
+          setAudioGenProgress({ current: completed, total, slideTitle: slideTexts[completed - 1]?.title })
+        },
+        3,
+      )
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Audio generation failed"
+      console.error(`[SlideEditor] Audio generation failed:`, message)
+      setAudioGenError(message)
       setAudioGenFailed(true)
       setRegenStep("complete")
       setGeneratingAudio(false)
       setAudioGenProgress(null)
       return
     }
+
+    setGenerationSummary({
+      success: slideTexts.length,
+      failed: 0,
+    })
 
     // All slides generated successfully — use cache-busting param to force AudioPlayer re-fetch
     const combinedUrl = `/api/presentations/${presentationId}/audio/combined?v=${Date.now()}`
@@ -587,50 +590,50 @@ export function SlideEditor({
       .map((s) => ({ number: s.number, text: currentNarrations[s.number] || "", title: s.title }))
       .filter((s) => s.text.trim())
 
-    let failedCount = 0
-
-    // Show progress — set initial state before the loop
+    // Show progress — set initial state before generation
     setAudioGenProgress({ current: 0, total: slideTexts.length })
 
     if (slideTexts.length > 0) {
-      for (let i = 0; i < slideTexts.length; i++) {
-        setAudioGenProgress({ current: i + 1, total: slideTexts.length, slideTitle: slideTexts[i].title })
+      try {
+        await parallelBatches(
+          slideTexts,
+          async (slide) => {
+            const res = await fetch("/api/generate/audio/slide", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                slide_number: slide.number,
+                text: slide.text,
+                voice_id: selectedVoiceId || undefined,
+                voice_description: voiceDescription || "Natural, clear, professional speaking voice",
+                cfg_value: 2.0,
+                presentation_id: presentationId,
+              }),
+            })
 
-        try {
-          const res = await fetch("/api/generate/audio/slide", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              slide_number: slideTexts[i].number,
-              text: slideTexts[i].text,
-              voice_id: selectedVoiceId || undefined,
-              voice_description: voiceDescription || "Natural, clear, professional speaking voice",
-              cfg_value: 2.0,
-              presentation_id: presentationId,
-            }),
-          })
-
-          if (!res.ok) {
-            const json = await res.json().catch(() => ({}))
-            throw new Error(typeof json.error === "string" ? json.error : `Slide ${slideTexts[i].number} failed`)
-          }
-        } catch (err) {
-          failedCount++
-          console.error(`[SlideEditor] Slide ${slideTexts[i].number} audio failed:`, err)
-        }
+            if (!res.ok) {
+              const json = await res.json().catch(() => ({}))
+              throw new Error(typeof json.error === "string" ? json.error : `Slide ${slide.number} failed`)
+            }
+          },
+          (completed, total) => {
+            setAudioGenProgress({ current: completed, total, slideTitle: slideTexts[completed - 1]?.title })
+          },
+          3,
+        )
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Audio generation failed"
+        console.error(`[SlideEditor] Audio generation failed:`, message)
+        setGenerating(false)
+        setAudioGenProgress(null)
+        return
       }
     }
 
     setGenerationSummary({
-      success: slideTexts.length - failedCount,
-      failed: failedCount,
+      success: slideTexts.length,
+      failed: 0,
     })
-
-    if (failedCount > 0) {
-      setGenerating(false)
-      setAudioGenProgress(null)
-      return
-    }
 
     // All slides generated successfully — use cache-busting param to force AudioPlayer re-fetch
     const combinedUrl = `/api/presentations/${presentationId}/audio/combined?v=${Date.now()}`
@@ -865,6 +868,9 @@ export function SlideEditor({
     }
   }
 
+  const slideViewerRef = useRef<HTMLDivElement>(null)
+  const { isFullscreen, supported, toggle } = useFullscreen()
+
   // Ref to clean up rate limit countdown interval on unmount
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rateLimitIntervalRef = useRef<any>(undefined)
@@ -1057,7 +1063,7 @@ export function SlideEditor({
           </div>
         ) : pdfUrls.length > 0 ? (
           <>
-            <div className="relative flex flex-1 items-center justify-center p-4">
+            <div ref={slideViewerRef} id="slide-viewer" className="relative flex flex-1 items-center justify-center p-4">
               <SlidePdfViewer
                 pdfUrl={pdfUrls[currentIndex] ?? null}
                 onLoadError={() => {
@@ -1107,15 +1113,22 @@ export function SlideEditor({
                 )}
               </button>
               {pdfUrls[currentIndex] && (
-                <a
-                  href={pdfUrls[currentIndex]!}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (supported && slideViewerRef.current) {
+                      toggle(slideViewerRef.current)
+                    } else {
+                      // Fallback: open PDF in new tab
+                      window.open(pdfUrls[currentIndex]!, '_blank')
+                    }
+                  }}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-[#71717A] shadow-sm transition-colors hover:text-[#18181B]"
+                  title={isFullscreen ? "Exit full screen" : "Full screen"}
                 >
-                  <ExternalLink className="h-3 w-3" />
-                  Full screen
-                </a>
+                  {isFullscreen ? <Minimize2 className="h-3 w-3" /> : <Maximize2 className="h-3 w-3" />}
+                  {isFullscreen ? "Exit" : "Full screen"}
+                </button>
               )}
             </div>
           </>

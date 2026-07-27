@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { EmailSentScreen } from "@/components/view/EmailSentScreen"
 import { VerifyErrorScreen } from "@/components/view/VerifyErrorScreen"
 import { ViewNavbar } from "@/components/view/ViewNavbar"
+import { useFullscreen } from "@/lib/use-fullscreen"
 import { ViewFooter } from "@/components/view/ViewFooter"
 import { ViewSidebar } from "@/components/view/ViewSidebar"
 import type { SlideTiming, SeekToSlideFn } from "@/components/view/ViewAudioBar"
@@ -124,6 +125,8 @@ export default function ViewPresentationPage() {
   const seekToSlideRef = useRef<SeekToSlideFn | null>(null)
   const preloadControllerRef = useRef<AbortController | null>(null)
   const visibilityProcessingRef = useRef(false)
+  const viewerContentRef = useRef<HTMLDivElement>(null)
+  const { isFullscreen, supported, toggle } = useFullscreen()
 
   useEffect(() => {
     const sessionFromUrl = searchParams.get("session")
@@ -619,7 +622,7 @@ export default function ViewPresentationPage() {
               currentSlide={currentSlide}
               onSlideClick={(sn) => goToSlide(sn)}
             />
-            <main id="viewer-main-content" className="flex flex-1 flex-col items-center p-4 md:p-8">
+            <main id="viewer-main-content" ref={viewerContentRef} className="flex flex-1 flex-col items-center p-4 md:p-8">
               {slidesError && (
                 <div className="mb-4 w-full max-w-2xl rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                   {slidesError}
@@ -655,6 +658,27 @@ export default function ViewPresentationPage() {
                     <span className="min-w-[60px] text-center text-sm tabular-nums text-zinc-500">
                       {currentSlide + 1} / {slides.length}
                     </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (supported && viewerContentRef.current) {
+                          toggle(viewerContentRef.current)
+                        } else {
+                          // Fallback: open current PDF in new tab
+                          const url = slides[currentSlide]?.pdfUrl
+                          if (url) window.open(url, '_blank')
+                        }
+                      }}
+                      disabled={!slides[currentSlide]?.pdfUrl && !supported}
+                      className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-600 transition-colors hover:text-zinc-800 disabled:opacity-30"
+                      aria-label={isFullscreen ? "Exit full screen" : "Full screen"}
+                    >
+                      {isFullscreen ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+                      )}
+                    </button>
                     <button
                       type="button"
                       onClick={() => goToSlide(currentSlide + 2)}
@@ -699,6 +723,7 @@ export default function ViewPresentationPage() {
           sessionToken={sessionToken}
           viewerId={state.viewerId}
           presentationId={viewDataRef.current?.presentation_id || ""}
+          slideCount={viewDataRef.current?.slide_count}
           totalDurationMs={viewDataRef.current?.total_duration_ms}
           audioUrl={viewDataRef.current?.audio_url || undefined}
           versionStatus={versionStatus}
