@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import { Play, Loader2, ExternalLink, FileText, ChevronRight, Share2, Check, RefreshCw } from "lucide-react"
+import { Play, Loader2, ExternalLink, FileText, ChevronRight, Share2, Check, RefreshCw, Maximize2, Minimize2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
@@ -17,6 +17,7 @@ import { SlideParsedData } from "./SlideParsedData"
 import { AudioPlayer } from "./AudioPlayer"
 import { SharePresentationModal } from "./SharePresentationModal"
 import { SlidePdfViewer } from "@/components/shared/SlidePdfViewer"
+import { useFullscreen } from "@/lib/use-fullscreen"
 
 type Voice = {
   id: string
@@ -867,6 +868,9 @@ export function SlideEditor({
     }
   }
 
+  const slideViewerRef = useRef<HTMLDivElement>(null)
+  const { isFullscreen, supported, toggle } = useFullscreen()
+
   // Ref to clean up rate limit countdown interval on unmount
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rateLimitIntervalRef = useRef<any>(undefined)
@@ -1059,7 +1063,7 @@ export function SlideEditor({
           </div>
         ) : pdfUrls.length > 0 ? (
           <>
-            <div className="relative flex flex-1 items-center justify-center p-4">
+            <div ref={slideViewerRef} id="slide-viewer" className="relative flex flex-1 items-center justify-center p-4">
               <SlidePdfViewer
                 pdfUrl={pdfUrls[currentIndex] ?? null}
                 onLoadError={() => {
@@ -1109,15 +1113,22 @@ export function SlideEditor({
                 )}
               </button>
               {pdfUrls[currentIndex] && (
-                <a
-                  href={pdfUrls[currentIndex]!}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (supported && slideViewerRef.current) {
+                      toggle(slideViewerRef.current)
+                    } else {
+                      // Fallback: open PDF in new tab
+                      window.open(pdfUrls[currentIndex]!, '_blank')
+                    }
+                  }}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-[#71717A] shadow-sm transition-colors hover:text-[#18181B]"
+                  title={isFullscreen ? "Exit full screen" : "Full screen"}
                 >
-                  <ExternalLink className="h-3 w-3" />
-                  Full screen
-                </a>
+                  {isFullscreen ? <Minimize2 className="h-3 w-3" /> : <Maximize2 className="h-3 w-3" />}
+                  {isFullscreen ? "Exit" : "Full screen"}
+                </button>
               )}
             </div>
           </>
