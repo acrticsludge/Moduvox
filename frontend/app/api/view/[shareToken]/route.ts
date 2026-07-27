@@ -102,8 +102,12 @@ export const GET = withApiHandler(async (
       acc += t.durationMs
       return { slideNumber: t.slideNumber, startMs, endMs: acc }
     })
-  } catch {
-    // non-critical
+  } catch (err) {
+    console.warn(`[view] getAllSlideDurations failed: ${err instanceof Error ? err.message : String(err)}`)
+  }
+
+  if (slideTimings.length === 0 && presentation.slide_count && presentation.slide_count > 0) {
+    console.warn(`[view] No slide timings for presentation ${presentation.id} — auto-sync disabled`)
   }
 
   // Generate signed URL for cached combined audio in R2
