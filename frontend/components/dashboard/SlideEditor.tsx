@@ -10,6 +10,7 @@ import { parsePptxText, type ParsedSlide } from "@/lib/pptx-renderer"
 import { compareSlides, type SlideDiff } from "@/lib/pptx-renderer"
 import { describeSlideImages } from "@/lib/image-analysis"
 import { toastSuccess, toastError } from "@/components/ui/CustomToast"
+import { parallelBatches } from "@/lib/async"
 import { ReUploadModal } from "./ReUploadModal"
 import { RegenerateModal, type RegenStep } from "./RegenerateModal"
 import { SlideParsedData } from "./SlideParsedData"
@@ -501,47 +502,48 @@ export function SlideEditor({
     setGeneratingAudio(true)
     setAudioGenProgress({ current: 0, total: slideTexts.length })
 
-    let failedCount = 0
+    try {
+      await parallelBatches(
+        slideTexts,
+        async (slide) => {
+          const res = await fetch("/api/generate/audio/slide", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              slide_number: slide.number,
+              text: slide.text,
+              voice_description: voiceDescription || "Natural, clear, professional speaking voice",
+              cfg_value: 2.0,
+              presentation_id: presentationId,
+              voice_id: selectedVoiceId || undefined,
+            }),
+          })
 
-    for (let i = 0; i < slideTexts.length; i++) {
-      setAudioGenProgress({ current: i + 1, total: slideTexts.length, slideTitle: slideTexts[i].title })
-
-      try {
-        const res = await fetch("/api/generate/audio/slide", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            slide_number: slideTexts[i].number,
-            text: slideTexts[i].text,
-            voice_description: voiceDescription || "Natural, clear, professional speaking voice",
-            cfg_value: 2.0,
-            presentation_id: presentationId,
-            voice_id: selectedVoiceId || undefined,
-          }),
-        })
-
-        if (!res.ok) {
-          const json = await res.json().catch(() => ({}))
-          throw new Error(typeof json.error === "string" ? json.error : `Slide ${slideTexts[i].number} failed`)
-        }
-      } catch (err) {
-        failedCount++
-        console.error(`[SlideEditor] Slide ${slideTexts[i].number} audio failed:`, err)
-      }
-    }
-
-    setGenerationSummary({
-      success: slideTexts.length - failedCount,
-      failed: failedCount,
-    })
-
-    if (failedCount > 0) {
+          if (!res.ok) {
+            const json = await res.json().catch(() => ({}))
+            throw new Error(typeof json.error === "string" ? json.error : `Slide ${slide.number} failed`)
+          }
+        },
+        (completed, total) => {
+          setAudioGenProgress({ current: completed, total, slideTitle: slideTexts[completed - 1]?.title })
+        },
+        3,
+      )
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Audio generation failed"
+      console.error(`[SlideEditor] Audio generation failed:`, message)
+      setAudioGenError(message)
       setAudioGenFailed(true)
       setRegenStep("complete")
       setGeneratingAudio(false)
       setAudioGenProgress(null)
       return
     }
+
+    setGenerationSummary({
+      success: slideTexts.length,
+      failed: 0,
+    })
 
     // All slides generated successfully — use cache-busting param to force AudioPlayer re-fetch
     const combinedUrl = `/api/presentations/${presentationId}/audio/combined?v=${Date.now()}`
@@ -587,50 +589,50 @@ export function SlideEditor({
       .map((s) => ({ number: s.number, text: currentNarrations[s.number] || "", title: s.title }))
       .filter((s) => s.text.trim())
 
-    let failedCount = 0
-
-    // Show progress — set initial state before the loop
+    // Show progress — set initial state before generation
     setAudioGenProgress({ current: 0, total: slideTexts.length })
 
     if (slideTexts.length > 0) {
-      for (let i = 0; i < slideTexts.length; i++) {
-        setAudioGenProgress({ current: i + 1, total: slideTexts.length, slideTitle: slideTexts[i].title })
+      try {
+        await parallelBatches(
+          slideTexts,
+          async (slide) => {
+            const res = await fetch("/api/generate/audio/slide", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                slide_number: slide.number,
+                text: slide.text,
+                voice_id: selectedVoiceId || undefined,
+                voice_description: voiceDescription || "Natural, clear, professional speaking voice",
+                cfg_value: 2.0,
+                presentation_id: presentationId,
+              }),
+            })
 
-        try {
-          const res = await fetch("/api/generate/audio/slide", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              slide_number: slideTexts[i].number,
-              text: slideTexts[i].text,
-              voice_id: selectedVoiceId || undefined,
-              voice_description: voiceDescription || "Natural, clear, professional speaking voice",
-              cfg_value: 2.0,
-              presentation_id: presentationId,
-            }),
-          })
-
-          if (!res.ok) {
-            const json = await res.json().catch(() => ({}))
-            throw new Error(typeof json.error === "string" ? json.error : `Slide ${slideTexts[i].number} failed`)
-          }
-        } catch (err) {
-          failedCount++
-          console.error(`[SlideEditor] Slide ${slideTexts[i].number} audio failed:`, err)
-        }
+            if (!res.ok) {
+              const json = await res.json().catch(() => ({}))
+              throw new Error(typeof json.error === "string" ? json.error : `Slide ${slide.number} failed`)
+            }
+          },
+          (completed, total) => {
+            setAudioGenProgress({ current: completed, total, slideTitle: slideTexts[completed - 1]?.title })
+          },
+          3,
+        )
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Audio generation failed"
+        console.error(`[SlideEditor] Audio generation failed:`, message)
+        setGenerating(false)
+        setAudioGenProgress(null)
+        return
       }
     }
 
     setGenerationSummary({
-      success: slideTexts.length - failedCount,
-      failed: failedCount,
+      success: slideTexts.length,
+      failed: 0,
     })
-
-    if (failedCount > 0) {
-      setGenerating(false)
-      setAudioGenProgress(null)
-      return
-    }
 
     // All slides generated successfully — use cache-busting param to force AudioPlayer re-fetch
     const combinedUrl = `/api/presentations/${presentationId}/audio/combined?v=${Date.now()}`
