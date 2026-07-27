@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import { Play, Loader2, ExternalLink, FileText, ChevronRight, Share2, Check, RefreshCw } from "lucide-react"
+import { Play, Loader2, ExternalLink, FileText, ChevronRight, Share2, Check, RefreshCw, Maximize2, Minimize2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
@@ -10,12 +10,14 @@ import { parsePptxText, type ParsedSlide } from "@/lib/pptx-renderer"
 import { compareSlides, type SlideDiff } from "@/lib/pptx-renderer"
 import { describeSlideImages } from "@/lib/image-analysis"
 import { toastSuccess, toastError } from "@/components/ui/CustomToast"
+import { parallelBatches } from "@/lib/async"
 import { ReUploadModal } from "./ReUploadModal"
 import { RegenerateModal, type RegenStep } from "./RegenerateModal"
 import { SlideParsedData } from "./SlideParsedData"
 import { AudioPlayer } from "./AudioPlayer"
 import { SharePresentationModal } from "./SharePresentationModal"
 import { SlidePdfViewer } from "@/components/shared/SlidePdfViewer"
+import { useFullscreen } from "@/lib/use-fullscreen"
 
 type Voice = {
   id: string
@@ -234,12 +236,20 @@ export function SlideEditor({
             const xhr = new XMLHttpRequest()
             xhr.open("PUT", json.data.presignedUrl)
             xhr.setRequestHeader("Content-Type", "application/vnd.openxmlformats-officedocument.presentationml.presentation")
+            xhr.timeout = 120_000 // 2 min
             xhr.upload.onprogress = (e) => {
               if (e.lengthComputable) {
                 setUploadProgress(Math.round((e.loaded / e.total) * 100))
               }
             }
-            xhr.onerror = () => {} // silent — file is still on local disk for parsing
+            xhr.onerror = () => {
+              console.error("[Upload] XHR error — upload failed")
+              setLoadError("Upload failed. Check your connection and try again.")
+            }
+            xhr.ontimeout = () => {
+              console.error("[Upload] XHR timeout — upload timed out")
+              setLoadError("Upload timed out. Try a smaller file or check your connection.")
+            }
             xhr.send(file)
           }
         } catch {
@@ -363,6 +373,23 @@ export function SlideEditor({
     setVoiceChangedSinceAudio(voiceChanged || descChanged || ultChanged)
   }, [selectedVoiceId, voiceDescription, ultimateMode, audioGenerated])
 
+  // Compute voice change message for the banner
+  const voiceChangeMessage = (() => {
+    if (!voiceChangedSinceAudio || audioGenerated) return ""
+    const snap = generatedWithVoiceRef.current
+    if (!snap) return "Voice settings changed. Regenerate audio to apply."
+
+    const oldVoice = voices.find((v) => v.id === snap.voiceId)
+    const newVoice = voices.find((v) => v.id === selectedVoiceId)
+    const oldName = oldVoice?.name ?? snap.voiceId ?? "previous voice"
+    const newName = newVoice?.name ?? selectedVoiceId ?? "new voice"
+
+    if (oldName !== newName) return `Voice changed from "${oldName}" to "${newName}". Regenerate audio to apply.`
+    if (snap.description !== (voiceDescription ?? "")) return "Voice description changed. Regenerate audio to apply."
+    if (snap.ultimateMode !== (ultimateMode ?? false)) return "Ultimate clone mode changed. Regenerate audio to apply."
+    return "Voice settings changed. Regenerate audio to apply."
+  })()
+
   // Shared helper: generate narrations via API. Returns the new narrations map, or null on failure.
   async function generateNarrations(
     targetSlides: ParsedSlide[],
@@ -477,6 +504,10 @@ export function SlideEditor({
   // Determines which slides to process based on changedSlides.
   async function runAudioGeneration() {
     if (generatingAudio) return
+    if (!selectedVoiceId) {
+      toastError("Select a voice before generating audio.")
+      return
+    }
 
     const slidesToGenerate = changedSlides.length > 0
       ? slides.filter((s) => changedSlides.includes(s.number))
@@ -501,47 +532,48 @@ export function SlideEditor({
     setGeneratingAudio(true)
     setAudioGenProgress({ current: 0, total: slideTexts.length })
 
-    let failedCount = 0
+    try {
+      await parallelBatches(
+        slideTexts,
+        async (slide) => {
+          const res = await fetch("/api/generate/audio/slide", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              slide_number: slide.number,
+              text: slide.text,
+              voice_description: voiceDescription || "Natural, clear, professional speaking voice",
+              cfg_value: 2.0,
+              presentation_id: presentationId,
+              voice_id: selectedVoiceId || undefined,
+            }),
+          })
 
-    for (let i = 0; i < slideTexts.length; i++) {
-      setAudioGenProgress({ current: i + 1, total: slideTexts.length, slideTitle: slideTexts[i].title })
-
-      try {
-        const res = await fetch("/api/generate/audio/slide", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            slide_number: slideTexts[i].number,
-            text: slideTexts[i].text,
-            voice_description: voiceDescription || "Natural, clear, professional speaking voice",
-            cfg_value: 2.0,
-            presentation_id: presentationId,
-            voice_id: selectedVoiceId || undefined,
-          }),
-        })
-
-        if (!res.ok) {
-          const json = await res.json().catch(() => ({}))
-          throw new Error(typeof json.error === "string" ? json.error : `Slide ${slideTexts[i].number} failed`)
-        }
-      } catch (err) {
-        failedCount++
-        console.error(`[SlideEditor] Slide ${slideTexts[i].number} audio failed:`, err)
-      }
-    }
-
-    setGenerationSummary({
-      success: slideTexts.length - failedCount,
-      failed: failedCount,
-    })
-
-    if (failedCount > 0) {
+          if (!res.ok) {
+            const json = await res.json().catch(() => ({}))
+            throw new Error(typeof json.error === "string" ? json.error : `Slide ${slide.number} failed`)
+          }
+        },
+        (completed, total) => {
+          setAudioGenProgress({ current: completed, total, slideTitle: slideTexts[completed - 1]?.title })
+        },
+        3,
+      )
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Audio generation failed"
+      console.error(`[SlideEditor] Audio generation failed:`, message)
+      setAudioGenError(message)
       setAudioGenFailed(true)
       setRegenStep("complete")
       setGeneratingAudio(false)
       setAudioGenProgress(null)
       return
     }
+
+    setGenerationSummary({
+      success: slideTexts.length,
+      failed: 0,
+    })
 
     // All slides generated successfully — use cache-busting param to force AudioPlayer re-fetch
     const combinedUrl = `/api/presentations/${presentationId}/audio/combined?v=${Date.now()}`
@@ -562,6 +594,11 @@ export function SlideEditor({
     selectedSlides?: Set<number>,
     reason: 'voice_changed' | 'content_changed' = 'voice_changed',
   ) {
+    if (!selectedVoiceId) {
+      toastError("Select a voice before generating audio.")
+      setGenerating(false)
+      return
+    }
     setGenerating(true)
     setLastRegenCount(selectedSlides?.size ?? 0)
 
@@ -587,50 +624,50 @@ export function SlideEditor({
       .map((s) => ({ number: s.number, text: currentNarrations[s.number] || "", title: s.title }))
       .filter((s) => s.text.trim())
 
-    let failedCount = 0
-
-    // Show progress — set initial state before the loop
+    // Show progress — set initial state before generation
     setAudioGenProgress({ current: 0, total: slideTexts.length })
 
     if (slideTexts.length > 0) {
-      for (let i = 0; i < slideTexts.length; i++) {
-        setAudioGenProgress({ current: i + 1, total: slideTexts.length, slideTitle: slideTexts[i].title })
+      try {
+        await parallelBatches(
+          slideTexts,
+          async (slide) => {
+            const res = await fetch("/api/generate/audio/slide", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                slide_number: slide.number,
+                text: slide.text,
+                voice_id: selectedVoiceId || undefined,
+                voice_description: voiceDescription || "Natural, clear, professional speaking voice",
+                cfg_value: 2.0,
+                presentation_id: presentationId,
+              }),
+            })
 
-        try {
-          const res = await fetch("/api/generate/audio/slide", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              slide_number: slideTexts[i].number,
-              text: slideTexts[i].text,
-              voice_id: selectedVoiceId || undefined,
-              voice_description: voiceDescription || "Natural, clear, professional speaking voice",
-              cfg_value: 2.0,
-              presentation_id: presentationId,
-            }),
-          })
-
-          if (!res.ok) {
-            const json = await res.json().catch(() => ({}))
-            throw new Error(typeof json.error === "string" ? json.error : `Slide ${slideTexts[i].number} failed`)
-          }
-        } catch (err) {
-          failedCount++
-          console.error(`[SlideEditor] Slide ${slideTexts[i].number} audio failed:`, err)
-        }
+            if (!res.ok) {
+              const json = await res.json().catch(() => ({}))
+              throw new Error(typeof json.error === "string" ? json.error : `Slide ${slide.number} failed`)
+            }
+          },
+          (completed, total) => {
+            setAudioGenProgress({ current: completed, total, slideTitle: slideTexts[completed - 1]?.title })
+          },
+          3,
+        )
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Audio generation failed"
+        console.error(`[SlideEditor] Audio generation failed:`, message)
+        setGenerating(false)
+        setAudioGenProgress(null)
+        return
       }
     }
 
     setGenerationSummary({
-      success: slideTexts.length - failedCount,
-      failed: failedCount,
+      success: slideTexts.length,
+      failed: 0,
     })
-
-    if (failedCount > 0) {
-      setGenerating(false)
-      setAudioGenProgress(null)
-      return
-    }
 
     // All slides generated successfully — use cache-busting param to force AudioPlayer re-fetch
     const combinedUrl = `/api/presentations/${presentationId}/audio/combined?v=${Date.now()}`
@@ -865,6 +902,23 @@ export function SlideEditor({
     }
   }
 
+  const slideViewerRef = useRef<HTMLDivElement>(null)
+  const fullscreenContainerRef = useRef<HTMLElement | null>(null)
+  const { isFullscreen, supported, toggle } = useFullscreen()
+
+  // Add/remove body class for fullscreen to hide navbar/sidebar outside this component
+  useEffect(() => {
+    if (isFullscreen) {
+      document.body.classList.add("editor-fullscreen")
+    } else {
+      document.body.classList.remove("editor-fullscreen")
+    }
+    return () => document.body.classList.remove("editor-fullscreen")
+  }, [isFullscreen])
+
+  const currentSlideNum = current?.number ?? 0
+  const totalSlides = slides.length
+
   // Ref to clean up rate limit countdown interval on unmount
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rateLimitIntervalRef = useRef<any>(undefined)
@@ -961,7 +1015,7 @@ export function SlideEditor({
     <>
       <div className="flex flex-1 flex-col">
       {/* Left — PDF-based slide viewer */}
-      <div className="relative flex flex-1 flex-col bg-zinc-100">
+      <div ref={(el) => { if (el) fullscreenContainerRef.current = el }} className="relative flex flex-1 flex-col bg-zinc-100">
         {/* Processing overlay during re-upload */}
         {reUploading ? (
           <div className="flex h-full min-h-[60vh] flex-col items-center justify-center gap-3">
@@ -1057,67 +1111,130 @@ export function SlideEditor({
           </div>
         ) : pdfUrls.length > 0 ? (
           <>
-            <div className="relative flex flex-1 items-center justify-center p-4">
+            <div
+              ref={slideViewerRef}
+              className={`relative flex flex-1 items-center justify-center transition-all ${
+                isFullscreen ? "p-0" : "p-4"
+              }`}
+            >
               <SlidePdfViewer
                 pdfUrl={pdfUrls[currentIndex] ?? null}
+                slideWidth={isFullscreen ? Math.min(window.innerWidth * 0.85, window.innerHeight * 0.8 / 0.75, 1400) : undefined}
                 onLoadError={() => {
                   console.error(`[Editor] Failed to load PDF for slide ${currentIndex + 1}`)
                 }}
               />
-            </div>
-            <div className="absolute bottom-3 right-3 flex flex-wrap justify-end gap-1.5">
-              <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-[#71717A] shadow-sm transition-colors hover:text-[#18181B]">
-                <FileText className="h-3 w-3" />
-                Re-upload
-                <input
-                  type="file"
-                  accept=".pptx"
-                  className="hidden"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0]
-                    if (f) handleReUploadFile(f)
-                    e.target.value = ""
-                    setRemoveConfirm(false)
-                  }}
-                />
-              </label>
-              <button
-                type="button"
-                onClick={() => {
-                  if (removeConfirm) {
-                    setRemoveConfirm(false)
-                    handleRemovePpt()
-                  } else {
-                    setRemoveConfirm(true)
-                  }
-                }}
-                disabled={removingPpt}
-                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium shadow-sm transition-colors ${
-                  removeConfirm
-                    ? "border-red-300 bg-red-50 text-red-600 hover:bg-red-100"
-                    : "border-zinc-200 bg-white text-[#71717A] hover:text-red-600"
-                }`}
-              >
-                {removingPpt ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : removeConfirm ? (
-                  "Confirm?"
-                ) : (
-                  "Remove PPT"
-                )}
-              </button>
-              {pdfUrls[currentIndex] && (
-                <a
-                  href={pdfUrls[currentIndex]!}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-[#71717A] shadow-sm transition-colors hover:text-[#18181B]"
-                >
-                  <ExternalLink className="h-3 w-3" />
-                  Full screen
-                </a>
+
+              {/* Fullscreen hover overlay — navigation + exit */}
+              {isFullscreen && (
+                <div className="absolute inset-0 z-50 flex items-center justify-between opacity-0 transition-opacity duration-300 hover:opacity-100">
+                  {/* Previous slide */}
+                  <button
+                    type="button"
+                    onClick={() => jumpToSlide(currentSlideNum - 1)}
+                    disabled={currentIndex === 0}
+                    className="mx-4 flex h-12 w-12 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition-colors hover:bg-black/70 disabled:opacity-20 disabled:cursor-not-allowed"
+                    aria-label="Previous slide"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+                  </button>
+
+                  {/* Next slide */}
+                  <button
+                    type="button"
+                    onClick={() => jumpToSlide(currentSlideNum + 1)}
+                    disabled={currentIndex >= totalSlides - 1}
+                    className="mx-4 flex h-12 w-12 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition-colors hover:bg-black/70 disabled:opacity-20 disabled:cursor-not-allowed"
+                    aria-label="Next slide"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                  </button>
+
+                  {/* Top bar: slide counter + exit fullscreen */}
+                  <div className="absolute left-0 right-0 top-0 flex items-center justify-between p-4">
+                    <span className="rounded-full bg-black/50 px-3 py-1 text-xs text-white backdrop-blur-sm">
+                      {currentSlideNum} / {totalSlides}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => toggle(fullscreenContainerRef.current!)}
+                      className="flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition-colors hover:bg-black/70"
+                      aria-label="Exit full screen"
+                    >
+                      <Minimize2 className="h-4 w-4" />
+                    </button>
+                  </div>
+
+                  {/* Bottom hint */}
+                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-black/40 px-3 py-1 text-xs text-white/70 backdrop-blur-sm">
+                    ← → arrow keys to navigate · Esc to exit
+                  </div>
+                </div>
               )}
             </div>
+
+            {/* Toolbar — hidden in fullscreen (replaced by overlay) */}
+            {!isFullscreen && (
+              <div className="absolute bottom-3 right-3 flex flex-wrap justify-end gap-1.5">
+                <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-[#71717A] shadow-sm transition-colors hover:text-[#18181B]">
+                  <FileText className="h-3 w-3" />
+                  Re-upload
+                  <input
+                    type="file"
+                    accept=".pptx"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0]
+                      if (f) handleReUploadFile(f)
+                      e.target.value = ""
+                      setRemoveConfirm(false)
+                    }}
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (removeConfirm) {
+                      setRemoveConfirm(false)
+                      handleRemovePpt()
+                    } else {
+                      setRemoveConfirm(true)
+                    }
+                  }}
+                  disabled={removingPpt}
+                  className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium shadow-sm transition-colors ${
+                    removeConfirm
+                      ? "border-red-300 bg-red-50 text-red-600 hover:bg-red-100"
+                      : "border-zinc-200 bg-white text-[#71717A] hover:text-red-600"
+                  }`}
+                >
+                  {removingPpt ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : removeConfirm ? (
+                    "Confirm?"
+                  ) : (
+                    "Remove PPT"
+                  )}
+                </button>
+                {pdfUrls[currentIndex] && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                    if (supported && fullscreenContainerRef.current) {
+                      toggle(fullscreenContainerRef.current)
+                    } else {
+                      window.open(pdfUrls[currentIndex]!, '_blank')
+                    }
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-[#71717A] shadow-sm transition-colors hover:text-[#18181B]"
+                  title="Full screen"
+                  >
+                    <Maximize2 className="h-3 w-3" />
+                    Full screen
+                  </button>
+                )}
+              </div>
+            )}
           </>
         ) : (
           <div className="flex h-full min-h-[60vh] items-center justify-center">
@@ -1246,8 +1363,9 @@ export function SlideEditor({
         {Object.keys(narrations).length > 0 && !audioGenerated && !generationFailed && !audioGenFailed && (
           <Button
             onClick={runAudioGeneration}
-            disabled={generatingNarrations || generatingAudio}
+            disabled={generatingNarrations || generatingAudio || !selectedVoiceId}
             className="w-full"
+            title={!selectedVoiceId ? "Select a voice first" : undefined}
           >
             {generatingAudio ? (
               <>
@@ -1285,7 +1403,7 @@ export function SlideEditor({
             {/* Voice changed banner */}
             {voiceChangedSinceAudio && (
               <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
-                Voice settings changed. Regenerate audio to apply the new voice.
+                {voiceChangeMessage}
               </div>
             )}
 
@@ -1467,8 +1585,9 @@ export function SlideEditor({
             {Object.keys(narrations).length > 0 && !audioGenerated && !generationFailed && !audioGenFailed && (
               <Button
                 onClick={runAudioGeneration}
-                disabled={generatingNarrations || generatingAudio}
+                disabled={generatingNarrations || generatingAudio || !selectedVoiceId}
                 className="w-full"
+                title={!selectedVoiceId ? "Select a voice first" : undefined}
               >
                 {generatingAudio ? (
                   <>
@@ -1506,7 +1625,7 @@ export function SlideEditor({
                 {/* Voice changed banner */}
                 {voiceChangedSinceAudio && (
                   <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
-                    Voice settings changed. Regenerate audio to apply the new voice.
+                    {voiceChangeMessage}
                   </div>
                 )}
 

@@ -18,6 +18,7 @@ type ViewAudioBarProps = {
   sessionToken: string
   viewerId: string
   presentationId: string
+  slideCount?: number
   totalDurationMs?: number
   audioUrl?: string
   versionStatus?: "synced" | "outdated" | null
@@ -31,7 +32,7 @@ type ViewAudioBarProps = {
 }
 
 export function ViewAudioBar({
-  shareToken, sessionToken, viewerId, presentationId, totalDurationMs, audioUrl,
+  shareToken, sessionToken, viewerId, presentationId, slideCount = 0, totalDurationMs, audioUrl,
   versionStatus, onRefresh, slideTimings = [], onSlideChange, firstWatch = false,
   seekToSlideRef, onDurationReady, refreshing = false,
 }: ViewAudioBarProps) {
@@ -50,6 +51,8 @@ export function ViewAudioBar({
   onSlideChangeRef.current = onSlideChange
   const slideTimingsRef = useRef(slideTimings)
   slideTimingsRef.current = slideTimings
+  const slideCountRef = useRef(slideCount)
+  slideCountRef.current = slideCount
   const firstWatchRef = useRef(firstWatch)
   firstWatchRef.current = firstWatch
   const sessionTokenRef = useRef(sessionToken)
@@ -60,32 +63,65 @@ export function ViewAudioBar({
   const skipSecondsRef = useRef(skipSeconds)
   skipSecondsRef.current = skipSeconds
 
+  /** Convert a time in seconds to the slide number it falls within. */
+  function timeToSlide(secs: number): number {
+    const ms = secs * 1000
+
+    // Primary: use precise per-slide timings from WAV durations
+    const timings = slideTimingsRef.current
+    if (timings.length > 0) {
+      for (const t of timings) {
+        if (ms >= t.startMs && ms < t.endMs) return t.slideNumber
+      }
+      // Past the very end — show last slide
+      const last = timings[timings.length - 1]
+      if (ms >= last.endMs) return last.slideNumber
+    }
+
+    // Fallback: evenly distribute slides when timing data unavailable
+    const durationMs = durationRef.current * 1000 || 0
+    const count = slideCountRef.current || timings.length
+    if (durationMs > 0 && count > 0) {
+      const slideDurationMs = durationMs / count
+      const slideIndex = Math.floor(ms / slideDurationMs)
+      return Math.min(slideIndex + 1, count)
+    }
+
+    return 0
+  }
+
   // Detect which slide a given time (in seconds) falls in and notify if changed
   function detectSlide(secs: number) {
-    const ms = secs * 1000
-    let match = 0
-    for (const t of slideTimingsRef.current) {
-      // < endMs so boundaries naturally advance to next slide
-      if (ms >= t.startMs && ms < t.endMs) { match = t.slideNumber; break }
-    }
-    // Past the very end (audio finished) → show last slide
-    if (!match && slideTimingsRef.current.length > 0) {
-      const last = slideTimingsRef.current[slideTimingsRef.current.length - 1]
-      if (ms >= last.endMs) match = last.slideNumber
-    }
+    const match = timeToSlide(secs)
     if (match && match !== lastSlideRef.current) {
       lastSlideRef.current = match
       onSlideChangeRef.current?.(match)
     }
   }
 
+  /** Get the start time (in seconds) for a given slide number. */
+  function getSlideStartSec(slideNumber: number): number | null {
+    // Primary: use precise per-slide timings
+    const timings = slideTimingsRef.current
+    const timing = timings.find((t) => t.slideNumber === slideNumber)
+    if (timing) return timing.startMs / 1000
+
+    // Fallback: estimate from even distribution
+    const durationMs = durationRef.current * 1000 || 0
+    const count = slideCountRef.current || timings.length
+    if (durationMs > 0 && count > 0 && slideNumber >= 1 && slideNumber <= count) {
+      return ((slideNumber - 1) * (durationMs / count)) / 1000
+    }
+
+    return null
+  }
+
   // Expose seekToSlide for the parent via the ref object prop
   const seekToSlide: SeekToSlideFn = (slideNumber: number, force?: boolean) => {
     const howl = howlRef.current
     if (!howl || howl.state() !== "loaded") return
-    const timing = slideTimingsRef.current.find((t) => t.slideNumber === slideNumber)
-    if (!timing) return
-    const targetSec = timing.startMs / 1000
+    const targetSec = getSlideStartSec(slideNumber)
+    if (targetSec === null) return
     // force=true bypasses first-watch clamp (used by sidebar / prev-next navigation).
     // force=false (default) clamps to maxWatched so seek-bar and skip buttons can't skip ahead.
     const clamped = (firstWatchRef.current && !force) ? Math.min(targetSec, maxWatchedRef.current) : targetSec
