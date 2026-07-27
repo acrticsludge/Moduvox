@@ -479,6 +479,10 @@ export function SlideEditor({
   // Determines which slides to process based on changedSlides.
   async function runAudioGeneration() {
     if (generatingAudio) return
+    if (!selectedVoiceId) {
+      toastError("Select a voice before generating audio.")
+      return
+    }
 
     const slidesToGenerate = changedSlides.length > 0
       ? slides.filter((s) => changedSlides.includes(s.number))
@@ -565,6 +569,11 @@ export function SlideEditor({
     selectedSlides?: Set<number>,
     reason: 'voice_changed' | 'content_changed' = 'voice_changed',
   ) {
+    if (!selectedVoiceId) {
+      toastError("Select a voice before generating audio.")
+      setGenerating(false)
+      return
+    }
     setGenerating(true)
     setLastRegenCount(selectedSlides?.size ?? 0)
 
@@ -1259,8 +1268,9 @@ export function SlideEditor({
         {Object.keys(narrations).length > 0 && !audioGenerated && !generationFailed && !audioGenFailed && (
           <Button
             onClick={runAudioGeneration}
-            disabled={generatingNarrations || generatingAudio}
+            disabled={generatingNarrations || generatingAudio || !selectedVoiceId}
             className="w-full"
+            title={!selectedVoiceId ? "Select a voice first" : undefined}
           >
             {generatingAudio ? (
               <>
@@ -1480,8 +1490,9 @@ export function SlideEditor({
             {Object.keys(narrations).length > 0 && !audioGenerated && !generationFailed && !audioGenFailed && (
               <Button
                 onClick={runAudioGeneration}
-                disabled={generatingNarrations || generatingAudio}
+                disabled={generatingNarrations || generatingAudio || !selectedVoiceId}
                 className="w-full"
+                title={!selectedVoiceId ? "Select a voice first" : undefined}
               >
                 {generatingAudio ? (
                   <>
