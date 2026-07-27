@@ -4,6 +4,7 @@ import { deleteFile } from "@/lib/r2"
 import { withApiHandler } from "@/lib/api-handler"
 import { z } from "zod"
 import { logAuditFromRequest } from "@/lib/audit"
+import { generateVoicePreview } from "@/lib/generate-preview"
 
 const confirmSchema = z.object({
   path: z.string().min(1),
@@ -78,6 +79,9 @@ export const POST = withApiHandler(async (request: Request) => {
     action: 'voice_consent_recorded',
     metadata: { voice_name: voice.name, voice_type: 'cloned' },
   })
+
+  // Fire-and-forget preview generation (best-effort, non-blocking)
+  Promise.resolve().then(() => generateVoicePreview(voice as any))
 
   return NextResponse.json({ data: voice }, { status: 201 })
 })
