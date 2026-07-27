@@ -26,38 +26,7 @@ type Voice = {
   created_at: string
 }
 
-const PRESET_VOICES = [
-  { id: "calm-female", label: "Calm Female", description: "Warm, steady, reassuring. Ideal for policy and compliance training.", gender: "female" as const },
-  { id: "energetic-male", label: "Energetic Male", description: "Upbeat, engaging. Good for onboarding and introductions.", gender: "male" as const },
-  { id: "soft-narrator", label: "Soft Narrator", description: "Gentle and measured. Fits detailed explanations and tutorials.", gender: "neutral" as const },
-  { id: "professional-tone", label: "Professional Tone", description: "Clear, authoritative. Suits formal business content.", gender: "neutral" as const },
-  { id: "warm-friendly", label: "Warm Friendly", description: "Approachable, conversational. Makes complex topics feel simple.", gender: "neutral" as const },
-]
-
-const GENDER_LABELS: Record<string, string> = {
-  male: "a male voice",
-  female: "a female voice",
-  neutral: "a voice",
-}
-
-const PRESET_CONTROL_INSTRUCTIONS: Record<string, string> = {
-  "calm-female": "A calm, warm female voice with a steady and reassuring tone. Ideal for policy and compliance training content.",
-  "energetic-male": "An upbeat, energetic male voice. Good for onboarding, introductions, and motivational content.",
-  "soft-narrator": "A gentle, measured voice with a soft delivery. Fits detailed explanations and tutorial-style content.",
-  "professional-tone": "A clear, authoritative voice with a professional business tone. Suits formal business content.",
-  "warm-friendly": "An approachable, conversational voice that makes complex topics feel simple and accessible.",
-}
-
-/** Build a control instruction that includes the gender specification. */
-function buildControlInstruction(base: string, gender: string | null | undefined): string {
-  const genderPhrase = GENDER_LABELS[gender || "neutral"] || "a voice"
-  if (base.toLowerCase().includes("voice")) return base // already has gender context
-  // Prepend the gender if not already specified
-  if (base.toLowerCase().startsWith("a ")) {
-    return base.replace(/^a /i, `A ${genderPhrase.replace(/^a /, "")}, `)
-  }
-  return `${genderPhrase.charAt(0).toUpperCase() + genderPhrase.slice(1)}. ${base}`
-}
+import { PRESET_VOICES, PRESET_VOICE_MAP } from "@/lib/presets"
 
 // ── Helpers ──────────────────────────────────────────
 function formatDate(iso: string) {
@@ -275,7 +244,7 @@ function AddVoiceModal({
 
     // For built-in presets, auto-fill the control instruction from the map
     const resolvedInstruction = selectedPreset
-      ? PRESET_CONTROL_INSTRUCTIONS[selectedPreset]
+      ? PRESET_VOICE_MAP[selectedPreset]
       : controlInstruction.trim() || undefined
 
     setUploading(true)
@@ -514,22 +483,33 @@ function AddVoiceModal({
               <label className="mb-1.5 block text-sm font-medium text-[#18181B]">
                 Voice gender
               </label>
-              <div className="flex gap-2">
-                {(["male", "female", "neutral"] as const).map((g) => (
-                  <button
-                    key={g}
-                    type="button"
-                    onClick={() => setVoiceGender(voiceGender === g ? "" : g)}
-                    className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-all ${
-                      voiceGender === g
-                        ? "border-[#18181B] bg-[#18181B] text-white"
-                        : "border-zinc-200 text-zinc-600 hover:border-zinc-300"
-                    }`}
-                  >
-                    {g.charAt(0).toUpperCase() + g.slice(1)}
-                  </button>
-                ))}
-              </div>
+              {selectedPreset ? (
+                /* Preset selected — show fixed gender badge */
+                <div className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2">
+                  <span className="text-sm text-zinc-500">Gender: </span>
+                  <span className="text-sm font-medium capitalize text-zinc-800">
+                    {PRESET_VOICES.find((p) => p.id === selectedPreset)?.gender ?? "neutral"}
+                  </span>
+                  <span className="text-xs text-zinc-400 ml-1">(fixed — built-in voice)</span>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  {(["male", "female", "neutral"] as const).map((g) => (
+                    <button
+                      key={g}
+                      type="button"
+                      onClick={() => setVoiceGender(voiceGender === g ? "" : g)}
+                      className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-all ${
+                        voiceGender === g
+                          ? "border-[#18181B] bg-[#18181B] text-white"
+                          : "border-zinc-200 text-zinc-600 hover:border-zinc-300"
+                      }`}
+                    >
+                      {g.charAt(0).toUpperCase() + g.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Control instruction — only for custom presets */}

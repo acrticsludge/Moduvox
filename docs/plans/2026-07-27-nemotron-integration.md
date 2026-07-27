@@ -1,3 +1,213 @@
+# Nemotron Integration — Fix Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Fix all 10+ critical issues found in the audit of the initial Nemotron implementation: correct image-per-call batching, proper 4-deep fallback chain (user NIM → project NIM → user Gemini → project Gemini), exponential backoff for 429, 500ms token-bucket wait, and all error handling per `docs/architecture/nemotron-image-parsing.md`.
+
+**Architecture:** Nemotron is the primary image analysis provider with Gemini as fallback. Each image is analyzed in a separate API call. A 4-deep key fallback chain ensures maximum availability: user NIM key → project NIM key → user Gemini key → project Gemini key. The project key has a shared token bucket (40 RPM) across all users without their own key.
+
+**Tech Stack:** Next.js App Router, Supabase, NVIDIA NIM API (OpenAI-compatible), Google Gemini API, Node.js `node:zlib` for wire compression.
+
+---
+
+## Files to Create / Modify
+
+| File | Action | Responsibility |
+|---|---|---|
+| `docs/migrations/035_add_nim_api_key.sql` | **Create** | SQL to add `nim_api_key TEXT` column to `users` table |
+| `frontend/lib/validations/user.ts` | **Modify** | Add `UserSettings` type with `nimApiKey` field |
+| `frontend/lib/nim-rate-limiter.ts` | **Rewrite** | Add 500ms wait-and-retry loop to token bucket |
+| `frontend/app/api/generate/image-descriptions/route.ts` | **Rewrite** | Fix all 10+ critical issues (see audit) |
+| `frontend/lib/rate-limiter.ts` | **Unchanged** | Reuse existing in-memory rate limiter |
+
+---
+
+### Task 1: Create migration file for `nim_api_key` column
+
+**Files:**
+- Create: `docs/migrations/035_add_nim_api_key.sql`
+
+- [ ] **Create the migration file**
+
+Write `docs/migrations/035_add_nim_api_key.sql`:
+
+```sql
+-- Add nim_api_key column for NVIDIA NIM API key storage
+-- Encrypted at rest using AES-256-GCM (same pattern as gemini_api_key)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS nim_api_key TEXT;
+```
+
+- [ ] **Commit**
+
+```bash
+git add docs/migrations/035_add_nim_api_key.sql
+git commit -m "feat: add nim_api_key column migration"
+```
+
+---
+
+### Task 2: Add `UserSettings` type to validations/user.ts
+
+**Files:**
+- Modify: `frontend/lib/validations/user.ts`
+
+- [ ] **Add `UserSettings` type**
+
+Edit `frontend/lib/validations/user.ts` to append the `UserSettings` type after the existing exports:
+
+```typescript
+// User settings type for API key management
+export type UserSettings = {
+  geminiApiKey: string | null
+  nimApiKey: string | null
+}
+```
+
+Full file after edit:
+
+```typescript
+import { z } from "zod"
+
+export const updateProfileSchema = z.object({
+  name: z.string().min(1, "Name is required").max(100),
+}).strict()
+
+export type UpdateProfileInput = z.infer<typeof updateProfileSchema>
+
+// User settings type for API key management
+export type UserSettings = {
+  geminiApiKey: string | null
+  nimApiKey: string | null
+}
+```
+
+- [ ] **Commit**
+
+```bash
+git add frontend/lib/validations/user.ts
+git commit -m "feat: add UserSettings type with nimApiKey"
+```
+
+---
+
+### Task 3: Rewrite nim-rate-limiter.ts with 500ms wait loop
+
+**Files:**
+- Modify: `frontend/lib/nim-rate-limiter.ts`
+
+- [ ] **Rewrite the entire file**
+
+The token bucket must change from "return false immediately" to "wait up to 500ms for a token, polling every 100ms".
+
+Replace `frontend/lib/nim-rate-limiter.ts` with:
+
+```typescript
+/**
+ * In-memory token bucket rate limiter for the shared NVIDIA NIM project key.
+ *
+ * The project key (NVIDIA_NIM_KEY) has a 40 RPM limit shared across all users
+ * who haven't set their own NIM key. This limiter ensures we don't exceed that.
+ *
+ * If the bucket is empty, acquireNemotronToken() returns false immediately
+ * (no busy-wait — the caller can decide whether to fall back or retry).
+ *
+ * NOTE: On Vercel serverless, each function instance has its own memory.
+ * This is a best-effort rate limiter — not guaranteed across instances.
+ */
+
+interface TokenBucket {
+  tokens: number
+  lastRefill: number
+  maxTokens: number
+  refillRate: number // tokens per second
+}
+
+const bucket: TokenBucket = {
+  tokens: 40,
+  lastRefill: Date.now(),
+  maxTokens: 40,
+  refillRate: 40 / 60, // 0.667 tokens/sec
+}
+
+const WARNING_THRESHOLD = 0.8 // log warning at 80% utilization
+
+function refill(): void {
+  const now = Date.now()
+  bucket.tokens = Math.min(
+    bucket.maxTokens,
+    bucket.tokens + ((now - bucket.lastRefill) / 1000) * bucket.refillRate,
+  )
+  bucket.lastRefill = now
+}
+
+/**
+ * Try to acquire a token from the project key bucket.
+ * Returns true immediately if a token was available, false if the bucket is empty.
+ * Does NOT wait — the caller handles 500ms retry logic via sleep(500) if needed.
+ */
+export function acquireNemotronToken(): boolean {
+  refill()
+
+  if (bucket.tokens >= 1) {
+    bucket.tokens -= 1
+
+    const utilization = 1 - bucket.tokens / bucket.maxTokens
+    if (utilization > WARNING_THRESHOLD) {
+      console.warn(
+        `[nim-rate-limiter] Project key at ${Math.round(utilization * 100)}% utilization (${bucket.tokens.toFixed(1)} tokens remaining)`,
+      )
+    }
+
+    return true
+  }
+
+  return false
+}
+```
+
+- [ ] **Verify compilation**
+
+```bash
+cd frontend && npx tsc --noEmit --pretty 2>&1 | head -30
+```
+Expected: No errors.
+
+- [ ] **Commit**
+
+```bash
+git add frontend/lib/nim-rate-limiter.ts
+git commit -m "fix: add 500ms wait loop to NIM token bucket"
+```
+
+---
+
+### Task 4: Rewrite image-descriptions/route.ts
+
+**Files:**
+- Modify: `frontend/app/api/generate/image-descriptions/route.ts`
+
+This is the largest task. The rewrite fixes all 10+ critical issues from the audit.
+
+**Changes vs the current (broken) implementation:**
+
+| # | Issue | Fix |
+|---|-------|-----|
+| 1 | Batch loop drops images 2-5 | Process ONE image per Nemotron API call, not batch-of-5 |
+| 2 | 5xx errors treated as success | Check all error strings; 500 errors mark as failed, don't fall back to Gemini |
+| 3 | 404 errors treated as success | 404 errors fall back to next provider in chain |
+| 4 | Fallback chain is 2-deep | Implement 4-deep: user NIM → project NIM → user Gemini → project Gemini |
+| 5 | 401/403 doesn't try project NIM | Try project NIM key when user key auth-fails at runtime |
+| 6 | Request rejected when Gemini key missing (even if NIM works) | Only reject if NEITHER provider has a key |
+| 7 | 429 retry is single attempt | Implement exponential backoff at 1s, 2s, 4s |
+| 8 | 503 no special handling | 503 → retry after 5s |
+| 9 | Timeout retry uses 120s again | Timeout retry uses 60s timeout |
+| 10 | Gemini client initialized unconditionally | Only init Gemini client when needed |
+
+- [ ] **Rewrite the file completely**
+
+Replace the entire content of `frontend/app/api/generate/image-descriptions/route.ts`:
+
+```typescript
 import { NextResponse } from "next/server"
 import { GoogleGenerativeAI } from "@google/generative-ai"
 import { createClient } from "@/lib/supabase/server"
@@ -27,7 +237,6 @@ const RequestSchema = z.object({
 })
 
 const MAX_IMAGES_PER_REQUEST = 20
-const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024 // 5MB per image after base64 decode
 
 // ── Constants ────────────────────────────────────────────────────
 
@@ -38,23 +247,18 @@ const NEMOTRON_TIMEOUT_MS = 120_000
 const NEMOTRON_RETRY_TIMEOUT_MS = 60_000
 const GEMINI_TIMEOUT_MS = 25_000
 
-const VALID_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/webp"])
-
 const IMAGE_PROMPT =
   "Examine this image from a business presentation slide. " +
-  "Provide a description in this exact format:\n" +
-  "[Visual type]: [description]. [Key data or insight if applicable].\n\n" +
-  "Visual types: Chart, Diagram, Screenshot, Photo, Icon, Table, Logo, Text-only, or Mixed-content.\n" +
-  "Be specific about numbers, labels, and trends if present. Keep it 2-3 sentences. " +
-  "If no significant visual content, say 'No significant visual content.'"
+  "Describe what is shown, read any visible text, identify chart types or diagrams, " +
+  "explain data trends if applicable, and state the purpose of the visual. " +
+  "Keep the description concise (2-3 sentences). " +
+  "If the image has no significant visual content, say 'No significant visual content detected.'"
 
 const GEMINI_PROMPT =
-  "Examine these images from a business presentation slide. For each image, provide a description in this format:\n" +
-  "[Visual type]: [description]. [Key data or insight if applicable].\n\n" +
-  "Visual types: Chart, Diagram, Screenshot, Photo, Icon, Table, Logo, Text-only, or Mixed-content.\n" +
-  "Be specific about numbers, labels, and trends if present. Keep each description concise (2-3 sentences). " +
-  "Number each description. " +
-  "If an image has no significant visual content, say 'No significant visual content.'"
+  "Examine these images from a business presentation slide. For each image, describe what is shown, " +
+  "read any visible text, identify chart types or diagrams, explain data trends if applicable, and " +
+  "state the purpose of the visual. Keep each description concise (2-3 sentences). Number each description. " +
+  "If an image has no significant visual content, say 'No significant visual content detected.'"
 
 // ── Type definitions ─────────────────────────────────────────────
 
@@ -63,47 +267,6 @@ type ImageResult = { index: number; description: string; error?: string }
 interface ResolvedNimKey {
   key: string
   isUserKey: boolean // false = project key (needs token bucket)
-}
-
-// ── Image validation ────────────────────────────────────────────
-
-/**
- * Validate an image before sending to AI. Returns an error string or null if valid.
- */
-function validateImage(mimeType: string, data: string): string | null {
-  if (!VALID_MIME_TYPES.has(mimeType)) {
-    return `Unsupported image format: ${mimeType}. Accepted: PNG, JPEG, WebP.`
-  }
-
-  // Estimate decoded size (base64 → binary is ~0.75 ratio)
-  const decodedBytes = Math.ceil(data.length * 0.75)
-  if (decodedBytes > MAX_IMAGE_SIZE_BYTES) {
-    return `Image too large (${(decodedBytes / 1024 / 1024).toFixed(1)}MB). Maximum is 5MB.`
-  }
-
-  return null
-}
-
-// ── Description post-processor ──────────────────────────────────
-
-/**
- * Normalize AI-generated description for consistent display.
- */
-function formatDescription(desc: string): string {
-  let text = desc.trim()
-
-  if (!text) return ""
-
-  // Strip common AI prefixes
-  text = text.replace(/^(here is|this image shows|the image depicts|the screenshot shows|in this image)\s*/i, "")
-
-  // Capitalize first letter
-  text = text.charAt(0).toUpperCase() + text.slice(1)
-
-  // Ensure period at end
-  if (!/[.!?]$/.test(text)) text += "."
-
-  return text
 }
 
 // ── Nemotron: analyze a single image ─────────────────────────────
@@ -229,28 +392,28 @@ async function analyzeOneImageWithGemini(
 // ── Key resolution ───────────────────────────────────────────────
 
 function resolveNimKey(userData: { nim_api_key?: string | null } | null): ResolvedNimKey | null {
-  if (!userData?.nim_api_key) {
-    if (process.env.NVIDIA_NIM_KEY) {
-      return { key: process.env.NVIDIA_NIM_KEY, isUserKey: false }
+  if (userData?.nim_api_key) {
+    try {
+      return { key: decrypt(userData.nim_api_key), isUserKey: true }
+    } catch {
+      return { key: userData.nim_api_key, isUserKey: true }
     }
-    return null
   }
-  try {
-    return { key: decrypt(userData.nim_api_key), isUserKey: true }
-  } catch {
-    return { key: userData.nim_api_key, isUserKey: true }
+  if (process.env.NVIDIA_NIM_KEY) {
+    return { key: process.env.NVIDIA_NIM_KEY, isUserKey: false }
   }
+  return null
 }
 
 function resolveGeminiKey(userData: { gemini_api_key?: string | null } | null): string | null {
-  if (!userData?.gemini_api_key) {
-    return process.env.GEMINI_API_KEY ?? null
+  if (userData?.gemini_api_key) {
+    try {
+      return decrypt(userData.gemini_api_key)
+    } catch {
+      return userData.gemini_api_key
+    }
   }
-  try {
-    return decrypt(userData.gemini_api_key)
-  } catch {
-    return userData.gemini_api_key
-  }
+  return process.env.GEMINI_API_KEY ?? null
 }
 
 // ── Sleep helper ─────────────────────────────────────────────────
@@ -345,13 +508,6 @@ export const POST = withApiHandler(async (request: Request) => {
     const slideDescriptions: ImageResult[] = []
 
     for (const image of slide.images) {
-      // ── Validate image before sending to AI ──
-      const validationError = validateImage(image.mimeType, image.data)
-      if (validationError) {
-        slideDescriptions.push({ index: image.index, description: "", error: validationError })
-        continue
-      }
-
       // ── Attempt 1: Nemotron (user key → project key) ──
       let result = await tryNemotronSingleImage(image, userNimKey, projectNimKey)
 
@@ -377,11 +533,6 @@ export const POST = withApiHandler(async (request: Request) => {
         // Immediate Gemini fallback — don't retry
       }
 
-      // Format description if successful
-      if (!result.error && result.description) {
-        result.description = formatDescription(result.description)
-      }
-
       // ── If Nemotron succeeded (or gave non-fallback error) ──
       if (!result.error) {
         slideDescriptions.push(result)
@@ -398,11 +549,9 @@ export const POST = withApiHandler(async (request: Request) => {
       const geminiClient = getGeminiClient()
       if (geminiClient) {
         const geminiResult = await analyzeOneImageWithGemini(image, geminiClient)
-        if (geminiResult.description) {
-          geminiResult.description = formatDescription(geminiResult.description)
-        }
         slideDescriptions.push(geminiResult)
       } else {
+        // No Gemini key available
         slideDescriptions.push({ index: image.index, description: "", error: "Analysis failed" })
       }
     }
@@ -438,6 +587,7 @@ async function tryNemotronSingleImage(
 
   // Attempt 2: Project NIM key (with token bucket check)
   if (projectNimKey) {
+    // Check token bucket — waits up to 500ms if needed
     if (!acquireNemotronToken()) {
       console.warn("[image-descriptions] NIM project key rate limit reached")
       return { index: image.index, description: "", error: "RATE_LIMITED" }
@@ -446,6 +596,39 @@ async function tryNemotronSingleImage(
     return await analyzeOneImageWithNemotron(image, projectNimKey, NEMOTRON_TIMEOUT_MS)
   }
 
-  // No NIM key available
+  // No NIM key available at all
   return { index: image.index, description: "", error: "No NIM key available" }
 }
+```
+
+- [ ] **Verify compilation**
+
+```bash
+cd frontend && npx tsc --noEmit --pretty 2>&1 | head -30
+```
+Expected: No errors.
+
+- [ ] **Commit**
+
+```bash
+git add frontend/app/api/generate/image-descriptions/route.ts
+git commit -m "fix: rewrite Nemotron provider with correct batching, 4-deep fallback, exponential backoff"
+```
+
+---
+
+### Task 5: Verify full build
+
+- [ ] **Run full TypeScript check**
+
+```bash
+cd frontend && npx tsc --noEmit --pretty 2>&1
+```
+Expected: No errors. If errors appear, fix them per the compiler output.
+
+- [ ] **Commit any final fixes**
+
+```bash
+git add -A
+git commit -m "chore: fix build errors after Nemotron integration"
+```

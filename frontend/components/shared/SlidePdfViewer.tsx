@@ -15,7 +15,10 @@ try {
 
 export type SlidePdfViewerProps = {
   pdfUrl: string | null
+  /** Fixed pixel width (overrides responsive sizing) */
   slideWidth?: number
+  /** Override the default 880px max width when using responsive sizing (e.g. fullscreen) */
+  maxWidth?: number
   aspectRatio?: number // default 4:3 (0.75)
   onLoadError?: () => void
 }
@@ -23,6 +26,7 @@ export type SlidePdfViewerProps = {
 export function SlidePdfViewer({
   pdfUrl,
   slideWidth: externalWidth,
+  maxWidth = 880,
   aspectRatio = 0.75,
   onLoadError,
 }: SlidePdfViewerProps) {
@@ -35,7 +39,7 @@ export function SlidePdfViewer({
 
   const slideWidth =
     externalWidth ??
-    (typeof window !== "undefined" ? Math.min(window.innerWidth * 0.5, 880) : 800)
+    (typeof window !== "undefined" ? Math.min(window.innerWidth * 0.5, maxWidth) : Math.min(800, maxWidth))
   const slideHeight = Math.round(slideWidth * aspectRatio)
 
   if (!pdfUrl) {

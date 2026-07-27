@@ -112,26 +112,17 @@ export const POST = withApiHandler(async (request: Request) => {
     // ── Phase 3: Concatenate chunk WAVs into a single slide audio ──
     const finalWav = wavBuffers.length === 1 ? wavBuffers[0] : concatWavBuffers(wavBuffers)
 
-    // ── Phase 4: Save to R2 ──
+    // ── Phase 4: Save per-slide WAV to R2 ──
     const storagePath = `${user.id}/audio/${presentation_id}/slides/slide-${slide_number}.wav`
     await deleteFile(storagePath)
-
-    // Delete old combined.wav BEFORE writing new per-slide WAV — prevents a window
-    // where the view API sees new per-slide WAVs but old combined audio (timing mismatch)
-    const combinedKey = `${user.id}/audio/${presentation_id}/combined.wav`
-    const delResult = await deleteFile(combinedKey)
-    if (!delResult.success) console.error("Failed to delete stale combined.wav:", delResult.error)
 
     const uploadResult = await uploadFile(storagePath, finalWav, "audio/wav")
     if (!uploadResult.success) throw new Error(`Failed to save audio: ${uploadResult.error}`)
 
-    // Bump audio_version so the view page can detect the change
-    try {
-      const admin = createAdminClient()
-      await admin.rpc("increment_audio_version", { p_presentation_id: presentation_id })
-    } catch (err) {
-      console.error("Failed to bump audio_version:", err)
-    }
+    // NOTE: combined.wav is NOT deleted here. It is rebuilt atomically by the
+    // editor after ALL per-slide WAVs are written, preventing race conditions
+    // where a viewer requests combined audio during partial regeneration.
+    // audio_version is also bumped only after combined rebuild completes.
 
     // Audit log
     await logAuditFromRequest(request, {
