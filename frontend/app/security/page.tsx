@@ -19,7 +19,7 @@ export default function SecurityPage() {
           Security & Trust
         </h1>
         <p className="mt-2 text-sm text-[#71717A]">
-          Last updated: July 13, 2026
+          Last updated: July 27, 2026
         </p>
 
         <div className="mt-10 space-y-8 text-sm leading-relaxed text-[#52525B]">
@@ -74,6 +74,15 @@ export default function SecurityPage() {
               at <code className="mx-1 rounded bg-zinc-100 px-1 py-0.5 text-[#18181B]">{`{userId}/audio/{presId}/`}</code>.
             </p>
 
+            <h3 className="mb-1.5 mt-4 text-sm font-semibold text-[#18181B]">Slide Image Analysis</h3>
+            <p className="mb-2">
+              When generating narration, rendered slide images are sent to NVIDIA NIM (or Google
+              Gemini as fallback) for OCR and content extraction. These images are sent directly
+              from our server — never from your browser — and are processed in-memory. No slide
+              content is retained by NVIDIA after processing. Your NIM API key (if provided in
+              Settings) is encrypted at rest and sent only in server-to-server API calls.
+            </p>
+
             <h3 className="mb-1.5 mt-4 text-sm font-semibold text-[#18181B]">Viewer Data</h3>
             <p>
               When viewers access a shared presentation with email gating, we collect their
@@ -98,16 +107,17 @@ export default function SecurityPage() {
             <h3 className="mb-1.5 mt-4 text-sm font-semibold text-[#18181B]">At Rest</h3>
             <p className="mb-2">
               Cloudflare R2 provides default AES-256 server-side encryption for all stored objects
-              (voice samples, audio files, PDFs). Your Gemini API key (if provided) is encrypted
-              at rest in the database using AES-256-GCM with a server-side key. Share link
-              passwords are hashed using bcrypt with 12 salt rounds.
+              (voice samples, audio files, PDFs). Your Gemini and NVIDIA NIM API keys (if provided)
+              are encrypted at rest in the database using AES-256-GCM with a server-side key. Share
+              link passwords are hashed using bcrypt with 12 salt rounds.
             </p>
             <p className="mb-2">
               <strong>What is not encrypted at rest:</strong> User email addresses, viewer email
               addresses, IP addresses, presentation content, narration text, and other application
-              data are stored as plaintext in the database. Row-Level Security (RLS) policies
-              restrict access to this data at the database level — only authenticated users can
-              access their own data, and RLS is enabled on every table.
+              data are stored as plaintext in the database. Slide images sent to NVIDIA NIM for
+              analysis are processed in-memory and are not stored permanently. Row-Level Security
+              (RLS) policies restrict access to this data at the database level — only authenticated
+              users can access their own data, and RLS is enabled on every table.
             </p>
           </section>
 
@@ -186,6 +196,15 @@ export default function SecurityPage() {
               </div>
 
               <div className="rounded-lg border border-zinc-200 bg-white p-3.5">
+                <p className="font-medium text-[#18181B]">NVIDIA NIM</p>
+                <p className="mt-0.5 text-xs">
+                  Slide image analysis and text extraction. Receives rendered slide images
+                  for processing. Images are processed in-memory and not retained. You can
+                  provide your own NIM API key in Settings for higher rate limits.
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-zinc-200 bg-white p-3.5">
                 <p className="font-medium text-[#18181B]">Supabase</p>
                 <p className="mt-0.5 text-xs">
                   Database, authentication, Row-Level Security. All structured data resides in
@@ -243,6 +262,11 @@ export default function SecurityPage() {
               <li>
                 <strong>Use your own Gemini key:</strong> Go to Settings to provide your own
                 API key. Narration generation will use your quota instead of the shared key.
+              </li>
+              <li>
+                <strong>Use your own NVIDIA NIM key:</strong> Go to Settings to provide your own
+                NIM API key. Slide image analysis will use your quota instead of the shared
+                project key (40 RPM).
               </li>
               <li>
                 <strong>Expire a shared link:</strong> Set an expiration date in Share Settings.

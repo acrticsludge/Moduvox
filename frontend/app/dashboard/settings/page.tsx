@@ -35,6 +35,14 @@ export default function SettingsPage() {
   const [savingGemini, setSavingGemini] = useState(false)
   const [geminiMessage, setGeminiMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
 
+  // NVIDIA NIM API key
+  const [nimKey, setNimKey] = useState("")
+  const [nimKeyDisplay, setNimKeyDisplay] = useState("")
+  const [nimKeyExists, setNimKeyExists] = useState(false)
+  const [showNimKey, setShowNimKey] = useState(false)
+  const [savingNim, setSavingNim] = useState(false)
+  const [nimMessage, setNimMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+
   const supabase = createClient()
   const router = useRouter()
 
@@ -62,6 +70,15 @@ export default function SettingsPage() {
         if (storedKey) {
           // Show last 4 chars masked
           setGeminiKeyDisplay(`············${storedKey.slice(-4)}`)
+        }
+
+        // Load NIM key status
+        const nimRes = await fetch("/api/user/nim-key")
+        const nimJson = await nimRes.json()
+        const storedNimKey = nimJson.data?.nimApiKey
+        setNimKeyExists(!!storedNimKey)
+        if (storedNimKey) {
+          setNimKeyDisplay(`············${storedNimKey.slice(-4)}`)
         }
       } catch {
         // Data fetch failed — settings form shows with empty fields
@@ -514,6 +531,136 @@ export default function SettingsPage() {
                           }
                         }}
                         disabled={savingGemini}
+                        className="rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-[#71717A] transition-all hover:border-red-200 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* NVIDIA NIM API Key */}
+              <hr className="border-zinc-200" />
+              <div>
+                <h2 className="text-base font-semibold text-[#18181B]">NVIDIA NIM API Key</h2>
+                <p className="mt-1 text-sm text-[#71717A]">
+                  Used for slide image analysis to extract text, charts, and structure. Add your own key
+                  for higher rate limits (shared key is capped at 40 requests/minute across all users).
+                </p>
+
+                {nimMessage?.type === "error" && (
+                  <ErrorBanner message={nimMessage.text} />
+                )}
+                {nimMessage?.type === "success" && (
+                  <div className="mt-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-600">
+                    {nimMessage.text}
+                  </div>
+                )}
+
+                <div className="mt-4 space-y-3">
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-[#18181B]">
+                      API Key
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showNimKey ? "text" : "password"}
+                        value={nimKey}
+                        onChange={(e) => setNimKey(e.target.value)}
+                        placeholder={nimKeyExists ? nimKeyDisplay : "Paste your NVIDIA NIM API key"}
+                        className="w-full rounded-lg border border-zinc-200 px-3 py-2 pr-10 text-sm text-[#18181B] outline-none transition-colors placeholder:text-zinc-400 focus:border-zinc-400"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNimKey(!showNimKey)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-zinc-400 transition-colors hover:text-zinc-600"
+                        aria-label={showNimKey ? "Hide key" : "Show key"}
+                      >
+                        {showNimKey ? (
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
+                          </svg>
+                        ) : (
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+                    <p className="mt-1 text-xs text-zinc-400">
+                      Get a key from{" "}
+                      <a
+                        href="https://build.nvidia.com"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline underline-offset-2 hover:text-zinc-600"
+                      >
+                        build.nvidia.com
+                      </a>
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setSavingNim(true)
+                        setNimMessage(null)
+                        try {
+                          const res = await fetch("/api/user/nim-key", {
+                            method: "PUT",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ nimApiKey: nimKey.trim() || null }),
+                          })
+                          const json = await res.json()
+                          if (!res.ok) throw new Error(typeof json.error === "string" ? json.error : "Failed to save")
+                          if (nimKey.trim()) {
+                            setNimKeyDisplay(`············${nimKey.trim().slice(-4)}`)
+                            setNimKeyExists(true)
+                            setNimMessage({ type: "success", text: "NVIDIA NIM API key saved." })
+                          } else {
+                            setNimKeyExists(false)
+                            setNimKeyDisplay("")
+                            setNimMessage({ type: "success", text: "NVIDIA NIM API key removed." })
+                          }
+                          setNimKey("")
+                        } catch (e) {
+                          setNimMessage({ type: "error", text: e instanceof Error ? e.message : "Failed to save" })
+                        } finally {
+                          setSavingNim(false)
+                        }
+                      }}
+                      disabled={savingNim}
+                      className="inline-flex items-center gap-2 rounded-lg border border-[#18181B]/70 bg-[#18181B] px-4 py-2 text-sm font-medium text-white transition-all hover:border-[#18181B] hover:bg-[#27272A] disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      {savingNim && <Loader2 className="h-4 w-4 animate-spin" />}
+                      {savingNim ? "Saving..." : nimKeyExists ? "Update" : "Save"}
+                    </button>
+                    {nimKeyExists && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          setSavingNim(true)
+                          setNimMessage(null)
+                          try {
+                            await fetch("/api/user/nim-key", {
+                              method: "PUT",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ nimApiKey: null }),
+                            })
+                            setNimKeyExists(false)
+                            setNimKeyDisplay("")
+                            setNimKey("")
+                            setNimMessage({ type: "success", text: "NVIDIA NIM API key removed." })
+                          } catch {
+                            setNimMessage({ type: "error", text: "Failed to remove key." })
+                          } finally {
+                            setSavingNim(false)
+                          }
+                        }}
+                        disabled={savingNim}
                         className="rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-[#71717A] transition-all hover:border-red-200 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         Remove

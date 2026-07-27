@@ -15,7 +15,7 @@ export default function TermsPage() {
         <h1 className="text-3xl font-semibold tracking-tight text-[#18181B]">
           Terms of Service
         </h1>
-        <p className="mt-2 text-sm text-[#71717A]">Last updated: June 24, 2026</p>
+        <p className="mt-2 text-sm text-[#71717A]">Last updated: July 27, 2026</p>
 
         <div className="mt-10 space-y-8 text-sm leading-relaxed text-[#52525B]">
           <section>
@@ -93,10 +93,10 @@ export default function TermsPage() {
           <section>
             <h2 className="mb-3 text-base font-semibold text-[#18181B]">8. Third-Party Services</h2>
             <p>
-              Moduvox uses third-party AI services (including Google Gemini for text generation and
-              Hugging Face for voice synthesis) to process your content. These services may have their
-              own terms and data handling practices. By using Moduvox, you consent to your content
-              being processed by these third-party services.
+              Moduvox uses third-party AI services (including Google Gemini for text generation,
+              Hugging Face for voice synthesis, and NVIDIA NIM for slide image processing) to process
+              your content. These services may have their own terms and data handling practices. By
+              using Moduvox, you consent to your content being processed by these third-party services.
             </p>
           </section>
 

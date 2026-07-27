@@ -15,7 +15,7 @@ export default function PrivacyPage() {
         <h1 className="text-3xl font-semibold tracking-tight text-[#18181B]">
           Privacy Policy
         </h1>
-        <p className="mt-2 text-sm text-[#71717A]">Last updated: June 24, 2026</p>
+        <p className="mt-2 text-sm text-[#71717A]">Last updated: July 27, 2026</p>
 
         <div className="mt-10 space-y-8 text-sm leading-relaxed text-[#52525B]">
           <section>
@@ -76,12 +76,20 @@ export default function PrivacyPage() {
 
           <section>
             <h2 className="mb-3 text-base font-semibold text-[#18181B]">4. AI Processing</h2>
+            <p className="mb-2">
+              Your slide notes and content are sent to Google Gemini for narration text generation,
+              to HuggingFace for voice synthesis, and to NVIDIA NIM for slide image analysis and text
+              extraction. These third-party AI services process your content solely for the purpose
+              of generating your requested output. We do not use your content to train AI models.
+            </p>
             <p>
-              Your slide notes and content are sent to Google Gemini for narration text generation
-              and to HuggingFace for voice synthesis. These third-party AI services process your
-              content solely for the purpose of generating your requested output. We do not use
-              your content to train AI models. Review the privacy policies of Google Gemini and
-              HuggingFace for their data handling practices.
+              Slide images (rendered from your uploaded PowerPoint) are sent to NVIDIA NIM for
+              image analysis and text extraction. These images are processed solely for the purpose
+              of generating narration content. Review the privacy policies of
+              <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="mx-1 text-[#18181B] underline underline-offset-2">Google Gemini</a>,
+              <a href="https://huggingface.co/privacy" target="_blank" rel="noopener noreferrer" className="mx-1 text-[#18181B] underline underline-offset-2">HuggingFace</a>, and
+              <a href="https://www.nvidia.com/en-us/privacy-policy/" target="_blank" rel="noopener noreferrer" className="mx-1 text-[#18181B] underline underline-offset-2">NVIDIA</a>
+              for their data handling practices.
             </p>
           </section>
 
@@ -91,7 +99,7 @@ export default function PrivacyPage() {
             <ul className="list-disc pl-5 space-y-1.5">
               <li>
                 <strong>Service providers:</strong> Supabase (database &amp; auth), Resend
-                (email), Vercel (hosting), Google Gemini (AI), HuggingFace (AI) — each bound
+                (email), Vercel (hosting), Google Gemini (AI), HuggingFace (AI), NVIDIA NIM (AI) — each bound
                 by data processing agreements.
               </li>
               <li>
