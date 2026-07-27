@@ -1,166 +1,183 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { createClient } from "@/lib/supabase/client"
-import { Loader2, LogOut } from "lucide-react"
-import { ErrorBanner } from "@/components/ui/ErrorBanner"
-import { useRouter } from "next/navigation"
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { Loader2, LogOut } from "lucide-react";
+import { ErrorBanner } from "@/components/ui/ErrorBanner";
+import { useRouter } from "next/navigation";
 
-type Tab = "profile" | "security" | "api-keys"
+type Tab = "profile" | "security" | "api-keys";
 
 export default function SettingsPage() {
-  const [tab, setTab] = useState<Tab>("profile")
-  const [name, setName] = useState("")
-  const [email, setEmail] = useState("")
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [saveMessage, setSaveMessage] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [loggingOut, setLoggingOut] = useState(false)
-  const [showPasswordForm, setShowPasswordForm] = useState(false)
-  const [currentPassword, setCurrentPassword] = useState("")
-  const [newPassword, setNewPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
-  const [changingPassword, setChangingPassword] = useState(false)
-  const [passwordChanged, setPasswordChanged] = useState(false)
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-  const [deleteConfirmText, setDeleteConfirmText] = useState("")
-  const [deleting, setDeleting] = useState(false)
+  const [tab, setTab] = useState<Tab>("profile");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [passwordChanged, setPasswordChanged] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   // Gemini API key
-  const [geminiKey, setGeminiKey] = useState("")
-  const [geminiKeyDisplay, setGeminiKeyDisplay] = useState("")
-  const [geminiKeyExists, setGeminiKeyExists] = useState(false)
-  const [showGeminiKey, setShowGeminiKey] = useState(false)
-  const [savingGemini, setSavingGemini] = useState(false)
-  const [geminiMessage, setGeminiMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+  const [geminiKey, setGeminiKey] = useState("");
+  const [geminiKeyDisplay, setGeminiKeyDisplay] = useState("");
+  const [geminiKeyExists, setGeminiKeyExists] = useState(false);
+  const [showGeminiKey, setShowGeminiKey] = useState(false);
+  const [savingGemini, setSavingGemini] = useState(false);
+  const [geminiMessage, setGeminiMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
 
   // NVIDIA NIM API key
-  const [nimKey, setNimKey] = useState("")
-  const [nimKeyDisplay, setNimKeyDisplay] = useState("")
-  const [nimKeyExists, setNimKeyExists] = useState(false)
-  const [showNimKey, setShowNimKey] = useState(false)
-  const [savingNim, setSavingNim] = useState(false)
-  const [nimMessage, setNimMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+  const [nimKey, setNimKey] = useState("");
+  const [nimKeyDisplay, setNimKeyDisplay] = useState("");
+  const [nimKeyExists, setNimKeyExists] = useState(false);
+  const [showNimKey, setShowNimKey] = useState(false);
+  const [savingNim, setSavingNim] = useState(false);
+  const [nimMessage, setNimMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
 
-  const supabase = createClient()
-  const router = useRouter()
+  const supabase = createClient();
+  const router = useRouter();
 
   useEffect(() => {
     async function loadProfile() {
       try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) { setLoading(false); return }
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) {
+          setLoading(false);
+          return;
+        }
 
-        setEmail(user.email ?? "")
+        setEmail(user.email ?? "");
 
         const { data } = await supabase
           .from("users")
           .select("name")
           .eq("id", user.id)
-          .maybeSingle()
+          .maybeSingle();
 
-        setName(data?.name ?? user.user_metadata?.full_name ?? "")
+        setName(data?.name ?? user.user_metadata?.full_name ?? "");
 
         // Load Gemini key status
-        const keyRes = await fetch("/api/user/gemini-key")
-        const keyJson = await keyRes.json()
-        const storedKey = keyJson.data?.geminiApiKey
-        setGeminiKeyExists(!!storedKey)
+        const keyRes = await fetch("/api/user/gemini-key");
+        const keyJson = await keyRes.json();
+        const storedKey = keyJson.data?.geminiApiKey;
+        setGeminiKeyExists(!!storedKey);
         if (storedKey) {
           // Show last 4 chars masked
-          setGeminiKeyDisplay(`············${storedKey.slice(-4)}`)
+          setGeminiKeyDisplay(`············${storedKey.slice(-4)}`);
         }
 
         // Load NIM key status
-        const nimRes = await fetch("/api/user/nim-key")
-        const nimJson = await nimRes.json()
-        const storedNimKey = nimJson.data?.nimApiKey
-        setNimKeyExists(!!storedNimKey)
+        const nimRes = await fetch("/api/user/nim-key");
+        const nimJson = await nimRes.json();
+        const storedNimKey = nimJson.data?.nimApiKey;
+        setNimKeyExists(!!storedNimKey);
         if (storedNimKey) {
-          setNimKeyDisplay(`············${storedNimKey.slice(-4)}`)
+          setNimKeyDisplay(`············${storedNimKey.slice(-4)}`);
         }
       } catch {
         // Data fetch failed — settings form shows with empty fields
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
     }
-    loadProfile()
-  }, [supabase])
+    loadProfile();
+  }, [supabase]);
 
   async function handleSaveProfile() {
-    setSaving(true)
-    setSaveMessage(null)
-    setError(null)
+    setSaving(true);
+    setSaveMessage(null);
+    setError(null);
 
     try {
       const res = await fetch("/api/user/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: name.trim() }),
-      })
-      const json = await res.json()
-      if (!res.ok) throw new Error(typeof json.error === "string" ? json.error : "Failed to save")
-      setSaveMessage("Profile saved")
-      setTimeout(() => setSaveMessage(null), 3000)
+      });
+      const json = await res.json();
+      if (!res.ok)
+        throw new Error(
+          typeof json.error === "string" ? json.error : "Failed to save",
+        );
+      setSaveMessage("Profile saved");
+      setTimeout(() => setSaveMessage(null), 3000);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save profile")
+      setError(e instanceof Error ? e.message : "Failed to save profile");
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
   }
 
   async function handleChangePassword() {
     if (newPassword !== confirmPassword) {
-      setError("Passwords do not match")
-      return
+      setError("Passwords do not match");
+      return;
     }
     if (newPassword.length < 6) {
-      setError("Password must be at least 6 characters")
-      return
+      setError("Password must be at least 6 characters");
+      return;
     }
 
-    setChangingPassword(true)
-    setError(null)
+    setChangingPassword(true);
+    setError(null);
 
-    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
     if (error) {
-      setError(error.message)
-      setChangingPassword(false)
-      return
+      setError(error.message);
+      setChangingPassword(false);
+      return;
     }
 
-    setPasswordChanged(true)
-    setShowPasswordForm(false)
-    setCurrentPassword("")
-    setNewPassword("")
-    setConfirmPassword("")
-    setChangingPassword(false)
+    setPasswordChanged(true);
+    setShowPasswordForm(false);
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setChangingPassword(false);
   }
 
   async function handleLogout() {
-    setLoggingOut(true)
-    await supabase.auth.signOut()
-    router.push("/")
-    router.refresh()
+    setLoggingOut(true);
+    await supabase.auth.signOut();
+    router.push("/");
+    router.refresh();
   }
 
   async function handleDeleteAccount() {
-    if (deleteConfirmText !== "DELETE") return
-    setDeleting(true)
-    setError(null)
+    if (deleteConfirmText !== "DELETE") return;
+    setDeleting(true);
+    setError(null);
 
     try {
-      const res = await fetch("/api/user/account", { method: "DELETE" })
-      const json = await res.json()
-      if (!res.ok) throw new Error(typeof json.error === "string" ? json.error : "Failed to delete")
+      const res = await fetch("/api/user/account", { method: "DELETE" });
+      const json = await res.json();
+      if (!res.ok)
+        throw new Error(
+          typeof json.error === "string" ? json.error : "Failed to delete",
+        );
 
-      await supabase.auth.signOut()
-      window.location.href = "/"
+      await supabase.auth.signOut();
+      window.location.href = "/";
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to delete account")
-      setDeleting(false)
+      setError(e instanceof Error ? e.message : "Failed to delete account");
+      setDeleting(false);
     }
   }
 
@@ -180,7 +197,7 @@ export default function SettingsPage() {
           <div className="h-10 w-28 rounded-lg bg-zinc-100 animate-pulse" />
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -200,7 +217,11 @@ export default function SettingsPage() {
                   : "text-[#71717A] hover:text-[#18181B]"
               }`}
             >
-              {t === "profile" ? "Profile" : t === "security" ? "Security" : "API Keys"}
+              {t === "profile"
+                ? "Profile"
+                : t === "security"
+                  ? "Security"
+                  : "API Keys"}
             </button>
           ))}
         </div>
@@ -264,7 +285,9 @@ export default function SettingsPage() {
             <div className="space-y-8">
               {/* Password change */}
               <div>
-                <h2 className="text-base font-semibold text-[#18181B]">Password</h2>
+                <h2 className="text-base font-semibold text-[#18181B]">
+                  Password
+                </h2>
                 <p className="mt-1 text-sm text-[#71717A]">
                   Set a new password for your account.
                 </p>
@@ -310,7 +333,10 @@ export default function SettingsPage() {
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => { setShowPasswordForm(false); setError(null) }}
+                        onClick={() => {
+                          setShowPasswordForm(false);
+                          setError(null);
+                        }}
                         className="rounded-lg px-3 py-2 text-sm font-medium text-[#71717A] transition-colors hover:text-[#18181B]"
                       >
                         Cancel
@@ -318,10 +344,14 @@ export default function SettingsPage() {
                       <button
                         type="button"
                         onClick={handleChangePassword}
-                        disabled={changingPassword || !newPassword || !confirmPassword}
+                        disabled={
+                          changingPassword || !newPassword || !confirmPassword
+                        }
                         className="inline-flex items-center gap-2 rounded-lg border border-[#18181B]/70 bg-[#18181B] px-4 py-2 text-sm font-medium text-white transition-all hover:border-[#18181B] hover:bg-[#27272A] disabled:cursor-not-allowed disabled:opacity-40"
                       >
-                        {changingPassword && <Loader2 className="h-4 w-4 animate-spin" />}
+                        {changingPassword && (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        )}
                         {changingPassword ? "Saving..." : "Save password"}
                       </button>
                     </div>
@@ -333,7 +363,9 @@ export default function SettingsPage() {
 
               {/* Log out */}
               <div>
-                <h2 className="text-base font-semibold text-[#18181B]">Session</h2>
+                <h2 className="text-base font-semibold text-[#18181B]">
+                  Session
+                </h2>
                 <p className="mt-1 text-sm text-[#71717A]">
                   Sign out of your account on this device.
                 </p>
@@ -344,9 +376,14 @@ export default function SettingsPage() {
                   className="mt-3 inline-flex items-center gap-2 rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-[#18181B] transition-all hover:bg-zinc-50 disabled:opacity-50"
                 >
                   {loggingOut ? (
-                    <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Signing out...</span>
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" /> Signing
+                      out...
+                    </span>
                   ) : (
-                    <span className="flex items-center gap-2"><LogOut className="h-4 w-4" /> Log out</span>
+                    <span className="flex items-center gap-2">
+                      <LogOut className="h-4 w-4" /> Log out
+                    </span>
                   )}
                 </button>
               </div>
@@ -355,7 +392,9 @@ export default function SettingsPage() {
 
               {/* Delete account */}
               <div>
-                <h2 className="text-base font-semibold text-red-600">Delete Account</h2>
+                <h2 className="text-base font-semibold text-red-600">
+                  Delete Account
+                </h2>
                 <p className="mt-1 text-sm text-[#71717A]">
                   Permanently delete your account and all associated data
                   (voices, presentations). This cannot be undone.
@@ -387,7 +426,10 @@ export default function SettingsPage() {
                     <div className="mt-3 flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText("") }}
+                        onClick={() => {
+                          setShowDeleteConfirm(false);
+                          setDeleteConfirmText("");
+                        }}
                         className="rounded-lg px-3 py-2 text-sm font-medium text-[#71717A] transition-colors hover:text-[#18181B]"
                       >
                         Cancel
@@ -398,7 +440,9 @@ export default function SettingsPage() {
                         disabled={deleteConfirmText !== "DELETE" || deleting}
                         className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-40"
                       >
-                        {deleting && <Loader2 className="h-4 w-4 animate-spin" />}
+                        {deleting && (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        )}
                         {deleting ? "Deleting..." : "Permanently delete"}
                       </button>
                     </div>
@@ -413,10 +457,13 @@ export default function SettingsPage() {
             <div className="space-y-6">
               {/* Gemini API Key */}
               <div>
-                <h2 className="text-base font-semibold text-[#18181B]">Gemini API Key</h2>
+                <h2 className="text-base font-semibold text-[#18181B]">
+                  Gemini API Key
+                </h2>
                 <p className="mt-1 text-sm text-[#71717A]">
-                  Used for AI narration generation. Add your own key for unlimited generation
-                  (shared key is capped at 5 requests/minute).
+                  Used for AI narration generation. Add your own key for
+                  unlimited generation (shared key is capped at 5
+                  requests/minute).
                 </p>
 
                 {geminiMessage?.type === "error" && (
@@ -438,7 +485,11 @@ export default function SettingsPage() {
                         type={showGeminiKey ? "text" : "password"}
                         value={geminiKey}
                         onChange={(e) => setGeminiKey(e.target.value)}
-                        placeholder={geminiKeyExists ? geminiKeyDisplay : "Paste your Gemini API key"}
+                        placeholder={
+                          geminiKeyExists
+                            ? geminiKeyDisplay
+                            : "Paste your Gemini API key"
+                        }
                         className="w-full rounded-lg border border-zinc-200 px-3 py-2 pr-10 text-sm text-[#18181B] outline-none transition-colors placeholder:text-zinc-400 focus:border-zinc-400"
                       />
                       <button
@@ -448,13 +499,37 @@ export default function SettingsPage() {
                         aria-label={showGeminiKey ? "Hide key" : "Show key"}
                       >
                         {showGeminiKey ? (
-                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
+                          <svg
+                            className="h-4 w-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={1.5}
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88"
+                            />
                           </svg>
                         ) : (
-                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <svg
+                            className="h-4 w-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={1.5}
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"
+                            />
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                            />
                           </svg>
                         )}
                       </button>
@@ -476,58 +551,89 @@ export default function SettingsPage() {
                     <button
                       type="button"
                       onClick={async () => {
-                        setSavingGemini(true)
-                        setGeminiMessage(null)
+                        setSavingGemini(true);
+                        setGeminiMessage(null);
                         try {
                           const res = await fetch("/api/user/gemini-key", {
                             method: "PUT",
                             headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ geminiApiKey: geminiKey.trim() || null }),
-                          })
-                          const json = await res.json()
-                          if (!res.ok) throw new Error(typeof json.error === "string" ? json.error : "Failed to save")
+                            body: JSON.stringify({
+                              geminiApiKey: geminiKey.trim() || null,
+                            }),
+                          });
+                          const json = await res.json();
+                          if (!res.ok)
+                            throw new Error(
+                              typeof json.error === "string"
+                                ? json.error
+                                : "Failed to save",
+                            );
                           if (geminiKey.trim()) {
-                            setGeminiKeyDisplay(`············${geminiKey.trim().slice(-4)}`)
-                            setGeminiKeyExists(true)
-                            setGeminiMessage({ type: "success", text: "Gemini API key saved." })
+                            setGeminiKeyDisplay(
+                              `············${geminiKey.trim().slice(-4)}`,
+                            );
+                            setGeminiKeyExists(true);
+                            setGeminiMessage({
+                              type: "success",
+                              text: "Gemini API key saved.",
+                            });
                           } else {
-                            setGeminiKeyExists(false)
-                            setGeminiKeyDisplay("")
-                            setGeminiMessage({ type: "success", text: "Gemini API key removed." })
+                            setGeminiKeyExists(false);
+                            setGeminiKeyDisplay("");
+                            setGeminiMessage({
+                              type: "success",
+                              text: "Gemini API key removed.",
+                            });
                           }
-                          setGeminiKey("")
+                          setGeminiKey("");
                         } catch (e) {
-                          setGeminiMessage({ type: "error", text: e instanceof Error ? e.message : "Failed to save" })
+                          setGeminiMessage({
+                            type: "error",
+                            text:
+                              e instanceof Error ? e.message : "Failed to save",
+                          });
                         } finally {
-                          setSavingGemini(false)
+                          setSavingGemini(false);
                         }
                       }}
                       disabled={savingGemini}
                       className="inline-flex items-center gap-2 rounded-lg border border-[#18181B]/70 bg-[#18181B] px-4 py-2 text-sm font-medium text-white transition-all hover:border-[#18181B] hover:bg-[#27272A] disabled:cursor-not-allowed disabled:opacity-40"
                     >
-                      {savingGemini && <Loader2 className="h-4 w-4 animate-spin" />}
-                      {savingGemini ? "Saving..." : geminiKeyExists ? "Update" : "Save"}
+                      {savingGemini && (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      )}
+                      {savingGemini
+                        ? "Saving..."
+                        : geminiKeyExists
+                          ? "Update"
+                          : "Save"}
                     </button>
                     {geminiKeyExists && (
                       <button
                         type="button"
                         onClick={async () => {
-                          setSavingGemini(true)
-                          setGeminiMessage(null)
+                          setSavingGemini(true);
+                          setGeminiMessage(null);
                           try {
                             await fetch("/api/user/gemini-key", {
                               method: "PUT",
                               headers: { "Content-Type": "application/json" },
                               body: JSON.stringify({ geminiApiKey: null }),
-                            })
-                            setGeminiKeyExists(false)
-                            setGeminiKeyDisplay("")
-                            setGeminiKey("")
-                            setGeminiMessage({ type: "success", text: "Gemini API key removed." })
+                            });
+                            setGeminiKeyExists(false);
+                            setGeminiKeyDisplay("");
+                            setGeminiKey("");
+                            setGeminiMessage({
+                              type: "success",
+                              text: "Gemini API key removed.",
+                            });
                           } catch {
-                            setGeminiMessage({ type: "error", text: "Failed to remove key." })
+                            setGeminiMessage({
+                              type: "error",
+                              text: "Failed to remove key.",
+                            });
                           } finally {
-                            setSavingGemini(false)
+                            setSavingGemini(false);
                           }
                         }}
                         disabled={savingGemini}
@@ -543,10 +649,13 @@ export default function SettingsPage() {
               {/* NVIDIA NIM API Key */}
               <hr className="border-zinc-200" />
               <div>
-                <h2 className="text-base font-semibold text-[#18181B]">NVIDIA NIM API Key</h2>
+                <h2 className="text-base font-semibold text-[#18181B]">
+                  NVIDIA NIM API Key
+                </h2>
                 <p className="mt-1 text-sm text-[#71717A]">
-                  Used for slide image analysis to extract text, charts, and structure. Add your own key
-                  for higher rate limits (shared key is capped at 40 requests/minute across all users).
+                  Used for slide image analysis to extract text, charts, and
+                  structure. Add your own key for higher rate limits (shared key
+                  is capped at 40 requests/minute across all users).
                 </p>
 
                 {nimMessage?.type === "error" && (
@@ -568,7 +677,11 @@ export default function SettingsPage() {
                         type={showNimKey ? "text" : "password"}
                         value={nimKey}
                         onChange={(e) => setNimKey(e.target.value)}
-                        placeholder={nimKeyExists ? nimKeyDisplay : "Paste your NVIDIA NIM API key"}
+                        placeholder={
+                          nimKeyExists
+                            ? nimKeyDisplay
+                            : "Paste your NVIDIA NIM API key"
+                        }
                         className="w-full rounded-lg border border-zinc-200 px-3 py-2 pr-10 text-sm text-[#18181B] outline-none transition-colors placeholder:text-zinc-400 focus:border-zinc-400"
                       />
                       <button
@@ -578,13 +691,37 @@ export default function SettingsPage() {
                         aria-label={showNimKey ? "Hide key" : "Show key"}
                       >
                         {showNimKey ? (
-                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
+                          <svg
+                            className="h-4 w-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={1.5}
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88"
+                            />
                           </svg>
                         ) : (
-                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <svg
+                            className="h-4 w-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={1.5}
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"
+                            />
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                            />
                           </svg>
                         )}
                       </button>
@@ -592,7 +729,7 @@ export default function SettingsPage() {
                     <p className="mt-1 text-xs text-zinc-400">
                       Get a key from{" "}
                       <a
-                        href="https://build.nvidia.com"
+                        href="https://build.nvidia.com/settings/api-keys"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="underline underline-offset-2 hover:text-zinc-600"
@@ -606,58 +743,89 @@ export default function SettingsPage() {
                     <button
                       type="button"
                       onClick={async () => {
-                        setSavingNim(true)
-                        setNimMessage(null)
+                        setSavingNim(true);
+                        setNimMessage(null);
                         try {
                           const res = await fetch("/api/user/nim-key", {
                             method: "PUT",
                             headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ nimApiKey: nimKey.trim() || null }),
-                          })
-                          const json = await res.json()
-                          if (!res.ok) throw new Error(typeof json.error === "string" ? json.error : "Failed to save")
+                            body: JSON.stringify({
+                              nimApiKey: nimKey.trim() || null,
+                            }),
+                          });
+                          const json = await res.json();
+                          if (!res.ok)
+                            throw new Error(
+                              typeof json.error === "string"
+                                ? json.error
+                                : "Failed to save",
+                            );
                           if (nimKey.trim()) {
-                            setNimKeyDisplay(`············${nimKey.trim().slice(-4)}`)
-                            setNimKeyExists(true)
-                            setNimMessage({ type: "success", text: "NVIDIA NIM API key saved." })
+                            setNimKeyDisplay(
+                              `············${nimKey.trim().slice(-4)}`,
+                            );
+                            setNimKeyExists(true);
+                            setNimMessage({
+                              type: "success",
+                              text: "NVIDIA NIM API key saved.",
+                            });
                           } else {
-                            setNimKeyExists(false)
-                            setNimKeyDisplay("")
-                            setNimMessage({ type: "success", text: "NVIDIA NIM API key removed." })
+                            setNimKeyExists(false);
+                            setNimKeyDisplay("");
+                            setNimMessage({
+                              type: "success",
+                              text: "NVIDIA NIM API key removed.",
+                            });
                           }
-                          setNimKey("")
+                          setNimKey("");
                         } catch (e) {
-                          setNimMessage({ type: "error", text: e instanceof Error ? e.message : "Failed to save" })
+                          setNimMessage({
+                            type: "error",
+                            text:
+                              e instanceof Error ? e.message : "Failed to save",
+                          });
                         } finally {
-                          setSavingNim(false)
+                          setSavingNim(false);
                         }
                       }}
                       disabled={savingNim}
                       className="inline-flex items-center gap-2 rounded-lg border border-[#18181B]/70 bg-[#18181B] px-4 py-2 text-sm font-medium text-white transition-all hover:border-[#18181B] hover:bg-[#27272A] disabled:cursor-not-allowed disabled:opacity-40"
                     >
-                      {savingNim && <Loader2 className="h-4 w-4 animate-spin" />}
-                      {savingNim ? "Saving..." : nimKeyExists ? "Update" : "Save"}
+                      {savingNim && (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      )}
+                      {savingNim
+                        ? "Saving..."
+                        : nimKeyExists
+                          ? "Update"
+                          : "Save"}
                     </button>
                     {nimKeyExists && (
                       <button
                         type="button"
                         onClick={async () => {
-                          setSavingNim(true)
-                          setNimMessage(null)
+                          setSavingNim(true);
+                          setNimMessage(null);
                           try {
                             await fetch("/api/user/nim-key", {
                               method: "PUT",
                               headers: { "Content-Type": "application/json" },
                               body: JSON.stringify({ nimApiKey: null }),
-                            })
-                            setNimKeyExists(false)
-                            setNimKeyDisplay("")
-                            setNimKey("")
-                            setNimMessage({ type: "success", text: "NVIDIA NIM API key removed." })
+                            });
+                            setNimKeyExists(false);
+                            setNimKeyDisplay("");
+                            setNimKey("");
+                            setNimMessage({
+                              type: "success",
+                              text: "NVIDIA NIM API key removed.",
+                            });
                           } catch {
-                            setNimMessage({ type: "error", text: "Failed to remove key." })
+                            setNimMessage({
+                              type: "error",
+                              text: "Failed to remove key.",
+                            });
                           } finally {
-                            setSavingNim(false)
+                            setSavingNim(false);
                           }
                         }}
                         disabled={savingNim}
@@ -674,5 +842,5 @@ export default function SettingsPage() {
         </div>
       </div>
     </>
-  )
+  );
 }
