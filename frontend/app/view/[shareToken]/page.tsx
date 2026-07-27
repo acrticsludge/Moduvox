@@ -699,6 +699,7 @@ export default function ViewPresentationPage() {
           sessionToken={sessionToken}
           viewerId={state.viewerId}
           presentationId={viewDataRef.current?.presentation_id || ""}
+          slideCount={viewDataRef.current?.slide_count}
           totalDurationMs={viewDataRef.current?.total_duration_ms}
           audioUrl={viewDataRef.current?.audio_url || undefined}
           versionStatus={versionStatus}
