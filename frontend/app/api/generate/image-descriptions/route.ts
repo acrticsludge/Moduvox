@@ -3,7 +3,12 @@ import { GoogleGenerativeAI } from "@google/generative-ai"
 import { createClient } from "@/lib/supabase/server"
 import { withApiHandler } from "@/lib/api-handler"
 import { checkRateLimit } from "@/lib/rate-limiter"
+import { acquireNemotronToken } from "@/lib/nim-rate-limiter"
+import { decrypt } from "@/lib/encryption"
+import { gzipSync } from "node:zlib"
 import { z } from "zod"
+
+// ── Zod schemas ──────────────────────────────────────────────────
 
 const ImageSchema = z.object({
   index: z.number().int().min(0),
@@ -23,6 +28,190 @@ const RequestSchema = z.object({
 
 const MAX_IMAGES_PER_REQUEST = 20
 
+// ── Constants ────────────────────────────────────────────────────
+
+const NEMOTRON_API_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
+const NEMOTRON_MODEL = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"
+
+const NEMOTRON_TIMEOUT_MS = 120_000
+const NEMOTRON_RETRY_TIMEOUT_MS = 60_000
+const GEMINI_TIMEOUT_MS = 25_000
+
+const IMAGE_PROMPT =
+  "Examine this image from a business presentation slide. " +
+  "Describe what is shown, read any visible text, identify chart types or diagrams, " +
+  "explain data trends if applicable, and state the purpose of the visual. " +
+  "Keep the description concise (2-3 sentences). " +
+  "If the image has no significant visual content, say 'No significant visual content detected.'"
+
+const GEMINI_PROMPT =
+  "Examine these images from a business presentation slide. For each image, describe what is shown, " +
+  "read any visible text, identify chart types or diagrams, explain data trends if applicable, and " +
+  "state the purpose of the visual. Keep each description concise (2-3 sentences). Number each description. " +
+  "If an image has no significant visual content, say 'No significant visual content detected.'"
+
+// ── Type definitions ─────────────────────────────────────────────
+
+type ImageResult = { index: number; description: string; error?: string }
+
+interface ResolvedNimKey {
+  key: string
+  isUserKey: boolean // false = project key (needs token bucket)
+}
+
+// ── Nemotron: analyze a single image ─────────────────────────────
+
+async function analyzeOneImageWithNemotron(
+  img: z.infer<typeof ImageSchema>,
+  nimKey: string,
+  timeoutMs: number,
+): Promise<ImageResult> {
+  const payload = {
+    model: NEMOTRON_MODEL,
+    messages: [
+      {
+        role: "user" as const,
+        content: [
+          { type: "text" as const, text: IMAGE_PROMPT },
+          {
+            type: "image_url" as const,
+            image_url: { url: `data:${img.mimeType};base64,${img.data}` },
+          },
+        ],
+      },
+    ],
+    max_tokens: 4096,
+    temperature: 0.2,
+    top_k: 1,
+    chat_template_kwargs: { enable_thinking: false },
+  }
+
+  const body = JSON.stringify(payload)
+  const compressed = gzipSync(Buffer.from(body, "utf-8"), { level: 6 })
+
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    const response = await fetch(NEMOTRON_API_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${nimKey}`,
+        "Content-Type": "application/json",
+        "Content-Encoding": "gzip",
+      },
+      body: compressed,
+      signal: controller.signal,
+    })
+
+    clearTimeout(timeoutId)
+
+    // 401/403 — auth failure; caller should try next key in chain
+    if (response.status === 401 || response.status === 403) {
+      return { index: img.index, description: "", error: "NEMOTRON_AUTH_FAILED" }
+    }
+
+    // 429 — rate limited; caller should retry with backoff
+    if (response.status === 429) {
+      return { index: img.index, description: "", error: "RATE_LIMITED" }
+    }
+
+    // 404 — model name wrong; fall back to next provider
+    if (response.status === 404) {
+      console.error(`[image-descriptions] Nemotron model not found: ${NEMOTRON_MODEL}`)
+      return { index: img.index, description: "", error: "Nemotron model unavailable" }
+    }
+
+    // 503 — overloaded; retry after 5s
+    if (response.status === 503) {
+      return { index: img.index, description: "", error: "SERVICE_UNAVAILABLE" }
+    }
+
+    // 5xx — server error; mark as failed, DON'T fall back to Gemini
+    if (response.status >= 500) {
+      console.warn(`[image-descriptions] Nemotron server error: ${response.status}`)
+      return { index: img.index, description: "", error: "Image could not be processed" }
+    }
+
+    if (!response.ok) {
+      console.warn(`[image-descriptions] Nemotron unexpected status: ${response.status}`)
+      return { index: img.index, description: "", error: "Analysis failed" }
+    }
+
+    const json = (await response.json()) as {
+      choices?: { message?: { content?: string } }[]
+    }
+    const content = json?.choices?.[0]?.message?.content?.trim() ?? ""
+    return { index: img.index, description: content }
+  } catch (err) {
+    clearTimeout(timeoutId)
+    if (err instanceof DOMException && err.name === "AbortError") {
+      return { index: img.index, description: "", error: "TIMEOUT" }
+    }
+    return { index: img.index, description: "", error: "NETWORK_ERROR" }
+  }
+}
+
+// ── Gemini: analyze a single image ───────────────────────────────
+
+async function analyzeOneImageWithGemini(
+  img: z.infer<typeof ImageSchema>,
+  genAI: GoogleGenerativeAI,
+): Promise<ImageResult> {
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" })
+
+  try {
+    const result = await Promise.race([
+      model.generateContent([
+        { text: GEMINI_PROMPT },
+        { inlineData: { mimeType: img.mimeType, data: img.data } },
+      ]),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Timed out")), GEMINI_TIMEOUT_MS),
+      ),
+    ])
+
+    const text = result.response.text()?.trim() || ""
+    return { index: img.index, description: text }
+  } catch (err) {
+    console.error(`[image-descriptions] Gemini failed: ${err instanceof Error ? err.message : String(err)}`)
+    return { index: img.index, description: "", error: "Analysis failed" }
+  }
+}
+
+// ── Key resolution ───────────────────────────────────────────────
+
+function resolveNimKey(userData: { nim_api_key?: string | null } | null): ResolvedNimKey | null {
+  if (!userData?.nim_api_key) {
+    if (process.env.NVIDIA_NIM_KEY) {
+      return { key: process.env.NVIDIA_NIM_KEY, isUserKey: false }
+    }
+    return null
+  }
+  try {
+    return { key: decrypt(userData.nim_api_key), isUserKey: true }
+  } catch {
+    return { key: userData.nim_api_key, isUserKey: true }
+  }
+}
+
+function resolveGeminiKey(userData: { gemini_api_key?: string | null } | null): string | null {
+  if (!userData?.gemini_api_key) {
+    return process.env.GEMINI_API_KEY ?? null
+  }
+  try {
+    return decrypt(userData.gemini_api_key)
+  } catch {
+    return userData.gemini_api_key
+  }
+}
+
+// ── Sleep helper ─────────────────────────────────────────────────
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+// ── Main handler ─────────────────────────────────────────────────
+
 export const POST = withApiHandler(async (request: Request) => {
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -30,6 +219,7 @@ export const POST = withApiHandler(async (request: Request) => {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
+  // Parse + validate
   let body: Record<string, unknown>
   try {
     body = await request.json()
@@ -39,29 +229,31 @@ export const POST = withApiHandler(async (request: Request) => {
 
   const parsed = RequestSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: "Validation failed", fields: parsed.error.flatten().fieldErrors }, { status: 422 })
+    return NextResponse.json(
+      { error: "Validation failed", fields: parsed.error.flatten().fieldErrors },
+      { status: 422 },
+    )
   }
   const { presentationId, slides } = parsed.data
 
-  // Verify the user owns this presentation
+  // Ownership
   const { data: presentation } = await supabase
     .from("presentations")
     .select("id")
     .eq("id", presentationId)
     .eq("user_id", user.id)
     .single()
-
   if (!presentation) {
     return NextResponse.json({ error: "Presentation not found" }, { status: 404 })
   }
 
-  // Rate limit: 10 requests per user per minute
-  const ipLimit = checkRateLimit(`image-desc:${user.id}`, 10, 60 * 1000)
-  if (!ipLimit.allowed) {
+  // Rate limit: 10 req/min/user
+  const rateCheck = checkRateLimit(`image-desc:${user.id}`, 10, 60 * 1000)
+  if (!rateCheck.allowed) {
     return NextResponse.json({ error: "Too many requests. Please wait a moment." }, { status: 429 })
   }
 
-  // Count total images and enforce cap
+  // Image cap
   const totalImages = slides.reduce((sum, s) => sum + s.images.length, 0)
   if (totalImages > MAX_IMAGES_PER_REQUEST) {
     return NextResponse.json({
@@ -69,70 +261,129 @@ export const POST = withApiHandler(async (request: Request) => {
     }, { status: 422 })
   }
 
-  // Get API key
+  // ── Resolve keys ──────────────────────────────────
   const { data: userData } = await supabase
     .from("users")
-    .select("gemini_api_key")
+    .select("gemini_api_key, nim_api_key")
     .eq("id", user.id)
     .single()
 
-  const apiKey = userData?.gemini_api_key || process.env.GEMINI_API_KEY
-  if (!apiKey) {
-    return NextResponse.json({ error: "Gemini API key not configured" }, { status: 500 })
+  const userNimKey = resolveNimKey(userData)
+  const projectNimKey = process.env.NVIDIA_NIM_KEY ?? null
+  const geminiKey = resolveGeminiKey(userData)
+
+  // Must have at least one provider configured
+  if (!userNimKey && !projectNimKey && !geminiKey) {
+    return NextResponse.json(
+      { error: "No AI provider configured. Set a Gemini or NVIDIA NIM API key in Settings." },
+      { status: 500 },
+    )
   }
 
-  const genAI = new GoogleGenerativeAI(apiKey)
-  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" })
+  // Lazy-init Gemini client only if needed (we don't know yet if Nemotron will succeed)
+  let genAI: GoogleGenerativeAI | null = null
+  function getGeminiClient(): GoogleGenerativeAI | null {
+    if (genAI) return genAI
+    if (geminiKey) {
+      genAI = new GoogleGenerativeAI(geminiKey)
+      return genAI
+    }
+    return null
+  }
 
-  const resultSlides: {
-    number: number
-    images: { index: number; description: string; error?: string }[]
-  }[] = []
-
-  const BATCH_SIZE = 5
-  const BATCH_TIMEOUT_MS = 25000
+  // ── Process slides ────────────────────────────────
+  const resultSlides: { number: number; images: ImageResult[] }[] = []
 
   for (const slide of slides) {
-    const slideDescriptions: { index: number; description: string; error?: string }[] = []
+    const slideDescriptions: ImageResult[] = []
 
-    for (let i = 0; i < slide.images.length; i += BATCH_SIZE) {
-      const batch = slide.images.slice(i, i + BATCH_SIZE)
+    for (const image of slide.images) {
+      // ── Attempt 1: Nemotron (user key → project key) ──
+      let result = await tryNemotronSingleImage(image, userNimKey, projectNimKey)
 
-      try {
-        const contents = [
-          { text: "Examine these images from a business presentation slide. For each image, describe what is shown, read any visible text, identify chart types or diagrams, explain data trends if applicable, and state the purpose of the visual. Keep each description concise (2-3 sentences). Number each description. If an image has no significant visual content, say 'No significant visual content detected.'" },
-          ...batch.map(img => ({
-            inlineData: { mimeType: img.mimeType, data: img.data }
-          }))
-        ]
+      // ── Retry-able errors ──
+      if (result.error === "RATE_LIMITED") {
+        // Exponential backoff: 1s, 2s, 4s
+        for (const delay of [1000, 2000, 4000]) {
+          await sleep(delay)
+          const keyToUse = userNimKey?.key ?? projectNimKey!
+          result = await analyzeOneImageWithNemotron(image, keyToUse, NEMOTRON_TIMEOUT_MS)
+          if (!result.error || result.error === "NEMOTRON_AUTH_FAILED") break
+        }
+      } else if (result.error === "TIMEOUT") {
+        // Retry once with reduced 60s timeout
+        const keyToUse = userNimKey?.key ?? projectNimKey!
+        result = await analyzeOneImageWithNemotron(image, keyToUse, NEMOTRON_RETRY_TIMEOUT_MS)
+      } else if (result.error === "SERVICE_UNAVAILABLE") {
+        // Retry after 5s
+        await sleep(5000)
+        const keyToUse = userNimKey?.key ?? projectNimKey!
+        result = await analyzeOneImageWithNemotron(image, keyToUse, NEMOTRON_TIMEOUT_MS)
+      } else if (result.error === "NETWORK_ERROR") {
+        // Immediate Gemini fallback — don't retry
+      }
 
-        const result = await Promise.race([
-          model.generateContent(contents),
-          new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error("Batch timed out after 25s")), BATCH_TIMEOUT_MS)
-          ),
-        ])
+      // ── If Nemotron succeeded (or gave non-fallback error) ──
+      if (!result.error) {
+        slideDescriptions.push(result)
+        continue
+      }
 
-        const text = result.response.text()?.trim() || ""
-        const lines = text.split("\n").filter(l => l.trim())
-        batch.forEach((img, batchIdx) => {
-          const desc = lines[batchIdx] || "No description available"
-          const cleanDesc = desc.replace(/^\d+[\.\)]\s*/, "").trim()
-          slideDescriptions.push({ index: img.index, description: cleanDesc })
-        })
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err)
-        console.error(`[image-descriptions] Slide ${slide.number}, batch ${Math.floor(i / BATCH_SIZE)}: ${msg}`)
-        batch.forEach(img => {
-          slideDescriptions.push({ index: img.index, description: "", error: "Analysis failed" })
-        })
+      // Non-retryable Nemotron errors (5xx, model unavailable) — mark as failed, no Gemini fallback
+      if (result.error === "Image could not be processed" || result.error === "Nemotron model unavailable") {
+        slideDescriptions.push(result)
+        continue
+      }
+
+      // ── Attempt 2: Gemini (fallback) ──
+      const geminiClient = getGeminiClient()
+      if (geminiClient) {
+        const geminiResult = await analyzeOneImageWithGemini(image, geminiClient)
+        slideDescriptions.push(geminiResult)
+      } else {
+        slideDescriptions.push({ index: image.index, description: "", error: "Analysis failed" })
       }
     }
 
     resultSlides.push({ number: slide.number, images: slideDescriptions })
   }
 
-  return NextResponse.json({
-    data: { slides: resultSlides },
-  })
+  return NextResponse.json({ data: { slides: resultSlides } })
 })
+
+/**
+ * Try Nemotron with available keys: user NIM key → project NIM key.
+ * If user key auth-fails, automatically tries project key.
+ * Returns the ImageResult from whichever key was used.
+ */
+async function tryNemotronSingleImage(
+  image: z.infer<typeof ImageSchema>,
+  userNimKey: ResolvedNimKey | null,
+  projectNimKey: string | null,
+): Promise<ImageResult> {
+  // Attempt 1: User NIM key
+  if (userNimKey) {
+    const result = await analyzeOneImageWithNemotron(image, userNimKey.key, NEMOTRON_TIMEOUT_MS)
+
+    if (result.error !== "NEMOTRON_AUTH_FAILED") {
+      // Auth ok (success or non-auth error) — return as-is
+      return result
+    }
+
+    // Auth failed — fall through to project key
+    console.warn("[image-descriptions] User NIM key auth failed, trying project NIM key")
+  }
+
+  // Attempt 2: Project NIM key (with token bucket check)
+  if (projectNimKey) {
+    if (!acquireNemotronToken()) {
+      console.warn("[image-descriptions] NIM project key rate limit reached")
+      return { index: image.index, description: "", error: "RATE_LIMITED" }
+    }
+
+    return await analyzeOneImageWithNemotron(image, projectNimKey, NEMOTRON_TIMEOUT_MS)
+  }
+
+  // No NIM key available
+  return { index: image.index, description: "", error: "No NIM key available" }
+}
