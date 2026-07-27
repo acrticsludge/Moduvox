@@ -3,6 +3,64 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Mic, Square, Play, RotateCcw, Loader2, AlertCircle } from "lucide-react";
 
+/** Convert an audio blob (any format) to 16-bit mono WAV using Web Audio API. */
+async function convertToWav(blob: Blob): Promise<Blob> {
+  const audioCtx = new AudioContext()
+  const arrayBuffer = await blob.arrayBuffer()
+  const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer)
+
+  const numChannels = 1 // mono
+  const sampleRate = audioBuffer.sampleRate
+  const length = audioBuffer.length
+  const pcmData = new Float32Array(length)
+
+  // Mix down to mono
+  if (audioBuffer.numberOfChannels === 1) {
+    pcmData.set(audioBuffer.getChannelData(0))
+  } else {
+    const ch0 = audioBuffer.getChannelData(0)
+    const ch1 = audioBuffer.getChannelData(1)
+    for (let i = 0; i < length; i++) {
+      pcmData[i] = (ch0[i] + ch1[i]) / 2
+    }
+  }
+
+  // Convert float32 [-1,1] to int16
+  const int16 = new Int16Array(length)
+  for (let i = 0; i < length; i++) {
+    const s = Math.max(-1, Math.min(1, pcmData[i]))
+    int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF
+  }
+
+  // Build WAV
+  const dataSize = int16.byteLength
+  const headerSize = 44
+  const wav = new ArrayBuffer(headerSize + dataSize)
+  const view = new DataView(wav)
+
+  const writeStr = (offset: number, str: string) => {
+    for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i))
+  }
+  writeStr(0, "RIFF")
+  view.setUint32(4, 36 + dataSize, true)
+  writeStr(8, "WAVE")
+  writeStr(12, "fmt ")
+  view.setUint32(16, 16, true) // chunk size
+  view.setUint16(20, 1, true) // PCM
+  view.setUint16(22, numChannels, true)
+  view.setUint32(24, sampleRate, true)
+  view.setUint32(28, sampleRate * numChannels * 2, true) // byte rate
+  view.setUint16(32, numChannels * 2, true) // block align
+  view.setUint16(34, 16, true) // bits per sample
+  writeStr(36, "data")
+  view.setUint32(40, dataSize, true)
+
+  new Uint8Array(wav, headerSize).set(new Uint8Array(int16.buffer))
+
+  audioCtx.close()
+  return new Blob([wav], { type: "audio/wav" })
+}
+
 const MAX_DURATION_SEC = 30;
 const EXAMPLE_TEXT =
   "Moduvox turns slides into narrated presentations using your own voice. Upload a PowerPoint and a short voice sample, and our AI generates slide-by-slide narration. Share a link and track who watched and for how long. It's that simple.";
@@ -82,18 +140,24 @@ export function VoiceRecorder({
         if (e.data.size > 0) chunksRef.current.push(e.data);
       };
 
-      recorder.onstop = () => {
+      recorder.onstop = async () => {
         const blob = new Blob(chunksRef.current, { type: mimeType });
         const url = URL.createObjectURL(blob);
         setAudioUrl(url);
         setDuration(0);
         setState("done");
 
-        // Create a File that can be fed into the upload flow
-        const file = new File([blob], "voice-recording.webm", {
-          type: mimeType,
-        });
-        onRecordingComplete(file);
+        // Convert WebM/opus to WAV — VoxCpm requires WAV for voice cloning
+        let finalFile: File;
+        try {
+          const wavBlob = await convertToWav(blob);
+          finalFile = new File([wavBlob], "voice-recording.wav", { type: "audio/wav" });
+        } catch {
+          // Fallback: use original format if conversion fails
+          console.warn("[VoiceRecorder] WAV conversion failed, using original format");
+          finalFile = new File([blob], "voice-recording.webm", { type: mimeType });
+        }
+        onRecordingComplete(finalFile);
       };
 
       recorder.onerror = () => {

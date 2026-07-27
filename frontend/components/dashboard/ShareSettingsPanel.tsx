@@ -195,6 +195,46 @@ const [expireDate, setExpireDate] = useState<Date | undefined>(undefined)
         </button>
       </div>
 
+      {/* Access level — top toggle */}
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-[#18181B]">Who can access</label>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              if (settings.email_gate_enabled) handleToggleEmailGate()
+              if (settings.has_password) handleClearPassword()
+            }}
+            className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-all ${
+              !settings.email_gate_enabled && !settings.has_password
+                ? "border-[#18181B] bg-[#18181B] text-white"
+                : "border-zinc-200 text-zinc-600 hover:border-zinc-300"
+            }`}
+          >
+            <Globe className="mr-1.5 inline h-3.5 w-3.5" />
+            Public
+          </button>
+          <button
+            type="button"
+            className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-all ${
+              settings.email_gate_enabled || settings.has_password
+                ? "border-[#18181B] bg-[#18181B] text-white"
+                : "border-zinc-200 text-zinc-600 hover:border-zinc-300"
+            }`}
+          >
+            <Lock className="mr-1.5 inline h-3.5 w-3.5" />
+            Restricted
+          </button>
+        </div>
+        <p className="text-xs text-zinc-400">
+          {!settings.email_gate_enabled && !settings.has_password
+            ? "Anyone with the link can watch without verification."
+            : settings.email_gate_enabled
+              ? "Viewers must verify their email before watching."
+              : "Viewers must enter a password to watch."}
+        </p>
+      </div>
+
       {/* Email gate toggle */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">

@@ -111,3 +111,47 @@ body {
 @utility animate-slide-up {
   animation: slide-up 0.25s ease-out;
 }
+
+/* ── Fullscreen mode overrides ──────────────────────────── */
+
+/* Editor fullscreen: hide navbar, sidebar, right panel */
+body.editor-fullscreen nav,
+body.editor-fullscreen [class*="sidebar"],
+body.editor-fullscreen [class*="Sidebar"],
+body.editor-fullscreen aside,
+body.editor-fullscreen [class*="CreatePageSidebar"] {
+  display: none !important;
+}
+body.editor-fullscreen .editor-right-panel,
+body.editor-fullscreen [class*="right-panel"],
+body.editor-fullscreen [class*="rightPanel"],
+body.editor-fullscreen > div > div:last-child > div:last-child.lg\\:flex {
+  display: none !important;
+}
+/* Make the slide viewer fill the screen in fullscreen */
+body.editor-fullscreen [class*="slide-viewer"],
+body.editor-fullscreen [id="slide-viewer"] {
+  flex: 1 1 100% !important;
+  height: 100vh !important;
+}
+/* Dark background in fullscreen */
+body.editor-fullscreen {
+  background: #000 !important;
+}
+
+/* Viewer fullscreen: hide sidebar */
+body.viewer-fullscreen [class*="ViewSidebar"],
+body.viewer-fullscreen [class*="sidebar"] {
+  display: none !important;
+}
+body.viewer-fullscreen {
+  background: #000 !important;
+}
+/* Expand main content in viewer fullscreen */
+body.viewer-fullscreen main {
+  flex: 1 1 100% !important;
+}
+body.viewer-fullscreen footer,
+body.viewer-fullscreen [class*="ViewFooter"] {
+  display: none !important;
+}
