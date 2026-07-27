@@ -139,9 +139,11 @@ body.editor-fullscreen {
   background: #000 !important;
 }
 
-/* Viewer fullscreen: hide sidebar */
+/* Viewer fullscreen: hide sidebar, navbar, footer */
 body.viewer-fullscreen [class*="ViewSidebar"],
-body.viewer-fullscreen [class*="sidebar"] {
+body.viewer-fullscreen [class*="sidebar"],
+body.viewer-fullscreen [class*="ViewNavbar"],
+body.viewer-fullscreen nav {
   display: none !important;
 }
 body.viewer-fullscreen {

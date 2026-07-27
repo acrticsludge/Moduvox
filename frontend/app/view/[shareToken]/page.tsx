@@ -126,6 +126,7 @@ export default function ViewPresentationPage() {
   const preloadControllerRef = useRef<AbortController | null>(null)
   const visibilityProcessingRef = useRef(false)
   const viewerContentRef = useRef<HTMLDivElement>(null)
+  const viewerRootRef = useRef<HTMLDivElement>(null)
   const { isFullscreen, supported, toggle } = useFullscreen()
 
   // Add/remove body class for viewer fullscreen
@@ -605,7 +606,7 @@ export default function ViewPresentationPage() {
       const sessionToken = state.sessionToken || ""
       sessionRef.current = sessionToken
       return (
-        <div className="flex min-h-screen flex-col bg-[#F9FAFB]">
+        <div ref={viewerRootRef} className="flex min-h-screen flex-col bg-[#F9FAFB]">
           <ViewNavbar />
 
           <div className="flex flex-1">
@@ -662,7 +663,7 @@ export default function ViewPresentationPage() {
                     {supported && !isFullscreen && (
                       <button
                         type="button"
-                        onClick={() => toggle(viewerContentRef.current!)}
+                        onClick={() => toggle(viewerRootRef.current!)}
                         className="absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-lg bg-black/40 text-white opacity-0 backdrop-blur-sm transition-opacity hover:bg-black/60 group-hover:opacity-100"
                         aria-label="Full screen"
                       >
@@ -702,7 +703,7 @@ export default function ViewPresentationPage() {
                           </span>
                           <button
                             type="button"
-                            onClick={() => toggle(viewerContentRef.current!)}
+                            onClick={() => toggle(viewerRootRef.current!)}
                             className="flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition-colors hover:bg-black/70"
                             aria-label="Exit full screen"
                           >
@@ -773,7 +774,7 @@ export default function ViewPresentationPage() {
               )}
             </main>
           </div>
-        <div className={`transition-all duration-300 ${isFullscreen ? 'fixed bottom-0 left-0 right-0 z-50 opacity-0 hover:opacity-100' : ''}`}>
+        <div className={`transition-all duration-300 ${isFullscreen ? 'absolute bottom-0 left-0 right-0 z-50 opacity-0 hover:opacity-100' : ''}`}>
           <ViewAudioBar key={audioRefreshKey} seekToSlideRef={seekToSlideRef}
             shareToken={shareToken}
             sessionToken={sessionToken}
