@@ -80,7 +80,8 @@ export async function getAllSlideDurations(
       if (!url) continue
       const durationMs = await getWavDurationFromUrl(url)
       timings.push({ slideNumber: i, durationMs })
-    } catch {
+    } catch (err) {
+      console.warn(`[wav-duration] Slide ${i}: failed to read duration — ${err instanceof Error ? err.message : String(err)}`)
       continue
     }
   }
