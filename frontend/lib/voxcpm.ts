@@ -358,22 +358,43 @@ export async function generateAudio(input: VoxCPMInput): Promise<VoxCPMResult> {
   const rawFallback = process.env.INFERENCE_BASE_URL
   const fallbackUrl = rawFallback ? normalizeUrl(rawFallback) : undefined
 
-  // Try HF space first
-  try {
-    const hfUrl = `https://${DEFAULT_SPACE_ID.replace("/", "-")}.hf.space`
-    return await generateWithGradio(input, hfUrl)
-  } catch (hfError) {
-    const msg = hfError instanceof Error ? hfError.message : String(hfError)
-    console.warn("[VoxCPM] HF space failed:", msg)
+  // Try HF space first with retries for transient errors (cold start, queue race)
+  const hfUrl = `https://${DEFAULT_SPACE_ID.replace("/", "-")}.hf.space`
+  let lastError: unknown
 
-    // Fall back to INFERENCE_BASE_URL if configured
-    if (fallbackUrl) {
-      console.log("[VoxCPM] Falling back to INFERENCE_BASE_URL:", fallbackUrl)
-      return await generateWithGradio(input, fallbackUrl)
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      return await generateWithGradio(input, hfUrl)
+    } catch (hfError) {
+      lastError = hfError
+      const msg = hfError instanceof Error ? hfError.message : String(hfError)
+      console.warn(`[VoxCPM] HF space attempt ${attempt}/2 failed:`, msg)
+
+      // Only retry if there's time left and this looks transient
+      if (attempt < 2) {
+        const isTransient = msg.includes("timed out") || msg.includes("Gradio error") || msg.includes("fetch failed")
+        if (isTransient) {
+          console.log(`[VoxCPM] Retrying HF space in 2s...`)
+          await new Promise((r) => setTimeout(r, 2000))
+          continue
+        }
+      }
     }
-
-    throw hfError
   }
+
+  // Fall back to INFERENCE_BASE_URL if configured
+  if (fallbackUrl) {
+    console.log("[VoxCPM] Falling back to INFERENCE_BASE_URL:", fallbackUrl)
+    try {
+      return await generateWithGradio(input, fallbackUrl)
+    } catch (fbError) {
+      const msg = fbError instanceof Error ? fbError.message : String(fbError)
+      console.warn("[VoxCPM] INFERENCE fallback also failed:", msg)
+      // Fall through to throw the original HF error
+    }
+  }
+
+  throw lastError
 }
 
 export async function generateWithPreset(
