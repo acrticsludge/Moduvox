@@ -223,6 +223,10 @@ function AddVoiceModal({
   const [error, setError] = useState<string | null>(null)
   const [quotaResult, setQuotaResult] = useState<QuotaResult | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const [previewPresetId, setPreviewPresetId] = useState<string | null>(null)
+  const [previewLoading, setPreviewLoading] = useState(false)
+  const [previewPlaying, setPreviewPlaying] = useState(false)
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null)
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -281,6 +285,45 @@ function AddVoiceModal({
       setError(e instanceof Error ? e.message : "Something went wrong")
     } finally {
       setUploading(false)
+    }
+  }
+
+  async function handlePresetPreview(presetId: string) {
+    // If already playing this preset, stop
+    if (previewPlaying && previewPresetId === presetId && previewAudioRef.current) {
+      previewAudioRef.current.pause()
+      previewAudioRef.current.currentTime = 0
+      setPreviewPlaying(false)
+      setPreviewPresetId(null)
+      return
+    }
+    setPreviewPresetId(presetId)
+    setPreviewLoading(true)
+    try {
+      const res = await fetch("/api/generate/preset-preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ presetId }),
+      })
+      const json = await res.json()
+      if (!json.data?.audioUrl) {
+        console.error("[PresetPreview] No audio URL returned")
+        setPreviewPresetId(null)
+        return
+      }
+      const audio = new Audio(json.data.audioUrl)
+      previewAudioRef.current = audio
+      audio.addEventListener("ended", () => {
+        setPreviewPlaying(false)
+        setPreviewPresetId(null)
+      })
+      audio.play()
+      setPreviewPlaying(true)
+    } catch (err) {
+      console.error("[PresetPreview] Failed:", err)
+      setPreviewPresetId(null)
+    } finally {
+      setPreviewLoading(false)
     }
   }
 
@@ -424,36 +467,68 @@ function AddVoiceModal({
             <div>
               <p className="mb-2 text-sm font-medium text-[#71717A]">Built-in voices</p>
               <div className="grid grid-cols-1 gap-2">
-                {PRESET_VOICES.map((pv) => (
-                  <button
-                    key={pv.id}
-                    type="button"
-                    onClick={() => {
-                      if (selectedPreset === pv.id) {
-                        setSelectedPreset(null)
-                        setVoiceGender("")
-                      } else {
-                        setSelectedPreset(pv.id)
-                        setVoiceGender(pv.gender || "")
-                      }
-                    }}
-                    className={`flex items-start gap-3 rounded-xl border p-3 text-left transition-all ${
-                      selectedPreset === pv.id
-                        ? "border-[#18181B] bg-zinc-50"
-                        : "border-zinc-200 hover:border-zinc-300"
-                    }`}
-                  >
-                    <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-zinc-100">
-                      <Music className="h-4 w-4 text-[#71717A]" />
+                {PRESET_VOICES.map((pv) => {
+                  const isPreviewLoading = previewLoading && previewPresetId === pv.id
+                  const isPreviewPlaying = previewPlaying && previewPresetId === pv.id
+                  return (
+                    <div
+                      key={pv.id}
+                      className={`flex items-start gap-3 rounded-xl border p-3 transition-all ${
+                        selectedPreset === pv.id
+                          ? "border-[#18181B] bg-zinc-50"
+                          : "border-zinc-200 hover:border-zinc-300"
+                      }`}
+                    >
+                      {/* Main click area: icon + text */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (selectedPreset === pv.id) {
+                            setSelectedPreset(null)
+                            setVoiceGender("")
+                          } else {
+                            setSelectedPreset(pv.id)
+                            setVoiceGender(pv.gender || "")
+                          }
+                        }}
+                        className="flex flex-1 items-start gap-3 text-left"
+                      >
+                        <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-zinc-100">
+                          <Music className="h-4 w-4 text-[#71717A]" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <span className="text-sm font-medium text-[#18181B]">
+                            {pv.label}
+                          </span>
+                          <p className="text-xs text-[#71717A]">{pv.description}</p>
+                        </div>
+                      </button>
+                      {/* Play button */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handlePresetPreview(pv.id)
+                        }}
+                        disabled={isPreviewLoading}
+                        className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-500 transition-colors hover:bg-zinc-50 hover:text-[#18181B] disabled:opacity-50"
+                        aria-label={isPreviewPlaying ? `Stop ${pv.label} preview` : `Play ${pv.label} preview`}
+                      >
+                        {isPreviewLoading ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : isPreviewPlaying ? (
+                          <div className="flex items-end gap-0.5 h-4">
+                            <span className="w-0.5 h-full bg-[#18181B] rounded-full animate-pulse" />
+                            <span className="w-0.5 h-2/3 bg-[#18181B] rounded-full animate-pulse" />
+                            <span className="w-0.5 h-full bg-[#18181B] rounded-full animate-pulse" />
+                          </div>
+                        ) : (
+                          <Play className="h-3.5 w-3.5 ml-0.5" />
+                        )}
+                      </button>
                     </div>
-                    <div>
-                      <span className="text-sm font-medium text-[#18181B]">
-                        {pv.label}
-                      </span>
-                      <p className="text-xs text-[#71717A]">{pv.description}</p>
-                    </div>
-                  </button>
-                ))}
+                  )
+                })}
               </div>
             </div>
 
