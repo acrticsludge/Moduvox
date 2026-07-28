@@ -18,7 +18,7 @@ export const GET = withApiHandler(async (
 
   const { data: presentation } = await supabase
     .from("presentations")
-    .select("share_token, password_hash, expires_at, email_gate_enabled")
+    .select("share_token, password_hash, expires_at, email_gate_enabled, viewer_tracking_enabled")
     .eq("id", presentationId)
     .eq("user_id", user.id)
     .single()
@@ -36,6 +36,7 @@ export const GET = withApiHandler(async (
       has_password: !!presentation.password_hash,
       expires_at: presentation.expires_at,
       email_gate_enabled: presentation.email_gate_enabled,
+      viewer_tracking_enabled: presentation.viewer_tracking_enabled ?? true,
     },
   })
 })
@@ -96,12 +97,16 @@ export const PATCH = withApiHandler(async (
     updates.expires_at = parsed.data.expires_at
   }
 
+  if (parsed.data.viewer_tracking_enabled !== undefined) {
+    updates.viewer_tracking_enabled = parsed.data.viewer_tracking_enabled
+  }
+
   const { data, error } = await supabase
     .from("presentations")
     .update(updates)
     .eq("id", presentationId)
     .eq("user_id", user.id)
-    .select("share_token, password_hash, expires_at, email_gate_enabled")
+    .select("share_token, password_hash, expires_at, email_gate_enabled, viewer_tracking_enabled")
     .single()
 
   if (error) {
@@ -118,6 +123,7 @@ export const PATCH = withApiHandler(async (
       has_password: !!data.password_hash,
       expires_at: data.expires_at,
       email_gate_enabled: data.email_gate_enabled,
+      viewer_tracking_enabled: data.viewer_tracking_enabled ?? true,
     },
   })
 })

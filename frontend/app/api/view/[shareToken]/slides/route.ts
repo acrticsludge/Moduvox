@@ -13,7 +13,7 @@ export const GET = withApiHandler(async (
   // Look up presentation
   const { data: presentation } = await supabase
     .from("presentations")
-    .select("id, user_id, slide_count")
+    .select("id, user_id, slide_count, email_gate_enabled, password_hash")
     .eq("share_token", shareToken)
     .maybeSingle()
 
@@ -21,19 +21,21 @@ export const GET = withApiHandler(async (
     return NextResponse.json({ error: "Presentation not found" }, { status: 404 })
   }
 
-  // Verify viewer session (same pattern as view/[shareToken]/route.ts)
+  // Verify viewer session — skip check if presentation is public
   const { searchParams } = new URL(request.url)
   const sessionToken = searchParams.get("session")
-  const { data: viewer } = await supabase
-    .from("viewers")
-    .select("id")
-    .eq("session_token", sessionToken)
-    .eq("presentation_id", presentation.id)
-    .eq("email_verified", true)
-    .maybeSingle()
+  if (presentation.email_gate_enabled || presentation.password_hash) {
+    const { data: viewer } = await supabase
+      .from("viewers")
+      .select("id")
+      .eq("session_token", sessionToken)
+      .eq("presentation_id", presentation.id)
+      .eq("email_verified", true)
+      .maybeSingle()
 
-  if (!viewer) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (!viewer) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
   }
 
   const slideCount = presentation.slide_count || 0

@@ -16,7 +16,7 @@ export const GET = withApiHandler(async (
   const { data: presentation } = await supabase
     .from("presentations")
     .select(`
-      id, user_id, title, slide_count, password_hash, expires_at, email_gate_enabled, created_at, status, audio_version
+      id, user_id, title, slide_count, password_hash, expires_at, email_gate_enabled, created_at, status, audio_version, viewer_tracking_enabled
     `)
     .eq("share_token", shareToken)
     .single()
@@ -127,6 +127,7 @@ export const GET = withApiHandler(async (
     data: {
       verified: true,
       title: presentation.title,
+      viewer_tracking_enabled: presentation.viewer_tracking_enabled ?? true,
       presentation_id: presentation.id,
       created_at: presentation.created_at,
       slide_count: presentation.slide_count || 0,

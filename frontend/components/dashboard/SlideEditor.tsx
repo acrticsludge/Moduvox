@@ -1452,6 +1452,19 @@ export function SlideEditor({
             <p className="text-sm text-[#71717A]">Presentation could not be loaded.</p>
           </div>
         )}
+
+        {/* Audio player for fullscreen mode — hidden normally, shows at bottom in fullscreen */}
+        {isFullscreen && audioUrl && (
+          <div className="absolute bottom-0 left-0 right-0 z-50 opacity-0 hover:opacity-100 transition-opacity duration-300">
+            <div className="mx-auto max-w-3xl px-4 py-3">
+              <AudioPlayer
+                audioUrl={audioUrl}
+                presentationId={presentationId}
+                slideNumber={currentIndex + 1}
+              />
+            </div>
+          </div>
+        )}
       </div>
       </div>{/* end left viewer wrapper */}
 

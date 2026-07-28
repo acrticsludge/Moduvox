@@ -29,12 +29,13 @@ type ViewAudioBarProps = {
   firstWatch?: boolean
   seekToSlideRef?: React.MutableRefObject<SeekToSlideFn | null>
   onDurationReady?: (durationSec: number) => void
+  trackingEnabled?: boolean
 }
 
 export function ViewAudioBar({
   shareToken, sessionToken, viewerId, presentationId, slideCount = 0, totalDurationMs, audioUrl,
   versionStatus, onRefresh, slideTimings = [], onSlideChange, firstWatch = false,
-  seekToSlideRef, onDurationReady, refreshing = false,
+  seekToSlideRef, onDurationReady, refreshing = false, trackingEnabled = true,
 }: ViewAudioBarProps) {
   const howlRef = useRef<Howl | null>(null)
   const liveRef = useRef<HTMLDivElement>(null)
@@ -55,6 +56,8 @@ export function ViewAudioBar({
   slideCountRef.current = slideCount
   const sessionTokenRef = useRef(sessionToken)
   sessionTokenRef.current = sessionToken
+  const trackingEnabledRef = useRef(trackingEnabled)
+  trackingEnabledRef.current = trackingEnabled
   const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const togglePlayRef = useRef(togglePlay)
   togglePlayRef.current = togglePlay
@@ -305,7 +308,7 @@ export function ViewAudioBar({
   // Track "closed" on tab hide — uses sendBeacon (not fetch) so it survives page unload
   useEffect(() => {
     function handleVisibility() {
-      if (document.visibilityState === "hidden") {
+      if (document.visibilityState === "hidden" && trackingEnabledRef.current) {
         const total = durationRef.current || 1
         const current = currentTimeRef.current
         const pct = Math.min(100, Math.round((current / total) * 100))
@@ -342,6 +345,7 @@ export function ViewAudioBar({
   }, [playing])
 
   async function sendTracking(eventType: string, progressPct?: number, timeSpentSeconds?: number) {
+    if (!trackingEnabled) return
     try {
       await fetch(`/api/view/${shareToken}/track`, {
         method: "POST",

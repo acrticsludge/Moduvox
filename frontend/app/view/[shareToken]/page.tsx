@@ -122,7 +122,7 @@ export default function ViewPresentationPage() {
   const [firstWatch, setFirstWatch] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [realDurationMs, setRealDurationMs] = useState<number | undefined>(undefined)
-  const viewDataRef = useRef<{ title: string; created_at?: string; slide_count?: number; expires_at?: string | null; total_duration_ms?: number; audio_url?: string | null; audio_version?: number; slide_timings?: SlideTiming[]; viewer_created_at?: string | null; presentation_id?: string; viewer_id?: string | null; first_watch_done?: boolean } | null>(null)
+  const viewDataRef = useRef<{ title: string; created_at?: string; slide_count?: number; expires_at?: string | null; total_duration_ms?: number; audio_url?: string | null; audio_version?: number; slide_timings?: SlideTiming[]; viewer_created_at?: string | null; presentation_id?: string; viewer_id?: string | null; first_watch_done?: boolean; viewer_tracking_enabled?: boolean } | null>(null)
   const audioVersionRef = useRef(0)
   const sessionRef = useRef("")
   const seekToSlideRef = useRef<SeekToSlideFn | null>(null)
@@ -270,18 +270,9 @@ export default function ViewPresentationPage() {
         return
       }
 
-      // No gate — still show dialog for viewer tracking
-      const gateState = loadGateState(shareToken)
-      if (gateState) {
-        // Already submitted tracking info — go to verified
-        setState({ type: "verified", viewerId: gateState.viewerId })
-      } else if (loadSession(shareToken)) {
-        // Session exists but no gate state — must have been verified already
-        setState({ type: "verified", viewerId: "" })
-      } else {
-        clearGateState(shareToken)
-        setState({ type: "gate", meta: data })
-      }
+      // Public (no gate, no password) — skip gate and tracking entirely.
+      // Anyone with the link can watch without entering name or being tracked.
+      setState({ type: "verified", viewerId: "public" })
     } catch (err) {
       // Network errors (TypeError) should not be conflated with "not found"
       if (err instanceof TypeError) {
@@ -453,8 +444,9 @@ export default function ViewPresentationPage() {
 
   // Fetch slides when entering verified state
   useEffect(() => {
-    if (state.type === "verified" && state.sessionToken) {
-      fetchSlides(state.sessionToken, shareToken)
+    if (state.type === "verified") {
+      const tok = state.sessionToken || ""
+      fetchSlides(tok, shareToken)
       setCurrentSlide(0)
     }
   }, [state.type]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -462,6 +454,8 @@ export default function ViewPresentationPage() {
   // Poll for changes every 30s — show a banner if audio_version changed
   useEffect(() => {
     if (state.type !== "verified") return
+    // Skip polling in public mode (no session, no tracking)
+    if (state.type === "verified" && !state.sessionToken) return
 
     const interval = setInterval(async () => {
       const tok = sessionRef.current
@@ -713,7 +707,7 @@ export default function ViewPresentationPage() {
                       <button
                         type="button"
                         onClick={() => toggle(viewerRootRef.current!)}
-                        className="absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-lg bg-black/40 text-white opacity-0 backdrop-blur-sm transition-opacity hover:bg-black/60 group-hover:opacity-100"
+                        className="absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-lg bg-black/40 text-white backdrop-blur-sm transition-colors hover:bg-black/60"
                         aria-label="Full screen"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
@@ -803,17 +797,19 @@ export default function ViewPresentationPage() {
                     type="button"
                     disabled={slidesLoading}
                     onClick={async () => {
-                      if (state.type !== "verified" || !state.sessionToken) return
+                      if (state.type !== "verified") return
+                      const tok = state.sessionToken || ""
                       setConvertFailed(false)
                       try {
                         const res = await fetch(`/api/view/${shareToken}/convert`, {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ sessionToken: state.sessionToken }),
+                          body: JSON.stringify({ sessionToken: tok }),
                         })
                         if (!res.ok) setConvertFailed(true)
                       } catch { setConvertFailed(true) }
-                      if (state.sessionToken) await fetchSlides(state.sessionToken, shareToken)
+                      if (tok) await fetchSlides(tok, shareToken)
+                      else await fetchSlides("", shareToken)
                     }}
                     className="min-h-[44px] rounded-lg bg-zinc-800 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50"
                   >
@@ -828,6 +824,7 @@ export default function ViewPresentationPage() {
             shareToken={shareToken}
             sessionToken={sessionToken}
             viewerId={state.viewerId}
+            trackingEnabled={!!state.sessionToken && viewDataRef.current?.viewer_tracking_enabled !== false}
             presentationId={viewDataRef.current?.presentation_id || ""}
             slideCount={viewDataRef.current?.slide_count}
             totalDurationMs={viewDataRef.current?.total_duration_ms}

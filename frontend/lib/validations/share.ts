@@ -4,6 +4,7 @@ export const updateShareSettingsSchema = z.object({
   email_gate_enabled: z.boolean().optional(),
   password: z.string().min(1).max(128).nullable().optional(),
   expires_at: z.string().datetime().nullable().optional(),
+  viewer_tracking_enabled: z.boolean().optional(),
 })
 
 const consentCheck = z.boolean().refine((val) => val === true, {

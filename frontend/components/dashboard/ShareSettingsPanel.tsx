@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { Copy, Check, Link, Lock, Clock, Globe, Info, Loader2, Eye, EyeOff, CalendarIcon, ChevronLeft, ChevronRight, X } from "lucide-react"
 import { format } from "date-fns"
 import { toastSuccess } from "@/components/ui/CustomToast"
@@ -18,7 +18,10 @@ export function ShareSettingsPanel({
     has_password: boolean
     expires_at: string | null
     email_gate_enabled: boolean
+    viewer_tracking_enabled?: boolean
   } | null>(null)
+  const settingsRef = useRef(settings)
+  settingsRef.current = settings
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -55,7 +58,13 @@ const [expireDate, setExpireDate] = useState<Date | undefined>(undefined)
   }, [fetchSettings])
 
   async function updateSettings(updates: Record<string, unknown>) {
+    const prev = settingsRef.current
+    if (!prev) return
+
+    // ── Optimistic: apply update immediately ──
     setSaveState("saving")
+    setSettings((s) => s ? { ...s, ...updates } as typeof s : s)
+
     try {
       const res = await fetch(`/api/presentations/${presentationId}/share`, {
         method: "PATCH",
@@ -68,9 +77,13 @@ const [expireDate, setExpireDate] = useState<Date | undefined>(undefined)
         setSaveState("saved")
         setTimeout(() => setSaveState("idle"), 1500)
       } else {
+        // Revert on API error
+        setSettings(prev)
         setSaveState("idle")
       }
     } catch {
+      // Revert on network error
+      setSettings(prev)
       setSaveState("idle")
     }
   }
@@ -252,6 +265,45 @@ const [expireDate, setExpireDate] = useState<Date | undefined>(undefined)
               : "Viewers must enter a password to watch."}
         </p>
       </div>
+
+      {/* Viewer Tracking toggle — shown when Restricted */}
+      {!isPublic && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Info className="h-4 w-4 text-zinc-500" />
+              <label className="text-sm font-medium text-[#18181B]">Viewer Tracking</label>
+              <div className="group relative">
+                <Info className="h-3.5 w-3.5 text-zinc-400 cursor-help" />
+                <div className="absolute bottom-full left-1/2 mb-2 w-56 -translate-x-1/2 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs text-zinc-600 shadow-lg opacity-0 transition-opacity group-hover:opacity-100 pointer-events-none">
+                  When enabled, viewers' watch progress and engagement data is tracked and visible in your dashboard.
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={settings.viewer_tracking_enabled ?? true}
+              onClick={() => updateSettings({ viewer_tracking_enabled: !(settings.viewer_tracking_enabled ?? true) })}
+              disabled={saveState === "saving"}
+              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                (settings.viewer_tracking_enabled ?? true) ? "bg-[#18181B]" : "bg-zinc-300"
+              }`}
+            >
+              <span
+                className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                  (settings.viewer_tracking_enabled ?? true) ? "translate-x-5" : "translate-x-1"
+                }`}
+              />
+            </button>
+          </div>
+          <p className="text-xs text-zinc-400">
+            {settings.viewer_tracking_enabled !== false
+              ? "Viewer progress and engagement data is being collected."
+              : "Viewers can watch without their activity being tracked."}
+          </p>
+        </div>
+      )}
 
       {!isPublic && (
         <div className="space-y-2">
