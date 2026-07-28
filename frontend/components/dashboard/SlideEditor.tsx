@@ -1437,28 +1437,6 @@ export function SlideEditor({
           )}
         </div>
 
-        {/* Re-generate AI Narrations — re-run Gemini narration generation */}
-        {Object.keys(narrations).length > 0 && !audioGenFailed && (
-          <Button
-            onClick={async () => { await generateNarrations(slides, true) }}
-            disabled={generatingNarrations || generatingAudio}
-            variant="outline"
-            className="w-full"
-          >
-            {generatingNarrations ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Generating…
-              </>
-            ) : (
-              <>
-                <RefreshCw className="h-4 w-4" />
-                Re-generate AI Narrations
-              </>
-            )}
-          </Button>
-        )}
-
         {/* Generate Audio — shown when narration exists but TTS not done */}
         {Object.keys(narrations).length > 0 && !audioGenerated && !generationFailed && !audioGenFailed && (
           <Button
@@ -1680,28 +1658,6 @@ export function SlideEditor({
                 </p>
               )}
             </div>
-
-            {/* Re-generate AI Narrations — re-run Gemini narration generation */}
-            {Object.keys(narrations).length > 0 && !audioGenFailed && (
-              <Button
-                onClick={async () => { await generateNarrations(slides, true) }}
-                disabled={generatingNarrations || generatingAudio}
-                variant="outline"
-                className="w-full"
-              >
-                {generatingNarrations ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Generating…
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="h-4 w-4" />
-                    Re-generate AI Narrations
-                  </>
-                )}
-              </Button>
-            )}
 
             {/* Generate Audio — shown when narration exists but TTS not done */}
             {Object.keys(narrations).length > 0 && !audioGenerated && !generationFailed && !audioGenFailed && (
