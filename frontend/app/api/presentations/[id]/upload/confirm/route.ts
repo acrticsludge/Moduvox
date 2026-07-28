@@ -17,7 +17,7 @@ export const POST = withApiHandler(async (
   }
 
   const confirmSchema = z.object({
-    path: z.string().min(1).regex(/^[a-f0-9-]+\/[a-f0-9-]+\.pptx$/, "Invalid file path format"),
+    path: z.string().min(1).regex(/^[a-fA-F0-9-]+\/[a-fA-F0-9-]+\.pptx$/, "Invalid file path format"),
     slideCount: z.number().int().positive().optional(),
   })
 

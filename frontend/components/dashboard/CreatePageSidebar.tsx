@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react"
 import { Mic, Play, Loader2, Info } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
-import { toastError } from "@/components/ui/CustomToast"
+
 import {
   Select,
   SelectContent,
@@ -51,8 +51,7 @@ export function CreatePageSidebar({
   const [internalUlt, setInternalUlt] = useState(false)
   const [previewLoading, setPreviewLoading] = useState(false)
   const [previewAudioUrl, setPreviewAudioUrl] = useState<string | null>(null)
-  // Per-voice preview state: voiceId → { loading, url }
-  const [voicePreviews, setVoicePreviews] = useState<Record<string, { loading: boolean; url?: string }>>({})
+
 
   // Use controlled values when provided, otherwise internal state
   const selectedVoiceId = externalVoiceId ?? internalVoiceId
@@ -122,44 +121,6 @@ export function CreatePageSidebar({
     setPreviewLoading(false)
   }
 
-  /** Generate and play preview for a specific voice (from the dropdown). */
-  async function handlePlayVoicePreview(voiceId: string, e: React.MouseEvent) {
-    e.stopPropagation() // don't select the voice
-
-    // Throttle: if any voice is currently loading, ignore
-    if (Object.values(voicePreviews).some((v) => v.loading)) {
-      toastError("A preview is already generating")
-      return
-    }
-
-    // If already loading or already have a URL, toggle playback
-    const existing = voicePreviews[voiceId]
-    if (existing?.loading) return
-    if (existing?.url) {
-      // Toggle off — clear the URL to stop playback
-      setVoicePreviews((prev) => ({ ...prev, [voiceId]: { loading: false } }))
-      return
-    }
-
-    setVoicePreviews((prev) => ({ ...prev, [voiceId]: { loading: true } }))
-
-    try {
-      const res = await fetch("/api/generate/test", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ voice_id: voiceId }),
-      })
-      const json = await res.json()
-      if (json.data?.audioUrl) {
-        setVoicePreviews((prev) => ({ ...prev, [voiceId]: { loading: false, url: json.data.audioUrl } }))
-      } else {
-        setVoicePreviews((prev) => ({ ...prev, [voiceId]: { loading: false } }))
-      }
-    } catch {
-      setVoicePreviews((prev) => ({ ...prev, [voiceId]: { loading: false } }))
-    }
-  }
-
   return (
     <aside className={cn("flex w-80 flex-col gap-6 border-r border-[var(--color-border-faint)] bg-white p-5", className)}>
       {/* Voice selector */}
@@ -191,34 +152,7 @@ export function CreatePageSidebar({
                       <SelectLabel>Preset Voices</SelectLabel>
                       {presetVoices.map((v) => (
                         <SelectItem key={v.id} value={v.id}>
-                          <div className="flex items-center gap-2">
-                            <span className="flex-1 truncate">{v.name}</span>
-                            <button
-                              type="button"
-                              onClick={(e) => handlePlayVoicePreview(v.id, e)}
-                              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
-                              aria-label={`Preview ${v.name}`}
-                              title={voicePreviews[v.id]?.url ? undefined : "Generate preview"}
-                            >
-                              {voicePreviews[v.id]?.loading ? (
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                              ) : voicePreviews[v.id]?.url ? (
-                                <Play className="h-3 w-3 fill-current" />
-                              ) : (
-                                <Play className="h-3 w-3" />
-                              )}
-                            </button>
-                          </div>
-                          {voicePreviews[v.id]?.url && (
-                            <audio
-                              src={voicePreviews[v.id].url}
-                              controls
-                              className="mt-1 w-full rounded"
-                              style={{ height: 28 }}
-                              autoPlay
-                              onEnded={() => setVoicePreviews((prev) => ({ ...prev, [v.id]: { loading: false } }))}
-                            />
-                          )}
+                          <span>{v.name}</span>
                         </SelectItem>
                       ))}
                     </SelectGroup>
@@ -228,34 +162,7 @@ export function CreatePageSidebar({
                       <SelectLabel>Cloned Voices</SelectLabel>
                       {clonedVoices.map((v) => (
                         <SelectItem key={v.id} value={v.id}>
-                          <div className="flex items-center gap-2">
-                            <span className="flex-1 truncate">{v.name}</span>
-                            <button
-                              type="button"
-                              onClick={(e) => handlePlayVoicePreview(v.id, e)}
-                              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
-                              aria-label={`Preview ${v.name}`}
-                              title={voicePreviews[v.id]?.url ? undefined : "Generate preview"}
-                            >
-                              {voicePreviews[v.id]?.loading ? (
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                              ) : voicePreviews[v.id]?.url ? (
-                                <Play className="h-3 w-3 fill-current" />
-                              ) : (
-                                <Play className="h-3 w-3" />
-                              )}
-                            </button>
-                          </div>
-                          {voicePreviews[v.id]?.url && (
-                            <audio
-                              src={voicePreviews[v.id].url}
-                              controls
-                              className="mt-1 w-full rounded"
-                              style={{ height: 28 }}
-                              autoPlay
-                              onEnded={() => setVoicePreviews((prev) => ({ ...prev, [v.id]: { loading: false } }))}
-                            />
-                          )}
+                          <span>{v.name}</span>
                         </SelectItem>
                       ))}
                     </SelectGroup>
