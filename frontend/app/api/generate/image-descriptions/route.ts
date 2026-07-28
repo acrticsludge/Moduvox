@@ -377,67 +377,82 @@ export const POST = withApiHandler(async (request: Request) => {
   for (const slide of slides) {
     const slideDescriptions: ImageResult[] = []
 
-    for (const image of slide.images) {
-      // ── Validate image before sending to AI ──
-      const validationError = validateImage(image.mimeType, image.data)
-      if (validationError) {
-        slideDescriptions.push({ index: image.index, description: "", error: validationError })
-        continue
-      }
+    // Process images in parallel with a concurrency limit of 3
+    const IMAGE_CONCURRENCY = 3
+    const imageQueue = [...slide.images]
+    const inProgress = new Set<Promise<void>>()
+    const results: ImageResult[] = []
 
-      // ── Attempt 1: Nemotron (user key → project key) ──
-      let result = await tryNemotronSingleImage(image, userNimKey, projectNimKey)
+    function processOneImage(img: typeof slide.images[0]): Promise<void> {
+      return (async () => {
+        const validationError = validateImage(img.mimeType, img.data)
+        if (validationError) {
+          results.push({ index: img.index, description: "", error: validationError })
+          return
+        }
 
-      // ── Retry-able errors ──
-      if (result.error === "RATE_LIMITED") {
-        // Exponential backoff: 1s, 2s, 4s
-        for (const delay of [1000, 2000, 4000]) {
-          await sleep(delay)
+        let result = await tryNemotronSingleImage(img, userNimKey, projectNimKey)
+
+        // Retry-able errors
+        if (result.error === "RATE_LIMITED") {
+          for (const delay of [1000, 2000, 4000]) {
+            await sleep(delay)
+            const keyToUse = userNimKey?.key ?? projectNimKey!
+            result = await analyzeOneImageWithNemotron(img, keyToUse, NEMOTRON_TIMEOUT_MS)
+            if (!result.error || result.error === "NEMOTRON_AUTH_FAILED") break
+          }
+        } else if (result.error === "TIMEOUT") {
           const keyToUse = userNimKey?.key ?? projectNimKey!
-          result = await analyzeOneImageWithNemotron(image, keyToUse, NEMOTRON_TIMEOUT_MS)
-          if (!result.error || result.error === "NEMOTRON_AUTH_FAILED") break
+          result = await analyzeOneImageWithNemotron(img, keyToUse, NEMOTRON_RETRY_TIMEOUT_MS)
+        } else if (result.error === "SERVICE_UNAVAILABLE") {
+          await sleep(5000)
+          const keyToUse = userNimKey?.key ?? projectNimKey!
+          result = await analyzeOneImageWithNemotron(img, keyToUse, NEMOTRON_TIMEOUT_MS)
+        } else if (result.error === "Image could not be processed" || result.error === "Nemotron model unavailable") {
+          await sleep(2000)
+          const keyToUse = userNimKey?.key ?? projectNimKey!
+          result = await analyzeOneImageWithNemotron(img, keyToUse, NEMOTRON_TIMEOUT_MS)
         }
-      } else if (result.error === "TIMEOUT") {
-        // Retry once with reduced 60s timeout
-        const keyToUse = userNimKey?.key ?? projectNimKey!
-        result = await analyzeOneImageWithNemotron(image, keyToUse, NEMOTRON_RETRY_TIMEOUT_MS)
-      } else if (result.error === "SERVICE_UNAVAILABLE") {
-        // Retry after 5s
-        await sleep(5000)
-        const keyToUse = userNimKey?.key ?? projectNimKey!
-        result = await analyzeOneImageWithNemotron(image, keyToUse, NEMOTRON_TIMEOUT_MS)
-      } else if (result.error === "NETWORK_ERROR") {
-        // Immediate Gemini fallback — don't retry
-      } else if (result.error === "Image could not be processed" || result.error === "Nemotron model unavailable") {
-        // 5xx or model unavailable — retry once after 2s, then fall back to Gemini
-        await sleep(2000)
-        const keyToUse = userNimKey?.key ?? projectNimKey!
-        result = await analyzeOneImageWithNemotron(image, keyToUse, NEMOTRON_TIMEOUT_MS)
-      }
 
-      // Format description if successful
-      if (!result.error && result.description) {
-        result.description = validateDescriptionFormat(formatDescription(result.description))
-      }
-
-      // ── If Nemotron succeeded (or gave non-fallback error) ──
-      if (!result.error) {
-        slideDescriptions.push(result)
-        continue
-      }
-
-      // ── Attempt 2: Gemini (fallback) ──
-      const geminiClient = getGeminiClient()
-      if (geminiClient) {
-        const geminiResult = await analyzeOneImageWithGemini(image, geminiClient)
-        if (geminiResult.description) {
-          geminiResult.description = validateDescriptionFormat(formatDescription(geminiResult.description))
+        if (!result.error && result.description) {
+          result.description = validateDescriptionFormat(formatDescription(result.description))
         }
-        slideDescriptions.push(geminiResult)
-      } else {
-        slideDescriptions.push({ index: image.index, description: "", error: "Analysis failed" })
+
+        if (!result.error) {
+          results.push(result)
+          return
+        }
+
+        // Gemini fallback
+        const geminiClient = getGeminiClient()
+        if (geminiClient) {
+          const geminiResult = await analyzeOneImageWithGemini(img, geminiClient)
+          if (geminiResult.description) {
+            geminiResult.description = validateDescriptionFormat(formatDescription(geminiResult.description))
+          }
+          results.push(geminiResult)
+        } else {
+          results.push({ index: img.index, description: "", error: "Analysis failed" })
+        }
+      })()
+    }
+
+    // Pull from queue, keep up to IMAGE_CONCURRENCY in flight
+    while (imageQueue.length > 0 || inProgress.size > 0) {
+      while (inProgress.size < IMAGE_CONCURRENCY && imageQueue.length > 0) {
+        const img = imageQueue.shift()!
+        const p = processOneImage(img)
+        inProgress.add(p)
+        p.finally(() => inProgress.delete(p))
+      }
+      if (inProgress.size > 0) {
+        await Promise.race(inProgress)
       }
     }
+
+    // Sort results by original index order
+    results.sort((a, b) => a.index - b.index)
+    slideDescriptions.push(...results)
 
     resultSlides.push({ number: slide.number, images: slideDescriptions })
   }

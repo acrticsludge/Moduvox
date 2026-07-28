@@ -114,7 +114,13 @@ export const POST = withApiHandler(async (request: Request) => {
     }
 
     const genAI = new GoogleGenerativeAI(apiKey)
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" })
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.5-flash",
+      generationConfig: {
+        maxOutputTokens: 8192,
+        temperature: 0.7,
+      },
+    })
 
     // ── Build prompt with injection guard ───────────────────
     const TITLE_CAP = 200  // max chars per title
@@ -126,7 +132,11 @@ export const POST = withApiHandler(async (request: Request) => {
       const imageContext = slideImageDescs
         ? slideImageDescs
             .filter((d) => d.description && !d.error)
-            .map((d) => `Image ${d.index + 1}: ${d.description}`)
+            .slice(0, 3) // max 3 images per slide to keep prompt concise
+            .map((d) => {
+              const desc = d.description.length > 120 ? d.description.slice(0, 120) + "..." : d.description
+              return `Image ${d.index + 1}: ${desc}`
+            })
             .join("\n")
         : ""
 
