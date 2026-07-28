@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation"
 import { ChevronRight, MoreHorizontal, Trash2, Pencil, Archive, RotateCcw, Loader2 } from "lucide-react"
 import { toastSuccess, toastError } from "@/components/ui/CustomToast"
 import { createClient } from "@/lib/supabase/client"
+import type { SlideImage, SlideComment } from "@/lib/pptx-renderer"
 import type { Presentation as PresentationType } from "@/lib/validations/presentation"
 import { CreatePageSidebar } from "@/components/dashboard/CreatePageSidebar"
 import { PptxUploadZone } from "@/components/dashboard/PptxUploadZone"
@@ -18,16 +19,26 @@ const RenamePresentationDialog = dynamic(() => import("@/components/dashboard/Re
 const ConfirmArchiveDialog = dynamic(() => import("@/components/dashboard/ConfirmArchiveDialog").then(mod => mod.ConfirmArchiveDialog), { ssr: false })
 
 type ImageDesc = { index: number; description: string; error?: string }
+type SlideDataItem = {
+  number?: number
+  title: string
+  bullets: string[]
+  notes?: string | null
+  comments?: SlideComment[]
+  images?: SlideImage[]
+  rawText?: string
+}
+
 type EditorState = {
   selectedVoiceId?: string
   controlInstructions?: string
   ultimateMode?: boolean
-  currentSlide?: number
   narrations?: Record<number, string>
   audioGenerated?: boolean
   audioStoragePath?: string
   storagePath?: string
-  slideData?: { title: string; bullets: string[] }[]
+  currentSlide?: number
+  slideData?: SlideDataItem[]
   changedSlides?: number[]
   slideCount?: number
   imageDescriptions?: Record<number, ImageDesc[]>
@@ -62,7 +73,7 @@ export default function PresentationCreatePage() {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
   const [storagePath, setStoragePath] = useState("")
   const [currentSlide, setCurrentSlide] = useState(0)
-  const [slideData, setSlideData] = useState<{ title: string; bullets: string[] }[]>([])
+  const [slideData, setSlideData] = useState<SlideDataItem[]>([])
   const [changedSlides, setChangedSlides] = useState<number[]>([])
   const [imageDescriptions, setImageDescriptions] = useState<Record<number, ImageDesc[]>>({})
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle")

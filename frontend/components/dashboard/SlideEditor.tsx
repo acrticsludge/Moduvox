@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
-import { parsePptxText, type ParsedSlide } from "@/lib/pptx-renderer"
+import { parsePptxText, type ParsedSlide, type SlideImage, type SlideComment } from "@/lib/pptx-renderer"
 import { compareSlides, type SlideDiff } from "@/lib/pptx-renderer"
 import { describeSlideImages } from "@/lib/image-analysis"
 import { toastSuccess, toastError } from "@/components/ui/CustomToast"
@@ -67,8 +67,9 @@ export function SlideEditor({
   onStoragePathChange?: (v: string) => void
   currentSlide?: number
   onCurrentSlideChange?: (v: number) => void
-  slideData?: { title: string; bullets: string[] }[]
-  onSlideDataChange?: (v: { title: string; bullets: string[] }[]) => void
+  slideData?: { number?: number; title: string; bullets: string[]; notes?: string | null; comments?: SlideComment[]; images?: SlideImage[]; rawText?: string }[]
+  onSlideDataChange?: (v: { number?: number; title: string; bullets: string[]; notes?: string | null; comments?: SlideComment[]; images?: SlideImage[]; rawText?: string }[]) => void
+
   imageDescriptions?: Record<number, { index: number; description: string; error?: string }[]>
   onImageDescriptionsChange?: (v: Record<number, { index: number; description: string; error?: string }[]>) => void
   changedSlides?: number[]
@@ -222,15 +223,15 @@ export function SlideEditor({
       // Extract text content for slides (parse early to get slide count)
       let parsedSlides: ParsedSlide[] | null = null
       if (externalSlideData && externalSlideData.length > 0 && !file) {
-        // Restore from saved editor state (only { title, bullets } persisted)
+        // Restore from saved editor state (includes images, notes, comments when available)
         parsedSlides = externalSlideData.map((s, i) => ({
           number: (s as { number?: number }).number ?? i + 1,
           title: s.title,
           bullets: s.bullets,
-          notes: null,
-          comments: [],
-          images: [],
-          rawText: s.title + (s.bullets.length > 0 ? "\n" + s.bullets.join("\n") : ""),
+          notes: (s as any).notes ?? null,
+          comments: (s as any).comments ?? [],
+          images: (s as any).images ?? [],
+          rawText: (s as any).rawText || s.title + (s.bullets.length > 0 ? "\n" + s.bullets.join("\n") : ""),
         })) as ParsedSlide[]
         if (!cancelled) {
           setSlides(parsedSlides)
@@ -242,8 +243,8 @@ export function SlideEditor({
           parsedSlides = await parsePptxText(file!)
           if (!cancelled) {
             setSlides(parsedSlides)
-            // Strip heavy data (images, notes, comments) from persisted state
-            onSlideDataChange?.(parsedSlides.map(({ number, title, bullets }) => ({ number, title, bullets })))
+            // Persist full slide data including images, notes, comments
+            onSlideDataChange?.(parsedSlides.map(({ number, title, bullets, notes, comments, images, rawText }) => ({ number, title, bullets, notes, comments, images, rawText })))
             setInternalIndex(externalCurrentSlide ?? 0)
           }
         } catch {
@@ -840,9 +841,9 @@ export function SlideEditor({
     onCurrentSlideChange?.(0)
     setSlideInput("1")
 
-    // Replace slide data — strip heavy fields from persisted state
+    // Replace slide data — persist full data including images, notes, comments
     setSlides(pendingSlides)
-    onSlideDataChange?.(pendingSlides.map(({ number, title, bullets }) => ({ number, title, bullets })))
+    onSlideDataChange?.(pendingSlides.map(({ number, title, bullets, notes, comments, images, rawText }) => ({ number, title, bullets, notes, comments, images, rawText })))
 
     // Merge narrations for "changed" type — preserve unchanged, keep modified, init added
     if (!isReplacement && pendingDiff?.changes) {
