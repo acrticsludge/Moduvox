@@ -147,11 +147,27 @@ export default function PresentationCreatePage() {
 
   function handleChangedSlidesChange(slides: number[]) {
     setChangedSlides(slides)
-    // Immediately persist changedSlides so it survives page reload
+    // Save full editor state immediately — sending only changedSlides would overwrite
+    // and destroy all other fields (storagePath, slideData, narrations, etc.)
+    const state: EditorState = {
+      selectedVoiceId,
+      controlInstructions,
+      ultimateMode,
+      narrations,
+      audioGenerated,
+      audioStoragePath: audioStoragePath ?? undefined,
+      storagePath,
+      currentSlide,
+      slideData: slideData.length > 0 ? slideData : undefined,
+      changedSlides: slides.length > 0 ? slides : undefined,
+      slideCount: slideData.length > 0 ? slideData.length : undefined,
+      imageDescriptions: Object.keys(imageDescriptions).length > 0 ? imageDescriptions : undefined,
+      parsedImageKeys: Object.keys(parsedImageKeys).length > 0 ? parsedImageKeys : undefined,
+    }
     fetch(`/api/presentations/${params.presentationId}/state`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ changedSlides: slides.length > 0 ? slides : undefined }),
+      body: JSON.stringify(state),
     }).catch(() => {})
   }
 

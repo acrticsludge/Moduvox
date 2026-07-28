@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { useParams, useSearchParams } from "next/navigation"
 import dynamic from "next/dynamic"
 import { Skeleton } from "@/components/ui/skeleton"
+import { pdfjs } from "react-pdf"
 
 import { EmailSentScreen } from "@/components/view/EmailSentScreen"
 import { VerifyErrorScreen } from "@/components/view/VerifyErrorScreen"
@@ -109,6 +110,7 @@ export default function ViewPresentationPage() {
   stateTypeRef.current = state.type
   const [slides, setSlides] = useState<{ slideNumber: number; pdfUrl: string | null }[] | null>(null)
   const [slideBlobUrls, setSlideBlobUrls] = useState<Record<number, string>>({})
+  const [slideCachedImages, setSlideCachedImages] = useState<Record<number, string>>({})
   const [currentSlide, setCurrentSlide] = useState(0)
   const [slidesLoading, setSlidesLoading] = useState(false)
   const [slidesError, setSlidesError] = useState<string | null>(null)
@@ -401,28 +403,52 @@ export default function ViewPresentationPage() {
     }
   }
 
-  /** Fetch all PDFs as blobs and create Object URLs — zero network on slide nav */
+  /** Fetch all PDFs as blobs and render to canvas images — zero network + zero react-pdf on nav */
   async function prefetchAllSlideBlobs(slideList: { slideNumber: number; pdfUrl: string | null }[]) {
     // Revoke previous blob URLs to avoid memory leaks
     for (const url of blobUrlsRef.current) {
       URL.revokeObjectURL(url)
     }
     const blobMap: Record<number, string> = {}
+    const imageMap: Record<number, string> = {}
     const urls: string[] = []
     await Promise.allSettled(
       slideList.map(async (s) => {
         if (!s.pdfUrl) return
-        const res = await fetch(s.pdfUrl)
-        if (!res.ok) return
-        const blob = await res.blob()
-        const url = URL.createObjectURL(blob)
-        blobMap[s.slideNumber] = url
-        urls.push(url)
+        try {
+          const res = await fetch(s.pdfUrl)
+          if (!res.ok) return
+          const blob = await res.blob()
+          const blobUrl = URL.createObjectURL(blob)
+          blobMap[s.slideNumber] = blobUrl
+          urls.push(blobUrl)
+
+          // Render PDF to canvas → data URL for instant <img> display
+          const loadingTask = pdfjs.getDocument(blobUrl)
+          const pdfDoc = await loadingTask.promise
+          const page = await pdfDoc.getPage(1)
+          const viewport = page.getViewport({ scale: 1.5 })
+          const canvas = document.createElement("canvas")
+          canvas.width = viewport.width
+          canvas.height = viewport.height
+          const ctx = canvas.getContext("2d")
+          if (ctx) {
+            await page.render({ canvas: canvas, viewport }).promise
+            imageMap[s.slideNumber] = canvas.toDataURL("image/png")
+          }
+          canvas.width = 0
+          canvas.height = 0
+        } catch {
+          // Will fall back to react-pdf via blob URL
+        }
       })
     )
     // Track blob URLs for cleanup
     blobUrlsRef.current = urls
     setSlideBlobUrls(blobMap)
+    if (Object.keys(imageMap).length > 0) {
+      setSlideCachedImages(imageMap)
+    }
   }
 
   // Fetch slides when entering verified state
@@ -661,13 +687,26 @@ export default function ViewPresentationPage() {
                 </div>
               ) : slides && slides.length > 0 ? (
                 <>
-                  <div className="group relative w-full max-w-5xl">
-                    <ViewSlide
-                      pdfUrl={slideBlobUrls[slides[currentSlide]?.slideNumber] ?? slides[currentSlide]?.pdfUrl ?? null}
-                      slideNumber={currentSlide + 1}
-                      totalSlides={slides.length}
-                      fullscreen={isFullscreen}
-                    />
+                  <div className="group relative w-full max-w-5xl" style={{ minHeight: '400px' }}>
+                    {/* Render ALL slides, only current is visible — prevents react-pdf re-parsing on nav */}
+                    {slides.map((slide, i) => (
+                      <div
+                        key={slide.slideNumber}
+                        className={
+                          i === currentSlide
+                            ? "relative z-10"
+                            : "invisible absolute inset-0 pointer-events-none"
+                        }
+                      >
+                        <ViewSlide
+                          pdfUrl={slideBlobUrls[slide.slideNumber] ?? slide.pdfUrl ?? null}
+                          imageUrl={slideCachedImages[slide.slideNumber]}
+                          slideNumber={slide.slideNumber}
+                          totalSlides={slides.length}
+                          fullscreen={isFullscreen}
+                        />
+                      </div>
+                    ))}
 
                     {/* Floating fullscreen button — top-right of slide, on hover */}
                     {supported && !isFullscreen && (
