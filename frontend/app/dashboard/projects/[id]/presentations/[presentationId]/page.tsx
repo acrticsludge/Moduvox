@@ -30,6 +30,7 @@ type SlideDataItem = {
 }
 
 type EditorState = {
+  parsedImageKeys?: Record<string, string>
   selectedVoiceId?: string
   controlInstructions?: string
   ultimateMode?: boolean
@@ -73,6 +74,7 @@ export default function PresentationCreatePage() {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
   const [storagePath, setStoragePath] = useState("")
   const [currentSlide, setCurrentSlide] = useState(0)
+  const [parsedImageKeys, setParsedImageKeys] = useState<Record<string, string>>({})
   const [slideData, setSlideData] = useState<SlideDataItem[]>([])
   const [changedSlides, setChangedSlides] = useState<number[]>([])
   const [imageDescriptions, setImageDescriptions] = useState<Record<number, ImageDesc[]>>({})
@@ -197,6 +199,7 @@ export default function PresentationCreatePage() {
           if (saved.slideData?.length) setSlideData(saved.slideData)
           if (saved.changedSlides) setChangedSlides(saved.changedSlides)
           if (saved.imageDescriptions) setImageDescriptions(saved.imageDescriptions)
+          if (saved.parsedImageKeys) setParsedImageKeys(saved.parsedImageKeys)
         }
       }
       setLoading(false)
@@ -224,6 +227,7 @@ export default function PresentationCreatePage() {
         changedSlides: changedSlides.length > 0 ? changedSlides : undefined,
         slideCount: slideData.length > 0 ? slideData.length : undefined,
         imageDescriptions: Object.keys(imageDescriptions).length > 0 ? imageDescriptions : undefined,
+        parsedImageKeys: Object.keys(parsedImageKeys).length > 0 ? parsedImageKeys : undefined,
       }
       fetch(`/api/presentations/${params.presentationId}/state`, {
         method: "PATCH",
@@ -236,7 +240,7 @@ export default function PresentationCreatePage() {
         })
         .catch(() => { setSaveStatus("error"); toastError("Failed to save changes", { id: "editor-save" }) })
     }, 2000)
-  }, [selectedVoiceId, controlInstructions, ultimateMode, narrations, audioGenerated, audioStoragePath, storagePath, currentSlide, slideData, changedSlides, imageDescriptions, params.presentationId])
+  }, [selectedVoiceId, controlInstructions, ultimateMode, narrations, audioGenerated, audioStoragePath, storagePath, currentSlide, slideData, changedSlides, imageDescriptions, parsedImageKeys, params.presentationId])
 
   // Trigger auto-save when any editor state changes
   useEffect(() => {
@@ -516,6 +520,8 @@ export default function PresentationCreatePage() {
               onCurrentSlideChange={setCurrentSlide}
               slideData={slideData}
               onSlideDataChange={setSlideData}
+              parsedImageKeys={parsedImageKeys}
+              onParsedImageKeysChange={setParsedImageKeys}
               imageDescriptions={imageDescriptions}
               onImageDescriptionsChange={handleImageDescriptionsChange}
               changedSlides={changedSlides}

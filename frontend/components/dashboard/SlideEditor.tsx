@@ -56,6 +56,8 @@ export function SlideEditor({
   onAudioSlidePathsChange,
   selectedVoiceId,
   ultimateMode,
+  parsedImageKeys: externalParsedImageKeys,
+  onParsedImageKeysChange,
 }: {
   file: File | null
   presentationId: string
@@ -69,7 +71,9 @@ export function SlideEditor({
   onCurrentSlideChange?: (v: number) => void
   slideData?: { number?: number; title: string; bullets: string[]; notes?: string | null; comments?: SlideComment[]; images?: SlideImage[]; rawText?: string }[]
   onSlideDataChange?: (v: { number?: number; title: string; bullets: string[]; notes?: string | null; comments?: SlideComment[]; images?: SlideImage[]; rawText?: string }[]) => void
-
+  /** R2 keys for parsed images: key = "${slideNumber}-${imageIndex}", value = R2 key */
+  parsedImageKeys?: Record<string, string>
+  onParsedImageKeysChange?: (v: Record<string, string>) => void
   imageDescriptions?: Record<number, { index: number; description: string; error?: string }[]>
   onImageDescriptionsChange?: (v: Record<number, { index: number; description: string; error?: string }[]>) => void
   changedSlides?: number[]
@@ -223,19 +227,28 @@ export function SlideEditor({
       // Extract text content for slides (parse early to get slide count)
       let parsedSlides: ParsedSlide[] | null = null
       if (externalSlideData && externalSlideData.length > 0 && !file) {
-        // Restore from saved editor state (includes images, notes, comments when available)
+        // Restore from saved editor state (includes notes, comments when available)
         parsedSlides = externalSlideData.map((s, i) => ({
           number: (s as { number?: number }).number ?? i + 1,
           title: s.title,
           bullets: s.bullets,
           notes: (s as any).notes ?? null,
           comments: (s as any).comments ?? [],
-          images: (s as any).images ?? [],
+          images: (s as any).images ?? [], // Will be loaded from R2 if parsedImageKeys exist
           rawText: (s as any).rawText || s.title + (s.bullets.length > 0 ? "\n" + s.bullets.join("\n") : ""),
         })) as ParsedSlide[]
         if (!cancelled) {
           setSlides(parsedSlides)
           setInternalIndex(externalCurrentSlide ?? 0)
+
+          // Load images from R2 if we have saved keys
+          if (externalParsedImageKeys && Object.keys(externalParsedImageKeys).length > 0) {
+            loadImagesFromParsedKeys(presentationId, externalParsedImageKeys, parsedSlides)
+              .then((updatedSlides) => {
+                if (!cancelled) setSlides(updatedSlides)
+              })
+              .catch(() => {}) // best-effort; slides work without images
+          }
         }
       } else if (file) {
         // Parse from uploaded file
@@ -243,8 +256,13 @@ export function SlideEditor({
           parsedSlides = await parsePptxText(file!)
           if (!cancelled) {
             setSlides(parsedSlides)
-            // Persist full slide data including images, notes, comments
-            onSlideDataChange?.(parsedSlides.map(({ number, title, bullets, notes, comments, images, rawText }) => ({ number, title, bullets, notes, comments, images, rawText })))
+
+            // Persist slide data (notes, comments, rawText — but NOT images which are huge base64)
+            onSlideDataChange?.(parsedSlides.map(({ number, title, bullets, notes, comments, rawText }) => ({ number, title, bullets, notes, comments, rawText })))
+
+            // Save parsed images to R2 for cross-session persistence (fire-and-forget)
+            saveParsedImagesToR2(presentationId, parsedSlides, onParsedImageKeysChange)
+
             setInternalIndex(externalCurrentSlide ?? 0)
           }
         } catch {
@@ -346,6 +364,77 @@ export function SlideEditor({
     processFile()
     return () => { cancelled = true }
   }, [file, presentationId, retryCount])
+
+  // ── Parsed image persistence helpers ──────────────────────────
+
+  /** Save parsed slide images to R2 for cross-session persistence. */
+  async function saveParsedImagesToR2(
+    presId: string,
+    slides: ParsedSlide[],
+    onKeysChange?: (v: Record<string, string>) => void,
+  ) {
+    try {
+      const payload = {
+        slides: slides.map((s) => ({
+          number: s.number,
+          images: s.images.map((img) => ({
+            index: img.index,
+            mimeType: img.mimeType,
+            data: img.dataUrl.replace(/^data:image\/\w+;base64,/, ""),
+          })),
+        })),
+      }
+      const res = await fetch(`/api/presentations/${presId}/parsed-images/save`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+      const json = await res.json()
+      if (json.data?.keys && onKeysChange) {
+        onKeysChange(json.data.keys)
+      }
+    } catch (err) {
+      console.warn("[parsed-images] Save failed (non-critical):", err)
+    }
+  }
+
+  /** Load parsed images from R2 using saved keys, return updated slides array. */
+  async function loadImagesFromParsedKeys(
+    presId: string,
+    keys: Record<string, string>,
+    currentSlides: ParsedSlide[],
+  ): Promise<ParsedSlide[]> {
+    try {
+      const res = await fetch(`/api/presentations/${presId}/parsed-images/load`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ keys: Object.values(keys) }),
+      })
+      const json = await res.json()
+      const imageUrls = json.data?.images as Record<string, string | null> | undefined
+      if (!imageUrls) return currentSlides
+
+      // Build lookup: compositeKey → signed URL
+      const keyToUrl = new Map(Object.entries(imageUrls))
+      const compositeToKey = new Map(Object.entries(keys))
+
+      return currentSlides.map((slide) => {
+        const images = slide.images.map((img) => {
+          const compositeKey = `${slide.number}-${img.index}`
+          const r2Key = compositeToKey.get(compositeKey)
+          const signedUrl = r2Key ? keyToUrl.get(r2Key) : null
+          if (signedUrl) {
+            return { ...img, dataUrl: signedUrl, r2Key }
+          }
+          return img
+        })
+        return { ...slide, images }
+      })
+    } catch (err) {
+      console.warn("[parsed-images] Load failed (non-critical):", err)
+      return currentSlides
+    }
+  }
 
   // Auto-generate narration when slides are first parsed
   useEffect(() => {
@@ -841,9 +930,9 @@ export function SlideEditor({
     onCurrentSlideChange?.(0)
     setSlideInput("1")
 
-    // Replace slide data — persist full data including images, notes, comments
+    // Replace slide data — persist notes, comments, rawText (NOT images — huge base64)
     setSlides(pendingSlides)
-    onSlideDataChange?.(pendingSlides.map(({ number, title, bullets, notes, comments, images, rawText }) => ({ number, title, bullets, notes, comments, images, rawText })))
+    onSlideDataChange?.(pendingSlides.map(({ number, title, bullets, notes, comments, rawText }) => ({ number, title, bullets, notes, comments, rawText })))
 
     // Merge narrations for "changed" type — preserve unchanged, keep modified, init added
     if (!isReplacement && pendingDiff?.changes) {

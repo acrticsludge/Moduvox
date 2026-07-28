@@ -12,6 +12,8 @@ export type SlideImage = {
   index: number
   mimeType: string
   dataUrl: string
+  /** R2 key if this image was persisted to object storage (for cross-session restore) */
+  r2Key?: string
 }
 
 export type ParsedSlide = {
