@@ -53,8 +53,6 @@ export function ViewAudioBar({
   slideTimingsRef.current = slideTimings
   const slideCountRef = useRef(slideCount)
   slideCountRef.current = slideCount
-  const firstWatchRef = useRef(firstWatch)
-  firstWatchRef.current = firstWatch
   const sessionTokenRef = useRef(sessionToken)
   sessionTokenRef.current = sessionToken
   const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -117,18 +115,15 @@ export function ViewAudioBar({
   }
 
   // Expose seekToSlide for the parent via the ref object prop
-  const seekToSlide: SeekToSlideFn = (slideNumber: number, force?: boolean) => {
+  const seekToSlide: SeekToSlideFn = (slideNumber: number, _force?: boolean) => {
     const howl = howlRef.current
     if (!howl || howl.state() !== "loaded") return
     const targetSec = getSlideStartSec(slideNumber)
     if (targetSec === null) return
-    // force=true bypasses first-watch clamp (used by sidebar / prev-next navigation).
-    // force=false (default) clamps to maxWatched so seek-bar and skip buttons can't skip ahead.
-    const clamped = (firstWatchRef.current && !force) ? Math.min(targetSec, maxWatchedRef.current) : targetSec
     maxWatchedRef.current = Math.max(maxWatchedRef.current, targetSec)
-    howl.seek(clamped)
-    setCurrentTime(clamped)
-    currentTimeRef.current = clamped
+    howl.seek(targetSec)
+    setCurrentTime(targetSec)
+    currentTimeRef.current = targetSec
     // Notify slide change immediately (don't wait for onseek — it may fire late)
     lastSlideRef.current = slideNumber
     onSlideChangeRef.current?.(slideNumber)
@@ -228,12 +223,14 @@ export function ViewAudioBar({
         sendTracking("completed", 100, secs)
       },
       onseek: () => {
-        // Don't detect slide here — seek callers (seekToSlide, handleSeekEnd,
-        // skipSeconds) already run detectSlide with the exact target time.
-        // onseek may fire with a stale position (HTML5 audio quirk).
+        // HTML5 audio quirk: onseek may fire with a stale position.
+        // Only update if the returned position is AT or AHEAD of the current ref
+        // to prevent the stale value from overwriting the correct seek target.
         const secs = Math.floor(howl.seek() as number)
-        setCurrentTime(secs)
-        currentTimeRef.current = secs
+        if (secs >= currentTimeRef.current) {
+          setCurrentTime(secs)
+          currentTimeRef.current = secs
+        }
       },
     })
     howlRef.current = howl
@@ -371,9 +368,7 @@ export function ViewAudioBar({
   }
 
   function clampSeek(targetSec: number): number {
-    if (!firstWatch) return Math.max(0, targetSec)
-    // On first watch, can rewind anywhere but cannot skip ahead of furthest position
-    return Math.min(Math.max(0, targetSec), maxWatchedRef.current)
+    return Math.max(0, targetSec)
   }
 
   function skipSeconds(offset: number) {

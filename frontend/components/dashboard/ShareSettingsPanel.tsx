@@ -120,7 +120,13 @@ const [expireDate, setExpireDate] = useState<Date | undefined>(undefined)
 
   function handleToggleEmailGate() {
     if (!settings) return
-    updateSettings({ email_gate_enabled: !settings.email_gate_enabled })
+    const willBeEnabled = !settings.email_gate_enabled
+    updateSettings({ email_gate_enabled: willBeEnabled })
+    // If turning email gate OFF while in Restricted mode, auto-show password input
+    // so the user can set a password instead of falling to Public with no restrictions.
+    if (!willBeEnabled && settings.has_password === false) {
+      setShowPasswordInput(true)
+    }
   }
 
   if (loading) {
@@ -222,6 +228,12 @@ const [expireDate, setExpireDate] = useState<Date | undefined>(undefined)
           </button>
           <button
             type="button"
+            onClick={() => {
+              // Toggle to Restricted: enable email gate as the default restriction
+              if (!settings.email_gate_enabled && !settings.has_password) {
+                handleToggleEmailGate()
+              }
+            }}
             className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-all ${
               settings.email_gate_enabled || settings.has_password
                 ? "border-[#18181B] bg-[#18181B] text-white"
