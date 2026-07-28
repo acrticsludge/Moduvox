@@ -16,23 +16,20 @@ export const POST = withApiHandler(async (
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const confirmSchema = z.object({
-    path: z.string().min(1).regex(/^[a-fA-F0-9-]+\/[a-fA-F0-9-]+\.pptx$/, "Invalid file path format"),
-    slideCount: z.number().int().positive().optional(),
-  })
-
   const body = await request.json()
-  const parsed = confirmSchema.safeParse(body)
-  if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
+  const filePath = typeof body.path === "string" ? body.path : ""
+  if (!filePath) {
+    return NextResponse.json({ error: "Missing file path" }, { status: 400 })
   }
 
-  const { path: filePath, slideCount = 1 } = parsed.data
+  const slideCount = typeof body.slideCount === "number" ? body.slideCount : 1
 
+  // Security: reject path traversal
   if (filePath.includes("..") || filePath.startsWith("/")) {
     return NextResponse.json({ error: "Invalid path" }, { status: 400 })
   }
 
+  // Verify the path belongs to this user
   const userPrefix = filePath.split("/")[0]
   if (userPrefix !== user.id) {
     return NextResponse.json({ error: "Access denied" }, { status: 403 })

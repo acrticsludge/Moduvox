@@ -268,7 +268,9 @@ export function SlideEditor({
                 body: JSON.stringify({ path, slideCount }),
               })
             if (!confirmRes.ok) {
-              if (!cancelled) setLoadError("Failed to confirm upload.")
+              const errBody = await confirmRes.json().catch(() => ({}))
+              const errMsg = errBody.error || `Server error (${confirmRes.status})`
+              if (!cancelled) setLoadError(`Failed to confirm upload: ${errMsg}`)
             } else if (!cancelled) {
               const confirmJson = await confirmRes.json()
               if (confirmJson.warning) {
@@ -277,8 +279,10 @@ export function SlideEditor({
               setConversionStatus("converting")
               pollForPdfs(presentationId, slideCount)
             }
-          } catch {
-            if (!cancelled) setLoadError("Failed to confirm upload.")
+          } catch (err) {
+            const errMsg = err instanceof Error ? err.message : "Unknown error"
+            console.error("[Upload] Confirm failed:", errMsg)
+            if (!cancelled) setLoadError(`Failed to confirm upload: ${errMsg}`)
           }
           } else {
             // Reload with existing storage path: skip confirm, check for PDFs directly
