@@ -112,6 +112,7 @@ export default function ViewPresentationPage() {
   const [slideBlobUrls, setSlideBlobUrls] = useState<Record<number, string>>({})
   const [slideCachedImages, setSlideCachedImages] = useState<Record<number, string>>({})
   const [currentSlide, setCurrentSlide] = useState(0)
+  const [fitToScreen, setFitToScreen] = useState(false)
   const [slidesLoading, setSlidesLoading] = useState(false)
   const [slidesError, setSlidesError] = useState<string | null>(null)
   const slidesFetchingRef = useRef(false)
@@ -698,6 +699,7 @@ export default function ViewPresentationPage() {
                           slideNumber={slide.slideNumber}
                           totalSlides={slides.length}
                           fullscreen={isFullscreen}
+                          fitToScreen={fitToScreen}
                         />
                       </div>
                     ))}
@@ -739,19 +741,32 @@ export default function ViewPresentationPage() {
                           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6"/></svg>
                         </button>
 
-                        {/* Top bar: slide counter + exit fullscreen */}
+                        {/* Top bar: slide counter + fit-to-screen + exit fullscreen */}
                         <div className="absolute left-0 right-0 top-0 flex items-center justify-between p-4">
                           <span className="rounded-full bg-black/50 px-3 py-1 text-xs text-white backdrop-blur-sm">
                             {currentSlide + 1} / {slides.length}
                           </span>
-                          <button
-                            type="button"
-                            onClick={() => toggle(viewerRootRef.current!)}
-                            className="flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition-colors hover:bg-black/70"
-                            aria-label="Exit full screen"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setFitToScreen((f) => !f)}
+                              className={`flex h-9 w-9 items-center justify-center rounded-full backdrop-blur-sm transition-colors hover:bg-black/70 ${
+                                fitToScreen ? "bg-white/30 text-white" : "bg-black/50 text-white/70"
+                              }`}
+                              aria-label={fitToScreen ? "Exit fit to screen" : "Fit to screen"}
+                              title={fitToScreen ? "Exit fit to screen" : "Fit to screen"}
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => toggle(viewerRootRef.current!)}
+                              className="flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition-colors hover:bg-black/70"
+                              aria-label="Exit full screen"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+                            </button>
+                          </div>
                         </div>
 
                         {/* Bottom hint */}

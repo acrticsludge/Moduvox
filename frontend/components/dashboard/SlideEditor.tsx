@@ -1102,6 +1102,7 @@ export function SlideEditor({
   const slideViewerRef = useRef<HTMLDivElement>(null)
   const fullscreenContainerRef = useRef<HTMLElement | null>(null)
   const { isFullscreen, supported, toggle } = useFullscreen()
+  const [fitToScreen, setFitToScreen] = useState(false)
 
   // Add/remove body class for fullscreen to hide navbar/sidebar outside this component
   useEffect(() => {
@@ -1325,12 +1326,21 @@ export function SlideEditor({
             <div
               ref={slideViewerRef}
               className={`relative flex flex-1 items-center justify-center transition-all ${
-                isFullscreen ? "p-0" : "p-4"
+                isFullscreen ? (fitToScreen ? "p-0 bg-black" : "p-0") : "p-4"
               }`}
             >
               <SlidePdfViewer
                 pdfUrl={blobPdfUrls[currentIndex] ?? pdfUrls[currentIndex] ?? null}
-                slideWidth={isFullscreen ? Math.min(window.innerWidth * 0.85, window.innerHeight * 0.8 / 0.75, 1400) : undefined}
+                slideWidth={isFullscreen
+                  ? fitToScreen
+                    ? (() => {
+                        const aspect = 4 / 3
+                        const w = window.innerWidth, h = window.innerHeight
+                        return w / h > aspect ? Math.round(h * aspect) : w
+                      })()
+                    : Math.min(window.innerWidth * 0.85, window.innerHeight * 0.8 / 0.75, 1400)
+                  // Non-fullscreen: account for right panel (380px) + padding (32px) + border
+                  : Math.min(window.innerWidth - 430, 880)}
                 onLoadError={() => {
                   console.error(`[Editor] Failed to load PDF for slide ${currentIndex + 1}`)
                 }}
@@ -1366,14 +1376,27 @@ export function SlideEditor({
                     <span className="rounded-full bg-black/50 px-3 py-1 text-xs text-white backdrop-blur-sm">
                       {currentSlideNum} / {totalSlides}
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => toggle(fullscreenContainerRef.current!)}
-                      className="flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition-colors hover:bg-black/70"
-                      aria-label="Exit full screen"
-                    >
-                      <Minimize2 className="h-4 w-4" />
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setFitToScreen((f) => !f)}
+                        className={`flex h-9 w-9 items-center justify-center rounded-full backdrop-blur-sm transition-colors hover:bg-black/70 ${
+                          fitToScreen ? "bg-white/30 text-white" : "bg-black/50 text-white/70"
+                        }`}
+                        aria-label={fitToScreen ? "Exit fit to screen" : "Fit to screen"}
+                        title={fitToScreen ? "Exit fit to screen" : "Fit to screen"}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => toggle(fullscreenContainerRef.current!)}
+                        className="flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition-colors hover:bg-black/70"
+                        aria-label="Exit full screen"
+                      >
+                        <Minimize2 className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
 
                   {/* Bottom hint */}
