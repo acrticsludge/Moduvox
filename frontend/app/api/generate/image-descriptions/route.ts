@@ -5,7 +5,6 @@ import { withApiHandler } from "@/lib/api-handler"
 import { checkDbRateLimit } from "@/lib/rate-limiter"
 import { acquireNemotronToken } from "@/lib/nim-rate-limiter"
 import { decrypt } from "@/lib/encryption"
-import { gzipSync } from "node:zlib"
 import { z } from "zod"
 
 // ── Zod schemas ──────────────────────────────────────────────────
@@ -167,10 +166,9 @@ async function analyzeOneImageWithNemotron(
     ],
     max_tokens: 4096,
     temperature: 0.2,
+    top_k: 1,
+    chat_template_kwargs: { enable_thinking: false },
   }
-
-  const body = JSON.stringify(payload)
-  const compressed = gzipSync(Buffer.from(body, "utf-8"), { level: 6 })
 
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
@@ -181,9 +179,8 @@ async function analyzeOneImageWithNemotron(
       headers: {
         Authorization: `Bearer ${nimKey}`,
         "Content-Type": "application/json",
-        "Content-Encoding": "gzip",
       },
-      body: compressed,
+      body: JSON.stringify(payload),
       signal: controller.signal,
     })
 
