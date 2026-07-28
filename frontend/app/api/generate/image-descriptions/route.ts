@@ -167,8 +167,6 @@ async function analyzeOneImageWithNemotron(
     ],
     max_tokens: 4096,
     temperature: 0.2,
-    top_k: 1,
-    chat_template_kwargs: { enable_thinking: false },
   }
 
   const body = JSON.stringify(payload)
