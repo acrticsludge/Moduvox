@@ -2,7 +2,6 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createDownloadUrl, createUploadUrl } from "@/lib/r2"
 import { withApiHandler } from "@/lib/api-handler"
-import { z } from "zod"
 
 export const POST = withApiHandler(async (
   request: Request,
@@ -35,53 +34,54 @@ export const POST = withApiHandler(async (
     return NextResponse.json({ error: "Access denied" }, { status: 403 })
   }
 
-  // Verify file type via magic bytes (PPTX/ZIP header: PK\x03\x04)
+  // Verify the file exists and check its size via presigned GET download
+  // (presigned GET URLs work for GET — not HEAD — so download first bytes to validate)
   const downloadUrl = await createDownloadUrl(filePath, 120)
   if (!downloadUrl) {
     return NextResponse.json({ error: "Failed to verify uploaded file" }, { status: 500 })
   }
 
-  // Check file size via HEAD request
   const MAX_FILE_SIZE = 100 * 1024 * 1024 // 100MB
-  let contentLength: string | null = null
+  let fileSize = 0
+  let magicBytes: Buffer | null = null
   try {
-    const headRes = await fetch(downloadUrl, { method: "HEAD" })
-    contentLength = headRes.headers.get("content-length")
-  } catch {
-    return NextResponse.json({ error: "Could not verify file size" }, { status: 400 })
+    const res = await fetch(downloadUrl, {
+      headers: { Range: "bytes=0-4095" }, // first 4KB for magic bytes check
+    })
+    if (!res.ok) {
+      if (res.status === 403) {
+        return NextResponse.json({ error: "Uploaded file not accessible" }, { status: 400 })
+      }
+      return NextResponse.json({ error: "Could not verify uploaded file" }, { status: 400 })
+    }
+    // Get file size from Content-Range: bytes 0-4095/{totalSize}
+    const contentRange = res.headers.get("content-range")
+    const contentLen = res.headers.get("content-length")
+    fileSize = contentRange ? parseInt(contentRange.split("/")[1], 10) : (contentLen ? parseInt(contentLen, 10) : 0)
+
+    const arr = await res.arrayBuffer()
+    magicBytes = Buffer.from(arr.slice(0, 4))
+  } catch (err) {
+    console.error("[Upload] Failed to fetch file:", err)
+    return NextResponse.json({ error: "Could not verify uploaded file" }, { status: 400 })
   }
 
-  if (!contentLength || parseInt(contentLength, 10) <= 0) {
+  if (fileSize <= 0) {
     return NextResponse.json({ error: "File is empty" }, { status: 400 })
   }
-
-  const size = parseInt(contentLength, 10)
-  if (size > MAX_FILE_SIZE) {
+  if (fileSize > MAX_FILE_SIZE) {
     const { deleteFile } = await import("@/lib/r2")
     await deleteFile(filePath)
     return NextResponse.json({
-      error: `File too large (${(size / 1024 / 1024).toFixed(1)}MB). Maximum is 100MB.`,
+      error: `File too large (${(fileSize / 1024 / 1024).toFixed(1)}MB). Maximum is 100MB.`,
     }, { status: 413 })
   }
 
   const responseData: { data: { status: string }; warning?: string } = {
     data: { status: "processing" },
   }
-  if (size > 50 * 1024 * 1024) {
+  if (fileSize > 50 * 1024 * 1024) {
     responseData.warning = "Large file — may take longer to process"
-  }
-
-  let magicBytes: Buffer | null = null
-  try {
-    const res = await fetch(downloadUrl, {
-      headers: { Range: "bytes=0-3" },
-    })
-    if (res.ok) {
-      const arr = await res.arrayBuffer()
-      magicBytes = Buffer.from(arr)
-    }
-  } catch {
-    console.error("[Upload] Failed to fetch file for MIME validation")
   }
 
   if (magicBytes) {
