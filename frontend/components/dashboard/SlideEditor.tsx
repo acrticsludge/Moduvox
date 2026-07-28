@@ -519,6 +519,8 @@ export function SlideEditor({
           voiceName: selectedVoiceId ? voices.find(v => v.id === selectedVoiceId)?.name : undefined,
           controlInstruction: voiceDescription || undefined,
           ultimateMode: ultimateMode ?? false,
+          // Pass image descriptions so Gemini can incorporate visual context into narration
+          imageDescriptions: externalImageDescriptions,
         }),
       })
       const json = await res.json()

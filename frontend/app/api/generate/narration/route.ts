@@ -21,6 +21,12 @@ const narrationSchema = z.object({
   voiceId: z.string().uuid().optional(),
   voiceDescription: z.string().optional(),
   ultimateMode: z.boolean().optional(),
+  /** Per-slide image descriptions from Nemotron: slide number → image descriptions */
+  imageDescriptions: z.record(z.string(), z.array(z.object({
+    index: z.number(),
+    description: z.string(),
+    error: z.string().optional(),
+  }))).optional(),
 })
 
 // ── Safe JSON extraction from Gemini output ────────────────
@@ -69,7 +75,7 @@ export const POST = withApiHandler(async (request: Request) => {
     if (!parsed.success) {
       return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
     }
-    const { slides, instructions, slideInstructions, presentationId, voiceId, voiceDescription, ultimateMode } = parsed.data
+    const { slides, instructions, slideInstructions, presentationId, voiceId, voiceDescription, ultimateMode, imageDescriptions } = parsed.data
 
     // Verify ownership
     const { data: presentation } = await supabase
@@ -114,14 +120,22 @@ export const POST = withApiHandler(async (request: Request) => {
     const TITLE_CAP = 200  // max chars per title
     const BULLET_CAP = 500 // max chars per bullet
 
-    const slideBlocks = slides.map(
-      (s) =>
-        `Slide ${s.number}:
+    const slideBlocks = slides.map((s) => {
+      const slideNum = s.number
+      const slideImageDescs = imageDescriptions?.[String(slideNum)]
+      const imageContext = slideImageDescs
+        ? slideImageDescs
+            .filter((d) => d.description && !d.error)
+            .map((d) => `Image ${d.index + 1}: ${d.description}`)
+            .join("\n")
+        : ""
+
+      return `Slide ${slideNum}:
 Title: ${s.title.slice(0, TITLE_CAP)}
 Bullets:
 ${s.bullets.map((b: string) => `- ${b.slice(0, BULLET_CAP)}`).join("\n")}
-${slideInstructions?.[s.number] ? `Context: ${slideInstructions[s.number]}` : ""}`,
-    )
+${slideInstructions?.[slideNum] ? `Context: ${slideInstructions[slideNum]}` : ""}${imageContext ? `\nImage descriptions (from slide visuals):\n${imageContext}` : ""}`
+    })
 
     const prompt = `You are a professional voice-over narrator. Convert each slide into natural, conversational narration as if presenting to a live audience.
 
@@ -131,6 +145,8 @@ Rules:
 - For slides with few words (likely image-heavy), describe what the slide conveys
 - For thank-you/closing slides, use a warm wrap-up tone
 - For data slides, explain the numbers conversationally
+- When image descriptions are provided, decide if the image is decorative (background, logo, abstract visual) or informative (chart, diagram, screenshot, table). Only mention informative images in the narration — decorative images should be ignored.
+- For informative images, weave them into the narration naturally (e.g., "As this chart shows..." or "The diagram illustrates..."). For decorative images, simply narrate the slide's text content as if the image weren't there.
 - Keep each narration to 2-4 sentences
 - Never say "slide N says" — just speak the content
 - Don't use markdown or bullet indicators
