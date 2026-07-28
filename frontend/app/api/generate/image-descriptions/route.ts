@@ -408,6 +408,11 @@ export const POST = withApiHandler(async (request: Request) => {
         result = await analyzeOneImageWithNemotron(image, keyToUse, NEMOTRON_TIMEOUT_MS)
       } else if (result.error === "NETWORK_ERROR") {
         // Immediate Gemini fallback — don't retry
+      } else if (result.error === "Image could not be processed" || result.error === "Nemotron model unavailable") {
+        // 5xx or model unavailable — retry once after 2s, then fall back to Gemini
+        await sleep(2000)
+        const keyToUse = userNimKey?.key ?? projectNimKey!
+        result = await analyzeOneImageWithNemotron(image, keyToUse, NEMOTRON_TIMEOUT_MS)
       }
 
       // Format description if successful
@@ -417,12 +422,6 @@ export const POST = withApiHandler(async (request: Request) => {
 
       // ── If Nemotron succeeded (or gave non-fallback error) ──
       if (!result.error) {
-        slideDescriptions.push(result)
-        continue
-      }
-
-      // Non-retryable Nemotron errors (5xx, model unavailable) — mark as failed, no Gemini fallback
-      if (result.error === "Image could not be processed" || result.error === "Nemotron model unavailable") {
         slideDescriptions.push(result)
         continue
       }
