@@ -108,6 +108,7 @@ export default function ViewPresentationPage() {
   const stateTypeRef = useRef(state.type)
   stateTypeRef.current = state.type
   const [slides, setSlides] = useState<{ slideNumber: number; pdfUrl: string | null }[] | null>(null)
+  const [slideBlobUrls, setSlideBlobUrls] = useState<Record<number, string>>({})
   const [currentSlide, setCurrentSlide] = useState(0)
   const [slidesLoading, setSlidesLoading] = useState(false)
   const [slidesError, setSlidesError] = useState<string | null>(null)
@@ -123,7 +124,7 @@ export default function ViewPresentationPage() {
   const audioVersionRef = useRef(0)
   const sessionRef = useRef("")
   const seekToSlideRef = useRef<SeekToSlideFn | null>(null)
-  const preloadControllerRef = useRef<AbortController | null>(null)
+  const blobUrlsRef = useRef<string[]>([])
   const visibilityProcessingRef = useRef(false)
   const viewerContentRef = useRef<HTMLDivElement>(null)
   const viewerRootRef = useRef<HTMLDivElement>(null)
@@ -382,9 +383,10 @@ export default function ViewPresentationPage() {
       const res = await fetch(`/api/view/${token}/slides?session=${sessionToken}`)
       const json = await res.json()
       if (json.data) {
-        // Note: PDF URLs from the API are already signed sequentially. This could be optimized
-        // with Promise.all if the API is updated to support batch signing.
         setSlides(json.data.slides)
+        // Preload ALL slide PDFs as blobs for instant navigation
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises
+        prefetchAllSlideBlobs(json.data.slides)
         if (json.data.slides.length === 0 || json.data.slides.every((s: { pdfUrl: unknown }) => !s.pdfUrl)) {
           setSlidesError("Slides are being generated. Check back soon.")
         }
@@ -397,6 +399,30 @@ export default function ViewPresentationPage() {
       setSlidesLoading(false)
       slidesFetchingRef.current = false
     }
+  }
+
+  /** Fetch all PDFs as blobs and create Object URLs — zero network on slide nav */
+  async function prefetchAllSlideBlobs(slideList: { slideNumber: number; pdfUrl: string | null }[]) {
+    // Revoke previous blob URLs to avoid memory leaks
+    for (const url of blobUrlsRef.current) {
+      URL.revokeObjectURL(url)
+    }
+    const blobMap: Record<number, string> = {}
+    const urls: string[] = []
+    await Promise.allSettled(
+      slideList.map(async (s) => {
+        if (!s.pdfUrl) return
+        const res = await fetch(s.pdfUrl)
+        if (!res.ok) return
+        const blob = await res.blob()
+        const url = URL.createObjectURL(blob)
+        blobMap[s.slideNumber] = url
+        urls.push(url)
+      })
+    )
+    // Track blob URLs for cleanup
+    blobUrlsRef.current = urls
+    setSlideBlobUrls(blobMap)
   }
 
   // Fetch slides when entering verified state
@@ -436,9 +462,13 @@ export default function ViewPresentationPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.type, shareToken])
 
-  // Abort slide preloads on unmount
+  // Clean up blob Object URLs on unmount to prevent memory leaks
   useEffect(() => {
-    return () => { preloadControllerRef.current?.abort() }
+    return () => {
+      for (const url of blobUrlsRef.current) {
+        URL.revokeObjectURL(url)
+      }
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -478,28 +508,8 @@ export default function ViewPresentationPage() {
   function goToSlide(slideNumber: number) {
     const sn = clampSlide(slideNumber)
     seekToSlideRef.current?.(sn, true)
-    // Also update currentSlide immediately for instant visual feedback
+    // Update currentSlide immediately — PDF is preloaded as blob, so nav is instant
     setCurrentSlide(sn - 1)
-    preloadSlides(sn, slides)
-  }
-
-  // Preload PDFs for slides around the current one (next 2, previous)
-  // Fetches into browser cache so react-pdf loads instantly when user navigates
-  function preloadSlides(currentSn: number, allSlides: { slideNumber: number; pdfUrl: string | null }[] | null) {
-    if (!allSlides) return
-    preloadControllerRef.current?.abort()
-    const controller = new AbortController()
-    preloadControllerRef.current = controller
-    const preloadSn = new Set<number>()
-    for (let i = -1; i <= 2; i++) {
-      const sn = currentSn + i
-      if (sn >= 1 && sn <= allSlides.length) preloadSn.add(sn)
-    }
-    for (const s of allSlides) {
-      if (preloadSn.has(s.slideNumber) && s.pdfUrl && s.slideNumber !== currentSn) {
-        fetch(s.pdfUrl, { cache: "force-cache", signal: controller.signal }).catch(() => {})
-      }
-    }
   }
 
   function handleGateSuccess(data: { viewer_id: string; viewer_name: string; email: string; session_token?: string; email_sent?: boolean; already_verified?: boolean }) {
@@ -653,7 +663,7 @@ export default function ViewPresentationPage() {
                 <>
                   <div className="group relative w-full max-w-5xl">
                     <ViewSlide
-                      pdfUrl={slides[currentSlide]?.pdfUrl ?? null}
+                      pdfUrl={slideBlobUrls[slides[currentSlide]?.slideNumber] ?? slides[currentSlide]?.pdfUrl ?? null}
                       slideNumber={currentSlide + 1}
                       totalSlides={slides.length}
                       fullscreen={isFullscreen}
@@ -789,8 +799,6 @@ export default function ViewPresentationPage() {
             slideTimings={viewDataRef.current?.slide_timings}
             onSlideChange={(sn) => {
               setCurrentSlide(sn - 1)
-              // Preload slides around the new one
-              preloadSlides(sn, slides)
             }}
             firstWatch={firstWatch}
             onDurationReady={(sec) => setRealDurationMs(sec * 1000)}

@@ -96,6 +96,8 @@ export function SlideEditor({
   const [loadError, setLoadError] = useState("")
   const [slideInput, setSlideInput] = useState("")
   const [pdfUrls, setPdfUrls] = useState<(string | null)[]>([])
+  const [blobPdfUrls, setBlobPdfUrls] = useState<(string | null)[]>([])
+  const blobUrlsRef = useRef<string[]>([])
   const [conversionStatus, setConversionStatus] = useState<"uploading" | "converting" | "ready" | "error">("uploading")
   const [conversionError, setConversionError] = useState("")
   const [pollAttempts, setPollAttempts] = useState(0)
@@ -199,6 +201,8 @@ export function SlideEditor({
             urls[slide.slideNumber - 1] = slide.pdfUrl
           }
           setPdfUrls(urls)
+          // Prefetch all PDFs as blobs for instant slide navigation
+          prefetchEditorPdfBlobs(urls)
           setConversionStatus("ready")
           setLoading(false)
           return
@@ -209,6 +213,43 @@ export function SlideEditor({
       setTimeout(poll, POLL_INTERVAL)
     }
     poll()
+  }, [])
+
+  /** Fetch all PDFs as blobs and create Object URLs — instant slide nav in editor */
+  function prefetchEditorPdfBlobs(urls: (string | null)[]) {
+    // Revoke previous blob URLs
+    for (const url of blobUrlsRef.current) {
+      URL.revokeObjectURL(url)
+    }
+    const newBlobUrls: (string | null)[] = []
+    const urlList: string[] = []
+    Promise.allSettled(
+      urls.map(async (url, i) => {
+        if (!url) return
+        try {
+          const res = await fetch(url)
+          if (!res.ok) return
+          const blob = await res.blob()
+          const blobUrl = URL.createObjectURL(blob)
+          newBlobUrls[i] = blobUrl
+          urlList.push(blobUrl)
+        } catch {
+          // Fall back to signed URL if blob fails
+        }
+      })
+    ).then(() => {
+      blobUrlsRef.current = urlList
+      setBlobPdfUrls(newBlobUrls)
+    })
+  }
+
+  // Clean up blob URLs on unmount
+  useEffect(() => {
+    return () => {
+      for (const url of blobUrlsRef.current) {
+        URL.revokeObjectURL(url)
+      }
+    }
   }, [])
 
   useEffect(() => {
@@ -1288,7 +1329,7 @@ export function SlideEditor({
               }`}
             >
               <SlidePdfViewer
-                pdfUrl={pdfUrls[currentIndex] ?? null}
+                pdfUrl={blobPdfUrls[currentIndex] ?? pdfUrls[currentIndex] ?? null}
                 slideWidth={isFullscreen ? Math.min(window.innerWidth * 0.85, window.innerHeight * 0.8 / 0.75, 1400) : undefined}
                 onLoadError={() => {
                   console.error(`[Editor] Failed to load PDF for slide ${currentIndex + 1}`)
@@ -1386,14 +1427,14 @@ export function SlideEditor({
                     "Remove PPT"
                   )}
                 </button>
-                {pdfUrls[currentIndex] && (
+                {(blobPdfUrls[currentIndex] ?? pdfUrls[currentIndex]) && (
                   <button
                     type="button"
                     onClick={() => {
                     if (supported && fullscreenContainerRef.current) {
                       toggle(fullscreenContainerRef.current)
                     } else {
-                      window.open(pdfUrls[currentIndex]!, '_blank')
+                      window.open(blobPdfUrls[currentIndex] ?? pdfUrls[currentIndex]!, '_blank')
                     }
                   }}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-[#71717A] shadow-sm transition-colors hover:text-[#18181B]"
