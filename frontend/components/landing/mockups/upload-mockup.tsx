@@ -1,6 +1,6 @@
 export function UploadMockup() {
   return (
-    <div className="w-full overflow-hidden rounded-xl border border-zinc-200 bg-white p-6 shadow-lg">
+    <div className="w-full overflow-hidden rounded-xl border border-zinc-200 bg-white p-4 sm:p-6 shadow-lg">
       <div className="space-y-5">
         {/* Slide upload card */}
         <div className="rounded-lg border-2 border-dashed border-zinc-300 bg-zinc-50 p-6 text-center transition-colors hover:border-zinc-400">

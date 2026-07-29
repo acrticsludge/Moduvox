@@ -24,7 +24,7 @@ export function Hero() {
             <span>Your slides.</span>
             <span>Your voice. No recording.</span>
           </h1>
-          <p className="mt-6 max-w-[58ch] text-pretty text-lg leading-relaxed text-[#71717A]">
+          <p className="mt-6 max-w-[58ch] text-pretty text-base sm:text-lg leading-relaxed text-[#71717A]">
             Upload a PPTX, clone your voice in 30 seconds, and get a complete
             narrated presentation with proof of who watched it.
           </p>

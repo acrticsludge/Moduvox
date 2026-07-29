@@ -89,7 +89,7 @@ export default function LoginPage() {
   if (checkingAuth) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#F9FAFB] px-4">
-        <div className="w-full max-w-sm animate-pulse rounded-xl border border-zinc-200 bg-white p-8 shadow-lg">
+        <div className="w-full max-w-sm animate-pulse rounded-xl border border-zinc-200 bg-white p-6 sm:p-8 shadow-lg">
           <div className="mb-1 h-7 w-24 rounded bg-zinc-100" />
           <div className="mb-8 h-4 w-40 rounded bg-zinc-100" />
           <div className="space-y-4">

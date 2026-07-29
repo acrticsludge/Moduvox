@@ -33,7 +33,7 @@ export function EditorMockup() {
         {/* Main editor area */}
         <div className="flex flex-1 flex-col">
           {/* Slide preview */}
-          <div className="flex items-center justify-center border-b border-zinc-200 bg-zinc-50 p-6">
+          <div className="flex items-center justify-center border-b border-zinc-200 bg-zinc-50 p-4 sm:p-6">
             <div className="aspect-video w-full max-w-none rounded-lg border border-zinc-300 bg-white p-6 shadow-sm">
               <div className="flex h-full flex-col gap-2">
                 <div className="h-3 w-3/5 rounded bg-zinc-800" />
