@@ -232,7 +232,7 @@ export default function SignupPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#F9FAFB] px-4">
-      <div className={`w-full max-w-sm rounded-xl border bg-white p-8 shadow-lg transition-all duration-300 ${
+      <div className={`w-full max-w-sm rounded-xl border bg-white p-6 sm:p-8 shadow-lg transition-all duration-300 ${
           success
             ? "border-green-500 shadow-[0_0_0_2px_#22c55e]"
             : error
@@ -240,7 +240,7 @@ export default function SignupPage() {
               : "border-zinc-200"
         }`}>
         {success ? (
-          <div className="flex flex-col items-center py-16">
+          <div className="flex flex-col items-center py-10 sm:py-16">
             <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
               <svg className="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
@@ -250,7 +250,7 @@ export default function SignupPage() {
           </div>
         ) : (
           <>
-            <h1 className="mb-1 text-2xl font-semibold tracking-tight text-[#18181B]">
+            <h1 className="mb-1 text-xl sm:text-2xl font-semibold tracking-tight text-[#18181B]">
               Create your account
             </h1>
             <p className="mb-8 text-sm text-[#71717A]">
@@ -261,7 +261,7 @@ export default function SignupPage() {
                 <label htmlFor="name" className="text-sm font-medium text-[#18181B]">Name</label>
                 <input id="name" type="text" value={name}
                   onChange={(e) => { setName(e.target.value); setFieldErrors((prev) => ({ ...prev, name: "" })) }}
-                  className="mt-1 block w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-[#18181B] placeholder:text-zinc-400 focus:border-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-800/20"
+                  className="mt-1 block w-full rounded-lg border border-zinc-300 bg-white px-3 py-2.5 text-sm text-[#18181B] placeholder:text-zinc-400 focus:border-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-800/20"
                   placeholder="Your name" />
                 <FieldError message={fieldErrors.name} />
               </div>
@@ -269,7 +269,7 @@ export default function SignupPage() {
                 <label htmlFor="email" className="text-sm font-medium text-[#18181B]">Email</label>
                 <input id="email" type="email" required value={email}
                   onChange={(e) => { setEmail(e.target.value); setFieldErrors((prev) => ({ ...prev, email: "" })) }}
-                  className="mt-1 block w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-[#18181B] placeholder:text-zinc-400 focus:border-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-800/20"
+                  className="mt-1 block w-full rounded-lg border border-zinc-300 bg-white px-3 py-2.5 text-sm text-[#18181B] placeholder:text-zinc-400 focus:border-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-800/20"
                   placeholder="you@company.com" />
                 <FieldError message={fieldErrors.email} />
               </div>
@@ -277,7 +277,7 @@ export default function SignupPage() {
                 <label htmlFor="password" className="text-sm font-medium text-[#18181B]">Password</label>
                 <input id="password" type="password" required minLength={6} value={password}
                   onChange={(e) => { setPassword(e.target.value); setFieldErrors((prev) => ({ ...prev, password: "" })) }}
-                  className="mt-1 block w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-[#18181B] placeholder:text-zinc-400 focus:border-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-800/20"
+                  className="mt-1 block w-full rounded-lg border border-zinc-300 bg-white px-3 py-2.5 text-sm text-[#18181B] placeholder:text-zinc-400 focus:border-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-800/20"
                   placeholder="At least 6 characters" />
                 <FieldError message={fieldErrors.password} />
               </div>
