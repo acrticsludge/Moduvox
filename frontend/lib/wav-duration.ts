@@ -27,7 +27,7 @@ export function getWavDuration(buffer: ArrayBufferLike): number {
     const chunkSize = view.getUint32(offset + 4, true)
 
     if (chunkId === "fmt ") {
-      numChannels = view.getUint16(offset + 8, true)
+      numChannels = view.getUint16(offset + 10, true) // offset +8 = audioFormat, +10 = numChannels
       sampleRate = view.getUint32(offset + 12, true)
       bitsPerSample = view.getUint16(offset + 22, true)
       foundFmt = true

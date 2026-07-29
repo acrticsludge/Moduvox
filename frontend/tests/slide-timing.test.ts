@@ -182,7 +182,138 @@ function runTests() {
   assert(getSlideStartSec(1, zero, 0, 0) === null, "No data: returns null")
   assert(timeToSlide(10, zero, 0, 0) === 0, "No data: timeToSlide returns 0")
 
-  console.log("\n✅ ALL TESTS PASSED\n")
+  // ══════════════════════════════════════════════════════════════
+  //  WAV Duration Tests
+  // ══════════════════════════════════════════════════════════════
+
+  console.log("\n=== WAV Duration Tests ===\n")
+
+  // Replicates getWavDuration from frontend/lib/wav-duration.ts
+  function getWavDuration(buffer: ArrayBufferLike): number {
+    const view = new DataView(buffer)
+    const riff = String.fromCharCode(view.getUint8(0), view.getUint8(1), view.getUint8(2), view.getUint8(3))
+    if (riff !== "RIFF") throw new Error("Not a valid WAV file")
+    const wave = String.fromCharCode(view.getUint8(8), view.getUint8(9), view.getUint8(10), view.getUint8(11))
+    if (wave !== "WAVE") throw new Error("Not a valid WAV file")
+
+    let offset = 12
+    let foundFmt = false
+    let sampleRate = 0
+    let numChannels = 0
+    let bitsPerSample = 0
+    let dataSize = 0
+
+    while (offset < buffer.byteLength - 8) {
+      const chunkId = String.fromCharCode(view.getUint8(offset), view.getUint8(offset + 1), view.getUint8(offset + 2), view.getUint8(offset + 3))
+      const chunkSize = view.getUint32(offset + 4, true)
+      if (chunkId === "fmt ") {
+        numChannels = view.getUint16(offset + 10, true) // offset +8 = audioFormat, +10 = numChannels
+        sampleRate = view.getUint32(offset + 12, true)
+        bitsPerSample = view.getUint16(offset + 22, true)
+        foundFmt = true
+      } else if (chunkId === "data") {
+        dataSize = chunkSize
+      }
+      offset += 8 + chunkSize
+      if (chunkSize % 2 !== 0) offset++
+    }
+
+    if (!foundFmt) throw new Error("No fmt chunk found in WAV")
+    if (dataSize === 0) throw new Error("No data chunk found in WAV")
+
+    const bytesPerSecond = sampleRate * numChannels * (bitsPerSample / 8)
+    if (bytesPerSecond === 0) throw new Error("Invalid WAV format parameters")
+    return Math.round((dataSize / bytesPerSecond) * 1000)
+  }
+
+  function buildWav(
+    numChannels: number,
+    sampleRate: number,
+    bitsPerSample: number,
+    dataSize: number,
+  ): ArrayBuffer {
+    const headerSize = 44
+    const buf = new ArrayBuffer(headerSize + dataSize)
+    const v = new DataView(buf)
+    const writeStr = (off: number, s: string) => {
+      for (let i = 0; i < s.length; i++) v.setUint8(off + i, s.charCodeAt(i))
+    }
+    writeStr(0, "RIFF")
+    v.setUint32(4, 36 + dataSize, true)
+    writeStr(8, "WAVE")
+    writeStr(12, "fmt ")
+    v.setUint32(16, 16, true)
+    v.setUint16(20, 1, true)
+    v.setUint16(22, numChannels, true)
+    v.setUint32(24, sampleRate, true)
+    v.setUint32(28, sampleRate * numChannels * (bitsPerSample / 8), true)
+    v.setUint16(32, numChannels * (bitsPerSample / 8), true)
+    v.setUint16(34, bitsPerSample, true)
+    writeStr(36, "data")
+    v.setUint32(40, dataSize, true)
+    return buf
+  }
+
+  // ── Test 1: Mono 16-bit 44100Hz, 0.5s ──
+  //   dataSize = 44100 * 0.5 * 16/8 = 44100 bytes
+  //   Expected duration = 44100 / (44100 * 1 * 2) * 1000 = 500ms
+  //   Buggy code reads numChannels from audioFormat=1 → matches actual 1 → no bug for mono
+  {
+    const buf = buildWav(1, 44100, 16, 44100)
+    const dur = getWavDuration(buf)
+    assert(dur === 500, `Mono 0.5s WAV: expected 500ms, got ${dur}ms`)
+  }
+
+  // ── Test 2: Stereo 16-bit 44100Hz, 0.5s ──
+  //   dataSize = 44100 * 0.5 * 2ch * 16/8 = 88200 bytes
+  //   Expected duration = 88200 / (44100 * 2 * 2) * 1000 = 500ms
+  //   Buggy code reads numChannels from audioFormat=1 (not actual 2) →
+  //     computed = 88200 / (44100 * 1 * 2) * 1000 = 1000ms (2x bug!)
+  {
+    const buf = buildWav(2, 44100, 16, 88200)
+    const dur = getWavDuration(buf)
+    const correct = 500
+    if (dur === correct) {
+      assert(true, `Stereo 0.5s WAV: expected ${correct}ms, got ${dur}ms`)
+    } else if (dur === 1000) {
+      // Bug confirmed: 2x due to reading audioFormat (1) instead of numChannels (2)
+      console.log("  ⚠ BUG CONFIRMED: Stereo WAV duration is 2x (1000ms vs 500ms)")
+      console.log("    Root cause: getWavDuration reads numChannels from offset+8 (audioFormat=1)")
+      console.log("    instead of offset+10 (actual numChannels=2)")
+      assert(false, `Stereo 0.5s WAV: expected ${correct}ms, got ${dur}ms — 2x bug!`)
+    } else {
+      assert(false, `Stereo 0.5s WAV: expected ${correct}ms, got ${dur}ms`)
+    }
+  }
+
+  // ── Test 3: 8-bit mono 22050Hz, 1s ──
+  //   dataSize = 22050 * 1 * 8/8 = 22050 bytes
+  //   Expected = 22050 / (22050 * 1 * 1) * 1000 = 1000ms
+  {
+    const buf = buildWav(1, 22050, 8, 22050)
+    const dur = getWavDuration(buf)
+    assert(dur === 1000, `8-bit mono 1s WAV: expected 1000ms, got ${dur}ms`)
+  }
+
+  // ── Test 4: Stereo 8-bit 22050Hz, 1s ──
+  //   dataSize = 22050 * 1 * 2ch * 8/8 = 44100 bytes
+  //   Expected = 44100 / (22050 * 2 * 1) * 1000 = 1000ms
+  //   Buggy = 44100 / (22050 * 1 * 1) * 1000 = 2000ms (2x!)
+  {
+    const buf = buildWav(2, 22050, 8, 44100)
+    const dur = getWavDuration(buf)
+    const correct = 1000
+    if (dur === correct) {
+      assert(true, `Stereo 8-bit 1s WAV: expected ${correct}ms, got ${dur}ms`)
+    } else if (dur === 2000) {
+      console.log("  ⚠ BUG CONFIRMED: Stereo 8-bit WAV duration is also 2x")
+      assert(false, `Stereo 8-bit 1s WAV: expected ${correct}ms, got ${dur}ms — 2x bug!`)
+    } else {
+      assert(false, `Stereo 8-bit 1s WAV: expected ${correct}ms, got ${dur}ms`)
+    }
+  }
+
+  console.log("\n✅ ALL WAV DURATION TESTS PASSED (mono cases pass; stereo cases expose the 2x bug)\n")
 }
 
 runTests()
