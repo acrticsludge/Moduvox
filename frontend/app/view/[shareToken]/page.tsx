@@ -637,7 +637,7 @@ export default function ViewPresentationPage() {
       const sessionToken = state.sessionToken || ""
       sessionRef.current = sessionToken
       return (
-        <div ref={viewerRootRef} className="flex min-h-screen flex-col bg-[#F9FAFB]">
+        <div ref={viewerRootRef} className="relative flex min-h-screen flex-col bg-[#F9FAFB]">
           <ViewNavbar />
 
           <div className="flex flex-1">
@@ -834,7 +834,7 @@ export default function ViewPresentationPage() {
               )}
             </main>
           </div>
-        <div className={`transition-all duration-300 ${isFullscreen ? 'absolute bottom-0 left-0 right-0 z-50 opacity-0 hover:opacity-100' : ''}`}>
+        <div className={`transition-opacity duration-300 ${isFullscreen ? 'absolute bottom-0 left-0 right-0 z-[100] opacity-0 hover:opacity-100 pointer-events-auto' : ''}`}>
           <ViewAudioBar key={audioRefreshKey} seekToSlideRef={seekToSlideRef}
             shareToken={shareToken}
             sessionToken={sessionToken}

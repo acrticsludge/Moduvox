@@ -1479,7 +1479,7 @@ export function SlideEditor({
 
         {/* Audio player for fullscreen mode — hidden normally, shows at bottom in fullscreen */}
         {isFullscreen && audioUrl && (
-          <div className="absolute bottom-0 left-0 right-0 z-50 opacity-0 hover:opacity-100 transition-opacity duration-300">
+          <div className="absolute bottom-0 left-0 right-0 z-[100] opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-auto">
             <div className="mx-auto max-w-3xl px-4 py-3">
               <AudioPlayer
                 audioUrl={audioUrl}
