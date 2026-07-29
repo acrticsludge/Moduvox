@@ -288,7 +288,7 @@ export default function SignupPage() {
                     type="checkbox"
                     checked={acceptedTerms}
                     onChange={(e) => { setAcceptedTerms(e.target.checked); setFieldErrors((prev) => ({ ...prev, terms: "" })) }}
-                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-zinc-300 text-[#18181B] focus:ring-zinc-500"
+                    className="mt-0.5 h-5 w-5 shrink-0 rounded border-zinc-300 text-[#18181B] focus:ring-zinc-500"
                   />
                   <span className="text-sm leading-relaxed text-zinc-600">
                     I agree to the{" "}
@@ -305,7 +305,7 @@ export default function SignupPage() {
               </div>
 
               <button type="submit" disabled={loading}
-                className="flex w-full items-center justify-center gap-2 rounded-lg border border-[#18181B]/70 bg-[#18181B] px-4 py-2.5 text-sm font-medium text-white transition-all hover:border-[#18181B] hover:bg-[#27272A] active:scale-[0.98] disabled:opacity-50">
+                className="flex w-full items-center justify-center gap-2 rounded-lg border border-[#18181B]/70 bg-[#18181B] px-4 py-3 text-sm font-medium text-white transition-all hover:border-[#18181B] hover:bg-[#27272A] active:scale-[0.98] disabled:opacity-50">
                 {loading ? <><Loader2 className="h-4 w-4 animate-spin" /> Creating account...</> : "Create account"}
               </button>
             </form>
@@ -315,7 +315,7 @@ export default function SignupPage() {
               <span className="h-px flex-1 bg-zinc-200" />
             </div>
             <button onClick={handleGoogleLogin} disabled={googleLoading}
-              className="flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-[#18181B] transition-all hover:bg-[#F9FAFB] active:scale-[0.98] disabled:opacity-50">
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-300 bg-white px-4 py-3 text-sm font-medium text-[#18181B] transition-all hover:bg-[#F9FAFB] active:scale-[0.98] disabled:opacity-50">
               {googleLoading ? (
                 <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Redirecting...</span>
               ) : (
