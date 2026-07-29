@@ -42,7 +42,7 @@ export function FeaturesSection() {
 
   return (
     <section className="bg-[#F9FAFB]">
-      <div className="mx-auto max-w-[1400px] px-4 py-24 sm:px-6 lg:px-8 lg:py-32">
+      <div className="mx-auto max-w-[1400px] px-4 py-16 sm:py-24 sm:px-6 lg:px-8 lg:py-32">
         {/* Header */}
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="text-balance font-semibold leading-[1.1] tracking-[-0.02em] text-[#18181B] [font-size:clamp(1.75rem,3.5vw,2.5rem)]">

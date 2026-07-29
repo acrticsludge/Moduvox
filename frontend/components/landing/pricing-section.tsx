@@ -71,7 +71,7 @@ export function PricingSection() {
 
   return (
     <section className="bg-[#F9FAFB]">
-      <div className="mx-auto max-w-[1400px] px-4 py-24 sm:px-6 lg:px-8 lg:py-32">
+      <div className="mx-auto max-w-[1400px] px-4 py-16 sm:py-24 sm:px-6 lg:px-8 lg:py-32">
         {/* Header */}
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="text-balance font-semibold leading-[1.1] tracking-[-0.02em] text-[#18181B] [font-size:clamp(1.75rem,3.5vw,2.5rem)]">
@@ -87,7 +87,7 @@ export function PricingSection() {
           {plans.map((plan) => (
             <div
               key={plan.name}
-              className={`relative flex flex-col rounded-xl border p-8 ${
+              className={`relative flex flex-col rounded-xl border p-6 sm:p-8 ${
                 plan.active
                   ? "border-zinc-200 bg-white shadow-lg"
                   : "border-dashed border-zinc-300 bg-zinc-50/50"

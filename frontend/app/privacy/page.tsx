@@ -11,7 +11,7 @@ export default function PrivacyPage() {
   return (
     <main className="bg-[#F9FAFB]">
       <Navbar />
-      <div className="mx-auto max-w-[720px] px-4 pt-32 pb-24 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[720px] px-4 pt-20 pb-16 sm:pt-32 sm:pb-24 sm:px-6 lg:px-8">
         <h1 className="text-3xl font-semibold tracking-tight text-[#18181B]">
           Privacy Policy
         </h1>
