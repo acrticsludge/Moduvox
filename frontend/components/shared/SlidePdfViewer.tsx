@@ -3,14 +3,13 @@
 import { useState, useCallback } from "react"
 import { Document, Page, pdfjs } from "react-pdf"
 
-// Set up pdf.js worker with fallback
+// Set up pdf.js worker from CDN — the local file via import.meta.url gets intercepted
+// by Next.js route params (e.g. /view/pdf.worker.mjs matches [shareToken]).
 try {
-  pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-    "pdfjs-dist/build/pdf.worker.min.mjs",
-    import.meta.url,
-  ).toString()
+  const ver = pdfjs.version?.split("-")[0] || "4.9.155"
+  pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${ver}/build/pdf.worker.min.mjs`
 } catch {
-  console.warn("Failed to resolve pdfjs worker URL, using default")
+  console.warn("Failed to set pdfjs worker URL, using default")
 }
 
 export type SlidePdfViewerProps = {

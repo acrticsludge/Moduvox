@@ -724,7 +724,7 @@ export default function ViewPresentationPage() {
                         {/* Previous slide */}
                         <button
                           type="button"
-                          onClick={() => goToSlide(currentSlide)}
+                          onClick={() => goToSlide(currentSlide)} // 0-indexed, clampSlide handles floor of 1
                           disabled={currentSlide === 0}
                           className="mx-3 flex h-12 w-12 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition-colors hover:bg-black/70 disabled:opacity-20 disabled:cursor-not-allowed"
                           aria-label="Previous slide"
