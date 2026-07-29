@@ -1225,10 +1225,9 @@ export function SlideEditor({
 
   return (
     <>
-      {/* Flex row: slide viewer + right panel (no absolute positioning — keeps centering correct) */}
-      <div className="flex flex-1" style={isFullscreen ? {} : { maxWidth: '100vw' }}>
+      <div className="flex flex-1 flex-col">
       {/* Left — PDF-based slide viewer */}
-      <div ref={(el) => { if (el) fullscreenContainerRef.current = el }} className="relative flex min-w-0 flex-1 flex-col bg-zinc-100">
+      <div ref={(el) => { if (el) fullscreenContainerRef.current = el }} className="relative flex flex-1 flex-col bg-zinc-100">
         {/* Processing overlay during re-upload */}
         {reUploading ? (
           <div className="flex h-full min-h-[60vh] flex-col items-center justify-center gap-3">
@@ -1490,9 +1489,10 @@ export function SlideEditor({
           </div>
         )}
       </div>
+      </div>{/* end left viewer wrapper */}
 
-      {/* Desktop right panel — now in flex flow, not absolute */}
-      <div className="hidden w-[380px] shrink-0 flex-col gap-5 overflow-y-auto border-l border-[var(--color-border-faint)] bg-white p-6 lg:flex hide-scrollbar">
+      {/* Desktop right panel */}
+      <div className="absolute bottom-0 right-0 top-0 z-20 hidden w-[380px] flex-col gap-5 overflow-y-auto border-l border-[var(--color-border-faint)] bg-white p-6 lg:flex hide-scrollbar">
         {/* Slide info + jump input */}
         <div className="flex items-center justify-between gap-2">
           <form onSubmit={handleSlideJump} className="flex items-center gap-1.5">
@@ -1686,7 +1686,6 @@ export function SlideEditor({
           </>
         )}
       </div>
-      </div>{/* end flex row */}
 
       {/* Mobile toggle button — shown on < lg screens when panel is closed */}
       {!showMobilePanel && (

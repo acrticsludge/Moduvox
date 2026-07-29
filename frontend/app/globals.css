@@ -125,7 +125,7 @@ body.editor-fullscreen [class*="CreatePageSidebar"] {
 body.editor-fullscreen .editor-right-panel,
 body.editor-fullscreen [class*="right-panel"],
 body.editor-fullscreen [class*="rightPanel"],
-body.editor-fullscreen [class*="hide-scrollbar"] {
+body.editor-fullscreen > div > div:last-child > div:last-child[class*="lg:flex"] {
   display: none !important;
 }
 /* Make the slide viewer fill the screen in fullscreen */
