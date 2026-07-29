@@ -217,10 +217,7 @@ export function SlideEditor({
 
   /** Fetch all PDFs as blobs and create Object URLs — instant slide nav in editor */
   function prefetchEditorPdfBlobs(urls: (string | null)[]) {
-    // Revoke previous blob URLs
-    for (const url of blobUrlsRef.current) {
-      URL.revokeObjectURL(url)
-    }
+    const oldUrls = blobUrlsRef.current
     const newBlobUrls: (string | null)[] = []
     const urlList: string[] = []
     Promise.allSettled(
@@ -238,6 +235,9 @@ export function SlideEditor({
         }
       })
     ).then(() => {
+      // Revoke old blob URLs ONLY AFTER new ones are ready — prevents PDF.js
+      // from hitting "Unexpected server response (0)" when a blob is yanked mid-read.
+      for (const url of oldUrls) URL.revokeObjectURL(url)
       blobUrlsRef.current = urlList
       setBlobPdfUrls(newBlobUrls)
     })
