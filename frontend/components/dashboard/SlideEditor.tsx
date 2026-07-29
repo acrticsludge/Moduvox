@@ -1339,8 +1339,16 @@ export function SlideEditor({
                         return w / h > aspect ? Math.round(h * aspect) : w
                       })()
                     : Math.min(window.innerWidth * 0.85, window.innerHeight * 0.8 / 0.75, 1400)
-                  // Non-fullscreen: account for right panel (380px) + padding (32px) + border
-                  : Math.min(window.innerWidth - 430, 880)}
+                  // Non-fullscreen: parent has md:ml-80 (sidebar 320px) + md:mr-[380px] (right panel)
+                  // + p-4 on slide container (32px) + 1px border = ~733px total deductions at md+
+                  : (() => {
+                      const pad = 32 // p-4 on each side
+                      if (window.innerWidth >= 768) {
+                        // md+: sidebar (320px) + right margin (380px) + padding (32px)
+                        return Math.min(window.innerWidth - 732, 880)
+                      }
+                      return Math.min(window.innerWidth - pad, 800)
+                    })()}
                 onLoadError={() => {
                   console.error(`[Editor] Failed to load PDF for slide ${currentIndex + 1}`)
                 }}
