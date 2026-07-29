@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { ClientToaster } from "@/components/ClientToaster";
@@ -19,6 +19,11 @@ const geistMono = Geist_Mono({
 });
 
 const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://moduvox.pulsemonitor.dev"
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+}
 
 export const metadata: Metadata = {
   title: {
