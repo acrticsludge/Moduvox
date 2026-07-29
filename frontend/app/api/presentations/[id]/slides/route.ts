@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { createDownloadUrl, listFiles } from "@/lib/r2"
+import { listFiles } from "@/lib/r2"
 import { withApiHandler } from "@/lib/api-handler"
 
 export const GET = withApiHandler(async (
@@ -45,7 +45,9 @@ export const GET = withApiHandler(async (
   for (let i = 1; i <= slideCount; i++) {
     const key = `${pdfPrefix}slide-${i}.pdf`
     if (existingKeys.has(key)) {
-      const pdfUrl = await createDownloadUrl(key, 3600) // 1 hour
+      // Use a same-origin proxy URL instead of a direct R2 presigned URL.
+      // The R2 presigned URLs are blocked by CORS in the browser.
+      const pdfUrl = `/api/presentations/${presentationId}/pdf/${i}`
       slides.push({ slideNumber: i, pdfUrl })
       completedCount++
     } else {

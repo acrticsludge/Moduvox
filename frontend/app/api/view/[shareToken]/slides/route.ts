@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { createDownloadUrl, listFiles } from "@/lib/r2"
+import { listFiles } from "@/lib/r2"
 import { withApiHandler } from "@/lib/api-handler"
 
 export const GET = withApiHandler(async (
@@ -51,9 +51,8 @@ export const GET = withApiHandler(async (
   for (let i = 1; i <= slideCount; i++) {
     const key = `${pdfPrefix}slide-${i}.pdf`
     if (existingKeys.has(key)) {
-      // createDownloadUrl signs locally (no network call) — safe in loop
-      // 7-day signed URL — tradeoff between UX (viewers don't want broken links) and security; shorten if needed
-      const pdfUrl = await createDownloadUrl(key, 604800) // 7 days
+      // Use same-origin proxy URL instead of R2 presigned URL (browser CORS blocks direct R2 fetch)
+      const pdfUrl = `/api/view/${shareToken}/pdf/${i}?session=${searchParams.get("session") || ""}`
       slides.push({ slideNumber: i, pdfUrl })
     } else {
       slides.push({ slideNumber: i, pdfUrl: null })
