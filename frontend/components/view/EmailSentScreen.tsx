@@ -115,7 +115,7 @@ export function EmailSentScreen({
           Check your inbox
         </h1>
         <p className="mb-2 text-sm text-zinc-500">
-          We've sent a verification link to:
+          We&apos;ve sent a verification link to:
         </p>
         <p className="mb-6 text-sm font-medium text-[#18181B]">{email}</p>
 
@@ -140,7 +140,7 @@ export function EmailSentScreen({
               ) : resent ? (
                 "Sent!"
               ) : (
-                "Didn't receive it? Resend"
+                "Didn&apos;t receive it? Resend"
               )}
             </button>
 
@@ -152,7 +152,7 @@ export function EmailSentScreen({
             )}
 
             <p className="text-xs text-zinc-400">
-              Check your spam folder if you don't see it.
+              Check your spam folder if you don&apos;t see it.
             </p>
           </div>
         </div>

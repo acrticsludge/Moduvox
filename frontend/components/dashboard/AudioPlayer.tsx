@@ -3,6 +3,28 @@
 import { useRef, useState, useEffect, useCallback } from "react"
 import { Pause, Play, Loader2 } from "lucide-react"
 
+const audioBlobCache = new Map<string, Promise<string | null>>()
+
+export function preloadAudioUrl(url: string): Promise<string | null> {
+  const existing = audioBlobCache.get(url)
+  if (existing) return existing
+
+  const request = fetch(url)
+    .then(async (response) => {
+      if (!response.ok) return null
+      const blob = await response.blob()
+      return URL.createObjectURL(blob)
+    })
+    .catch(() => null)
+
+  audioBlobCache.set(url, request)
+  return request
+}
+
+export function preloadAudioUrls(urls: string[]) {
+  urls.forEach((url) => { void preloadAudioUrl(url) })
+}
+
 function formatTime(seconds: number): string {
   if (!isFinite(seconds) || seconds < 0) return "0:00"
   const m = Math.floor(seconds / 60)
@@ -28,8 +50,8 @@ export function AudioPlayer({
   const [loading, setLoading] = useState(true)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
-  const [seeking, setSeeking] = useState(false)
   const [error, setError] = useState(false)
+  const [playbackUrl, setPlaybackUrl] = useState<string | null>(null)
   const progressRef = useRef<HTMLDivElement>(null)
 
   // Build per-slide URL when slideNumber/presentationId are provided
@@ -39,19 +61,38 @@ export function AudioPlayer({
       : audioUrl
 
   // Reset when resolvedUrl changes
+  // Reset playback state whenever the active slide's audio changes.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
+    let active = true
     setPlaying(false)
     setCurrentTime(0)
     setDuration(0)
     setLoading(true)
     setError(false)
+    // Keep the element unloaded until the shared cache resolves. Assigning the
+    // network URL here first would trigger a duplicate request before the blob
+    // URL is ready, which is especially noticeable when changing slides.
+    setPlaybackUrl(null)
+
+    if (!resolvedUrl) {
+      setLoading(false)
+      return () => { active = false }
+    }
+
+    preloadAudioUrl(resolvedUrl).then((cachedUrl) => {
+      if (active) setPlaybackUrl(cachedUrl ?? resolvedUrl)
+    })
+
+    return () => { active = false }
   }, [resolvedUrl])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleTimeUpdate = useCallback(() => {
-    if (audioRef.current && !seeking) {
+    if (audioRef.current) {
       setCurrentTime(audioRef.current.currentTime)
     }
-  }, [seeking])
+  }, [])
 
   const handleLoadedMetadata = useCallback(() => {
     if (audioRef.current) {
@@ -149,7 +190,7 @@ export function AudioPlayer({
       {/* Hidden audio element */}
       <audio
         ref={audioRef}
-        src={resolvedUrl}
+        src={playbackUrl ?? undefined}
         preload="auto"
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}

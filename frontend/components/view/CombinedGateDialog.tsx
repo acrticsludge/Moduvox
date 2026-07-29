@@ -208,7 +208,7 @@ export function CombinedGateDialog({
             <div className="flex items-start gap-2 rounded-lg bg-blue-50 px-3 py-2">
               <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-500" />
               <p className="text-xs leading-relaxed text-blue-700">
-                We'll send a verification link to your email to confirm your identity.
+                We&apos;ll send a verification link to your email to confirm your identity.
               </p>
             </div>
           )}

@@ -215,7 +215,6 @@ export default function ViewPresentationPage() {
 
     document.addEventListener("visibilitychange", handleVisibilityChange)
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.type, shareToken])
 
   async function loadPresentation() {
@@ -379,7 +378,6 @@ export default function ViewPresentationPage() {
       if (json.data) {
         setSlides(json.data.slides)
         // Preload ALL slide PDFs as blobs for instant navigation
-        // eslint-disable-next-line @typescript-eslint/no-floating-promises
         prefetchAllSlideBlobs(json.data.slides)
         if (json.data.slides.length === 0 || json.data.slides.every((s: { pdfUrl: unknown }) => !s.pdfUrl)) {
           setSlidesError("Slides are being generated. Check back soon.")
@@ -447,16 +445,20 @@ export default function ViewPresentationPage() {
   useEffect(() => {
     if (state.type === "verified") {
       const tok = state.sessionToken || ""
-      fetchSlides(tok, shareToken)
-      setCurrentSlide(0)
+      const timer = window.setTimeout(() => {
+        fetchSlides(tok, shareToken)
+        setCurrentSlide(0)
+      }, 0)
+      return () => window.clearTimeout(timer)
     }
   }, [state.type]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Poll for changes every 30s — show a banner if audio_version changed
+  const verifiedSessionToken = state.type === "verified" ? state.sessionToken : ""
   useEffect(() => {
     if (state.type !== "verified") return
     // Skip polling in public mode (no session, no tracking)
-    if (state.type === "verified" && !state.sessionToken) return
+    if (!verifiedSessionToken) return
 
     const interval = setInterval(async () => {
       const tok = sessionRef.current
@@ -480,8 +482,7 @@ export default function ViewPresentationPage() {
     }, 30_000)
 
     return () => clearInterval(interval)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.type, shareToken])
+  }, [state.type, verifiedSessionToken, shareToken])
 
   // Clean up blob Object URLs on unmount to prevent memory leaks
   useEffect(() => {
@@ -490,7 +491,6 @@ export default function ViewPresentationPage() {
         URL.revokeObjectURL(url)
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Apply pending changes: re-fetch view data + slides + force audio remount
@@ -565,7 +565,7 @@ export default function ViewPresentationPage() {
           <div className="animate-pulse border-b border-zinc-200 px-6 py-3">
             <div className="h-8 w-32 rounded bg-zinc-100" />
           </div>
-          <div className="flex flex-1">
+          <div className="group flex flex-1">
             <div className="hidden w-64 animate-pulse border-r border-zinc-200 p-6 lg:block">
               <div className="space-y-4">
                 <div className="h-5 w-40 rounded bg-zinc-100" />
@@ -611,7 +611,7 @@ export default function ViewPresentationPage() {
         <div className="flex min-h-screen items-center justify-center bg-[#F9FAFB] px-4">
           <div className="w-full max-w-sm text-center">
             <h1 className="mb-2 text-lg font-semibold text-[#18181B]">Presentation not found</h1>
-            <p className="text-sm text-zinc-500">This presentation doesn't exist or has been removed.</p>
+            <p className="text-sm text-zinc-500">This presentation doesn&apos;t exist or has been removed.</p>
           </div>
         </div>
       )
@@ -664,7 +664,7 @@ export default function ViewPresentationPage() {
               currentSlide={currentSlide}
               onSlideClick={(sn) => goToSlide(sn)}
             />
-            <main id="viewer-main-content" ref={viewerContentRef} className="flex flex-1 flex-col items-center p-4 md:p-8">
+            <main id="viewer-main-content" ref={viewerContentRef} className={`flex flex-1 flex-col items-center ${isFullscreen ? "bg-black p-0" : "p-4 md:p-8"}`}>
               {slidesError && (
                 <div className="mb-4 w-full max-w-2xl rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                   {slidesError}
@@ -718,7 +718,7 @@ export default function ViewPresentationPage() {
 
                     {/* Fullscreen overlay — only visible in fullscreen on hover */}
                     {isFullscreen && (
-                      <div className="absolute inset-0 z-50 flex items-center justify-between opacity-0 transition-opacity duration-300 hover:opacity-100">
+                      <div className="pointer-events-none absolute inset-0 z-50 flex items-center justify-between opacity-0 transition-opacity duration-300 group-hover:pointer-events-auto group-hover:opacity-100">
                         {/* Previous slide */}
                         <button
                           type="button"
@@ -784,7 +784,7 @@ export default function ViewPresentationPage() {
                         type="button"
                         onClick={() => goToSlide(currentSlide)}
                         disabled={currentSlide === 0}
-                        className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-600 transition-colors hover:text-zinc-800 disabled:cursor-not-allowed disabled:opacity-30"
+                        className="inline-flex min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-600 transition-colors hover:text-zinc-800 disabled:cursor-not-allowed disabled:opacity-30"
                         aria-label="Previous slide"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
@@ -796,7 +796,7 @@ export default function ViewPresentationPage() {
                         type="button"
                         onClick={() => goToSlide(currentSlide + 2)}
                         disabled={currentSlide >= slides.length - 1}
-                        className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-600 transition-colors hover:text-zinc-800 disabled:cursor-not-allowed disabled:opacity-30"
+                        className="inline-flex min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-600 transition-colors hover:text-zinc-800 disabled:cursor-not-allowed disabled:opacity-30"
                         aria-label="Next slide"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
@@ -834,7 +834,7 @@ export default function ViewPresentationPage() {
               )}
             </main>
           </div>
-        <div className={`transition-opacity duration-300 ${isFullscreen ? 'absolute bottom-0 left-0 right-0 z-[100] opacity-0 hover:opacity-100 pointer-events-auto' : ''}`}>
+        <div className={`transition-opacity duration-300 ${isFullscreen ? 'absolute bottom-0 left-0 right-0 z-[100] opacity-0 pointer-events-auto hover:opacity-100' : ''}`}>
           <ViewAudioBar key={audioRefreshKey} seekToSlideRef={seekToSlideRef}
             shareToken={shareToken}
             sessionToken={sessionToken}
@@ -853,6 +853,7 @@ export default function ViewPresentationPage() {
             }}
             firstWatch={firstWatch}
             onDurationReady={(sec) => setRealDurationMs(sec * 1000)}
+            fullscreen={isFullscreen}
           />
         </div>
           <ViewFooter />

@@ -1,8 +1,9 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { Calendar, Clock, Layers, Link, ExternalLink, Check, Sparkles } from "lucide-react"
-import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip"
+import NextLink from "next/link"
+import { Calendar, Clock, Link, ExternalLink, Check, Sparkles } from "lucide-react"
+import { TooltipProvider } from "@/components/ui/tooltip"
 
 type ViewSidebarProps = {
   title: string
@@ -154,24 +155,24 @@ export function ViewSidebar({ title, createdAt, slideCount, expiresAt, viewerFir
         <hr className="my-3 border-zinc-100" />
 
         {/* CTA */}
-        <a
+        <NextLink
           href="/"
           className="flex items-center gap-2 rounded-lg bg-zinc-50 px-3 py-2 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-800"
         >
           <Sparkles className="h-4 w-4 text-zinc-400" />
           Made with Moduvox
           <ExternalLink className="ml-auto h-3.5 w-3.5 text-zinc-400" />
-        </a>
+        </NextLink>
       </div>
 
       {/* Legal links at bottom */}
       <div className="border-t border-zinc-100 px-4 py-3">
         <div className="flex items-center justify-center gap-3 text-[11px] text-zinc-400">
-          <a href="/security" className="transition-colors hover:text-zinc-600">Security</a>
+          <NextLink href="/security" className="transition-colors hover:text-zinc-600">Security</NextLink>
           <span className="text-zinc-300">·</span>
-          <a href="/privacy" className="transition-colors hover:text-zinc-600">Privacy</a>
+          <NextLink href="/privacy" className="transition-colors hover:text-zinc-600">Privacy</NextLink>
           <span className="text-zinc-300">·</span>
-          <a href="/terms" className="transition-colors hover:text-zinc-600">Terms</a>
+          <NextLink href="/terms" className="transition-colors hover:text-zinc-600">Terms</NextLink>
         </div>
       </div>
     </>
@@ -180,7 +181,7 @@ export function ViewSidebar({ title, createdAt, slideCount, expiresAt, viewerFir
   return (
     <TooltipProvider delayDuration={300}>
       {/* Desktop sidebar — always visible */}
-      <aside className="hidden w-64 flex-col border-r border-zinc-200 bg-white md:flex">
+      <aside aria-label={title || "Presentation information"} className="hidden w-64 flex-col border-r border-zinc-200 bg-white md:flex">
         {sidebarContent}
       </aside>
 

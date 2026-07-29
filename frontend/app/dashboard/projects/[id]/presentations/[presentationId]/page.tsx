@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { ChevronRight, MoreHorizontal, Trash2, Pencil, Archive, RotateCcw, Loader2 } from "lucide-react"
+import { ChevronRight, Trash2, Pencil, Archive, RotateCcw, Loader2 } from "lucide-react"
 import { toastSuccess, toastError } from "@/components/ui/CustomToast"
 import { createClient } from "@/lib/supabase/client"
 import type { SlideImage, SlideComment } from "@/lib/pptx-renderer"
@@ -43,14 +43,6 @@ type EditorState = {
   changedSlides?: number[]
   slideCount?: number
   imageDescriptions?: Record<number, ImageDesc[]>
-}
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  })
 }
 
 export default function PresentationCreatePage() {
@@ -261,7 +253,8 @@ export default function PresentationCreatePage() {
   // Trigger auto-save when any editor state changes
   useEffect(() => {
     if (loading) return
-    saveState()
+    const timer = window.setTimeout(() => saveState(), 0)
+    return () => window.clearTimeout(timer)
   }, [saveState, loading])
 
   // Warn on navigate away with unsaved changes
@@ -292,7 +285,7 @@ export default function PresentationCreatePage() {
             </div>
           </div>
         </div>
-      <div className="ml-0 mr-0 flex flex-1 flex-col md:ml-80 lg:mr-[380px]">
+      <div className="ml-0 mr-0 flex min-w-0 flex-1 flex-col md:ml-80 lg:mr-[380px]">
           <div className="flex flex-wrap items-center gap-2 border-b border-[var(--color-border-faint)] bg-white px-4 py-3 md:flex-nowrap md:px-6 md:py-4">
             <div className="flex items-center gap-2">
               <Skeleton className="h-4 w-20" />
@@ -408,7 +401,7 @@ export default function PresentationCreatePage() {
       </div>
 
       {/* Content */}
-      <div className="ml-0 mr-0 flex flex-1 flex-col md:ml-80 md:mr-[380px]">
+      <div className="ml-0 mr-0 flex min-w-0 flex-1 flex-col md:ml-80 md:mr-[380px]">
         {/* Top bar */}
         <div className="flex flex-wrap items-start gap-2 border-b border-[var(--color-border-faint)] bg-white px-4 py-3 md:flex-nowrap md:items-center md:px-6 md:py-4">
           <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden text-sm md:gap-2">

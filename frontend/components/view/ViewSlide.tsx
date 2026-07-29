@@ -55,6 +55,8 @@ export function ViewSlide({ pdfUrl, slideNumber, totalSlides, fullscreen = false
     }
     return (
       <div className="flex flex-1 items-center justify-center">
+        {/* Pre-rendered data URLs are intentionally kept as plain images to avoid re-encoding them. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={imageUrl} alt={`Slide ${slideNumber}`} style={imgStyle} />
       </div>
     )

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import { Play, Loader2, ExternalLink, FileText, ChevronRight, Share2, Check, RefreshCw, Maximize2, Minimize2 } from "lucide-react"
+import { Play, Loader2, FileText, ChevronRight, Share2, Check, RefreshCw, Maximize2, Minimize2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
@@ -14,7 +14,7 @@ import { parallelBatches } from "@/lib/async"
 import { ReUploadModal } from "./ReUploadModal"
 import { RegenerateModal, type RegenStep } from "./RegenerateModal"
 import { SlideParsedData } from "./SlideParsedData"
-import { AudioPlayer } from "./AudioPlayer"
+import { AudioPlayer, preloadAudioUrls } from "./AudioPlayer"
 import { SharePresentationModal } from "./SharePresentationModal"
 import { SlidePdfViewer } from "@/components/shared/SlidePdfViewer"
 import { useFullscreen } from "@/lib/use-fullscreen"
@@ -51,9 +51,7 @@ export function SlideEditor({
   voiceDescription,
   audioUrl: externalAudioUrl,
   onAudioUrlChange,
-  audioStoragePath: externalAudioStoragePath,
   onAudioStoragePathChange,
-  onAudioSlidePathsChange,
   selectedVoiceId,
   ultimateMode,
   parsedImageKeys: externalParsedImageKeys,
@@ -104,7 +102,6 @@ export function SlideEditor({
   const [showSlideInfo, setShowSlideInfo] = useState(false)
   const [internalNarrations, setInternalNarrations] = useState<Record<number, string>>({})
   const [imageDescLoading, setImageDescLoading] = useState(false)
-  const [imageDescError, setImageDescError] = useState<string | null>(null)
   const handleBatchResult = useCallback((cache: Record<number, ImageDesc[]>) => {
     onImageDescriptionsChange?.(cache)
   }, [onImageDescriptionsChange])
@@ -118,13 +115,13 @@ export function SlideEditor({
   const [internalChangedSlides, setInternalChangedSlides] = useState<number[]>([])
   const [showRegenModal, setShowRegenModal] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
-  const [lastRegenCount, setLastRegenCount] = useState(0)
+  const [, setLastRegenCount] = useState(0)
   const [generatingNarrations, setGeneratingNarrations] = useState(false)
   const [generationFailed, setGenerationFailed] = useState(false)
   const [internalAudioUrl, setInternalAudioUrl] = useState<string | null>(null)
   const [generatingAudio, setGeneratingAudio] = useState(false)
   const [audioGenProgress, setAudioGenProgress] = useState<{ current: number; total: number; slideTitle?: string } | null>(null)
-  const [audioGenError, setAudioGenError] = useState<string | null>(null)
+  const [, setAudioGenError] = useState<string | null>(null)
   const [audioGenFailed, setAudioGenFailed] = useState(false)
   const [regenStep, setRegenStep] = useState<RegenStep>("review")
   const [generationSummary, setGenerationSummary] = useState<{ success: number; failed: number } | null>(null)
@@ -132,7 +129,7 @@ export function SlideEditor({
   const [showMobilePanel, setShowMobilePanel] = useState(false)
   const [retryCount, setRetryCount] = useState(0)
   const [voices, setVoices] = useState<Voice[]>([])
-  const [voicesLoading, setVoicesLoading] = useState(true)
+  const [, setVoicesLoading] = useState(true)
   const originalNarrationsRef = useRef<Record<number, string>>({})
   const generatedWithVoiceRef = useRef<{ voiceId: string | null; description: string; ultimateMode: boolean } | null>(null)
 
@@ -235,7 +232,7 @@ export function SlideEditor({
         }
       })
     ).then(() => {
-      // Revoke old blob URLs ONLY AFTER new ones are ready — prevents PDF.js
+      // Revoke OLD blob URLs ONLY AFTER new ones are ready — prevents PDF.js
       // from hitting "Unexpected server response (0)" when a blob is yanked mid-read.
       for (const url of oldUrls) URL.revokeObjectURL(url)
       blobUrlsRef.current = urlList
@@ -254,7 +251,6 @@ export function SlideEditor({
 
   useEffect(() => {
     let cancelled = false
-    setLoadError("")
 
     async function processFile() {
       setUploadProgress(0)
@@ -273,10 +269,10 @@ export function SlideEditor({
           number: (s as { number?: number }).number ?? i + 1,
           title: s.title,
           bullets: s.bullets,
-          notes: (s as any).notes ?? null,
-          comments: (s as any).comments ?? [],
-          images: (s as any).images ?? [], // Will be loaded from R2 if parsedImageKeys exist
-          rawText: (s as any).rawText || s.title + (s.bullets.length > 0 ? "\n" + s.bullets.join("\n") : ""),
+          notes: s.notes ?? null,
+          comments: s.comments ?? [],
+          images: s.images ?? [], // Will be loaded from R2 if parsedImageKeys exist
+          rawText: s.rawText || s.title + (s.bullets.length > 0 ? "\n" + s.bullets.join("\n") : ""),
         })) as ParsedSlide[]
         if (!cancelled) {
           setSlides(parsedSlides)
@@ -404,6 +400,9 @@ export function SlideEditor({
 
     processFile()
     return () => { cancelled = true }
+  // This is the controlled load pipeline; its inputs are intentionally sampled
+  // when a file/retry changes to avoid restarting uploads on every parent render.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [file, presentationId, retryCount])
 
   // ── Parsed image persistence helpers ──────────────────────────
@@ -483,10 +482,15 @@ export function SlideEditor({
     if (Object.keys(narrations).length > 0) return
     if (generatingNarrations) return
     if (!file) return // Only auto-generate for freshly uploaded files, not restored state
+    // Reset the previous result before starting a new asynchronous generation.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setGenerationFailed(false)
     generateNarrations(slides, false).then((result) => {
       if (!result) setGenerationFailed(true)
     })
+  // The guards above intentionally prevent duplicate generation while the async
+  // request is in flight or narration data has already been restored.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slides, file])
 
   // Snapshot narrations as the "original" baseline when first populated (from saved state or initial AI gen)
@@ -500,6 +504,8 @@ export function SlideEditor({
   const [voiceChangedSinceAudio, setVoiceChangedSinceAudio] = useState(false)
   useEffect(() => {
     if (!audioGenerated) {
+      // This mirrors the external audioGenerated state into the UI banner.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setVoiceChangedSinceAudio(false)
       return
     }
@@ -1100,10 +1106,29 @@ export function SlideEditor({
   }
 
   const slideViewerRef = useRef<HTMLDivElement>(null)
+  const [slideViewport, setSlideViewport] = useState({ width: 0, height: 0 })
   const fullscreenContainerRef = useRef<HTMLElement | null>(null)
   const { isFullscreen, supported, toggle } = useFullscreen()
   const [fitToScreen, setFitToScreen] = useState(false)
   const [, forceRender] = useState(0)
+
+  // Measure the real center column. Window-based sidebar deductions become
+  // wrong as soon as the responsive layout changes.
+  useEffect(() => {
+    const element = slideViewerRef.current
+    if (!element) return
+
+    const updateViewport = () => {
+      setSlideViewport({ width: element.clientWidth, height: element.clientHeight })
+    }
+    const frame = requestAnimationFrame(updateViewport)
+    const observer = new ResizeObserver(updateViewport)
+    observer.observe(element)
+    return () => {
+      cancelAnimationFrame(frame)
+      observer.disconnect()
+    }
+  }, [])
 
   // Re-render on window resize so the slide width recalculates dynamically
   useEffect(() => {
@@ -1124,6 +1149,29 @@ export function SlideEditor({
 
   const currentSlideNum = current?.number ?? 0
   const totalSlides = slides.length
+
+  function getSlideWidth() {
+    if (isFullscreen) {
+      if (fitToScreen) {
+        const aspect = 4 / 3
+        const w = window.innerWidth
+        const h = window.innerHeight
+        return w / h > aspect ? Math.round(h * aspect) : w
+      }
+      return Math.min(window.innerWidth * 0.85, (window.innerHeight * 0.8) / 0.75, 1400)
+    }
+
+    const availableWidth = slideViewport.width - 32
+    const availableHeight = slideViewport.height - 32
+    const fallbackWidth = typeof window !== "undefined" ? Math.min(window.innerWidth * 0.5, 800) : 800
+    const widthFromHeight = availableHeight > 0 ? availableHeight / 0.75 : Infinity
+
+    return Math.max(1, Math.min(
+      slideViewport.width > 0 ? availableWidth : fallbackWidth,
+      widthFromHeight,
+      880,
+    ))
+  }
 
   // Ref to clean up rate limit countdown interval on unmount
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1153,7 +1201,7 @@ export function SlideEditor({
     }
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [slides, currentIndex])
+  }, [slides, currentIndex, showMobilePanel, showRegenModal, showShareModal, showReUpload])
 
   if (loading) {
     return (
@@ -1235,7 +1283,7 @@ export function SlideEditor({
     <>
       <div className="flex min-w-0 flex-1 flex-col">
       {/* Left — PDF-based slide viewer */}
-      <div ref={(el) => { if (el) fullscreenContainerRef.current = el }} className="relative flex min-w-0 flex-1 flex-col bg-zinc-100">
+      <div ref={(el) => { if (el) fullscreenContainerRef.current = el }} className="group relative flex min-w-0 flex-1 flex-col bg-zinc-100">
         {/* Processing overlay during re-upload */}
         {reUploading ? (
           <div className="flex h-full min-h-[60vh] flex-col items-center justify-center gap-3">
@@ -1333,37 +1381,32 @@ export function SlideEditor({
           <>
             <div
               ref={slideViewerRef}
-              className={`relative flex flex-1 items-center justify-center transition-all ${
+              className={`group relative flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden transition-all ${
                 isFullscreen ? (fitToScreen ? "p-0 bg-black" : "p-0") : "p-4"
               }`}
             >
-              <SlidePdfViewer
-                pdfUrl={blobPdfUrls[currentIndex] ?? pdfUrls[currentIndex] ?? null}
-                slideWidth={isFullscreen
-                  ? fitToScreen
-                    ? (() => {
-                        const aspect = 4 / 3
-                        const w = window.innerWidth, h = window.innerHeight
-                        return w / h > aspect ? Math.round(h * aspect) : w
-                      })()
-                    : Math.min(window.innerWidth * 0.85, window.innerHeight * 0.8 / 0.75, 1400)
-                  // Non-fullscreen: parent md:ml-80 (sidebar at 768px+) + lg:mr-[380px] (right panel at 1024px+)
-                  // + p-4 on slide container (32px)
-                  : (() => {
-                      let deductions = 32 // p-4 padding
-                      const w = window.innerWidth
-                      if (w >= 1024) deductions += 380 // right panel reserve (lg+)
-                      if (w >= 768) deductions += 320 // left sidebar (md+)
-                      return Math.min(w - deductions, w >= 768 ? 880 : 800)
-                    })()}
-                onLoadError={() => {
-                  console.error(`[Editor] Failed to load PDF for slide ${currentIndex + 1}`)
-                }}
-              />
+              {Array.from({ length: totalSlides }, (_, index) => index).map((index) => {
+                const isCurrent = index === currentIndex
+                return (
+                  <div
+                    key={index}
+                    className={isCurrent ? "contents" : "pointer-events-none absolute inset-0 opacity-0"}
+                    aria-hidden={!isCurrent}
+                  >
+                    <SlidePdfViewer
+                      pdfUrl={blobPdfUrls[index] ?? pdfUrls[index] ?? null}
+                      slideWidth={getSlideWidth()}
+                      onLoadError={() => {
+                        console.error(`[Editor] Failed to load PDF for slide ${index + 1}`)
+                      }}
+                    />
+                  </div>
+                )
+              })}
 
               {/* Fullscreen hover overlay — navigation + exit */}
               {isFullscreen && (
-                <div className="absolute inset-0 z-50 flex items-center justify-between opacity-0 transition-opacity duration-300 hover:opacity-100">
+                <div className="pointer-events-none absolute inset-0 z-50 flex items-center justify-between opacity-0 transition-opacity duration-300 group-hover:pointer-events-auto group-hover:opacity-100">
                   {/* Previous slide */}
                   <button
                     type="button"
@@ -1424,7 +1467,7 @@ export function SlideEditor({
 
             {/* Toolbar — hidden in fullscreen (replaced by overlay) */}
             {!isFullscreen && (
-              <div className="absolute bottom-3 right-3 flex flex-wrap justify-end gap-1.5">
+              <div className="absolute bottom-12 right-3 flex max-w-[calc(100%-1.5rem)] flex-wrap justify-end gap-1.5">
                 <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-[#71717A] shadow-sm transition-colors hover:text-[#18181B]">
                   <FileText className="h-3 w-3" />
                   Re-upload
@@ -1493,7 +1536,7 @@ export function SlideEditor({
 
         {/* Audio player for fullscreen mode — hidden normally, shows at bottom in fullscreen */}
         {isFullscreen && audioUrl && (
-          <div className="absolute bottom-0 left-0 right-0 z-[100] opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-auto">
+          <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-[100] opacity-0 transition-opacity duration-300 group-hover:pointer-events-auto group-hover:opacity-100">
             <div className="mx-auto max-w-3xl px-4 py-3">
               <AudioPlayer
                 audioUrl={audioUrl}
@@ -1505,6 +1548,13 @@ export function SlideEditor({
         )}
       </div>
       </div>{/* end left viewer wrapper */}
+
+      {audioUrl && audioGenerated && (
+        <AudioDeckPreloader
+          presentationId={presentationId}
+          slideCount={totalSlides}
+        />
+      )}
 
       {/* Desktop right panel */}
       <div className="absolute bottom-0 right-0 top-0 z-20 hidden w-[380px] flex-col gap-5 overflow-y-auto border-l border-[var(--color-border-faint)] bg-white p-6 lg:flex hide-scrollbar">
@@ -2066,6 +2116,25 @@ function BatchImageFetcher({
         onLoading(false)
       })
   }, [slides, presentationId, onResult, onLoading])
+
+  return null
+}
+
+function AudioDeckPreloader({
+  presentationId,
+  slideCount,
+}: {
+  presentationId: string
+  slideCount: number
+}) {
+  useEffect(() => {
+    preloadAudioUrls(
+      Array.from(
+        { length: slideCount },
+        (_, index) => `/api/presentations/${presentationId}/audio/slide/${index + 1}`,
+      ),
+    )
+  }, [presentationId, slideCount])
 
   return null
 }

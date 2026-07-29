@@ -73,8 +73,12 @@ export function SlidePdfViewer({
 
   return (
     <div
-      className="flex items-center justify-center overflow-hidden rounded-lg shrink-0"
-      style={{ width: slideWidth, height: slideHeight }}
+      className="relative flex max-w-full items-center justify-center overflow-hidden rounded-lg shrink-0 [&_canvas]:max-w-full [&_canvas]:h-auto"
+      style={{
+        width: slideWidth,
+        height: slideHeight,
+        maxWidth: "100%",
+      }}
     >
       <Document
         file={pdfUrl}
@@ -84,10 +88,7 @@ export function SlidePdfViewer({
           onLoadError?.()
         }}
         loading={
-          <div
-            className="flex flex-col items-center justify-center gap-4 animate-pulse bg-zinc-100 rounded-lg"
-            style={{ width: slideWidth, height: slideHeight }}
-          >
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-zinc-100 rounded-lg">
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-600" />
             <div className="text-xs text-zinc-400">Loading slide…</div>
           </div>

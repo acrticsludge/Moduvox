@@ -30,12 +30,14 @@ type ViewAudioBarProps = {
   seekToSlideRef?: React.MutableRefObject<SeekToSlideFn | null>
   onDurationReady?: (durationSec: number) => void
   trackingEnabled?: boolean
+  fullscreen?: boolean
 }
 
 export function ViewAudioBar({
-  shareToken, sessionToken, viewerId, presentationId, slideCount = 0, totalDurationMs, audioUrl,
-  versionStatus, onRefresh, slideTimings = [], onSlideChange, firstWatch = false,
+  shareToken, sessionToken, presentationId, slideCount = 0, totalDurationMs, audioUrl,
+  versionStatus, onRefresh, slideTimings = [], onSlideChange,
   seekToSlideRef, onDurationReady, refreshing = false, trackingEnabled = true,
+  fullscreen = false,
 }: ViewAudioBarProps) {
   const howlRef = useRef<Howl | null>(null)
   const liveRef = useRef<HTMLDivElement>(null)
@@ -49,20 +51,25 @@ export function ViewAudioBar({
   const lastSlideRef = useRef(0)
   const [loadError, setLoadError] = useState<string | null>(null)
   const onSlideChangeRef = useRef(onSlideChange)
-  onSlideChangeRef.current = onSlideChange
   const slideTimingsRef = useRef(slideTimings)
-  slideTimingsRef.current = slideTimings
   const slideCountRef = useRef(slideCount)
-  slideCountRef.current = slideCount
   const sessionTokenRef = useRef(sessionToken)
-  sessionTokenRef.current = sessionToken
   const trackingEnabledRef = useRef(trackingEnabled)
-  trackingEnabledRef.current = trackingEnabled
   const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const togglePlayRef = useRef(togglePlay)
-  togglePlayRef.current = togglePlay
   const skipSecondsRef = useRef(skipSeconds)
-  skipSecondsRef.current = skipSeconds
+
+  useEffect(() => {
+    onSlideChangeRef.current = onSlideChange
+    slideTimingsRef.current = slideTimings
+    slideCountRef.current = slideCount
+    sessionTokenRef.current = sessionToken
+    trackingEnabledRef.current = trackingEnabled
+    togglePlayRef.current = togglePlay
+    skipSecondsRef.current = skipSeconds
+  // The keyboard handlers use refs so they do not get rebound on every render.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onSlideChange, slideTimings, slideCount, sessionToken, trackingEnabled])
 
   /** Convert a time in seconds to the slide number it falls within. */
   function timeToSlide(secs: number): number {
@@ -118,7 +125,7 @@ export function ViewAudioBar({
   }
 
   // Expose seekToSlide for the parent via the ref object prop
-  const seekToSlide: SeekToSlideFn = (slideNumber: number, _force?: boolean) => {
+  const seekToSlide: SeekToSlideFn = (slideNumber: number) => {
     const howl = howlRef.current
     if (!howl || howl.state() !== "loaded") return
     const targetSec = getSlideStartSec(slideNumber)
@@ -131,7 +138,14 @@ export function ViewAudioBar({
     lastSlideRef.current = slideNumber
     onSlideChangeRef.current?.(slideNumber)
   }
-  if (seekToSlideRef) seekToSlideRef.current = seekToSlide
+  useEffect(() => {
+    if (seekToSlideRef) seekToSlideRef.current = seekToSlide
+    return () => {
+      if (seekToSlideRef) seekToSlideRef.current = null
+    }
+  // seekToSlide closes over refs and is intentionally refreshed through this ref.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seekToSlideRef])
 
   const [ready, setReady] = useState(false)
   const [playing, setPlaying] = useState(false)
@@ -143,6 +157,10 @@ export function ViewAudioBar({
   const [showTimeRemaining, setShowTimeRemaining] = useState(false)
   const [showVolumeSlider, setShowVolumeSlider] = useState(false)
   const [resolvedUrl, setResolvedUrl] = useState<string | undefined>(audioUrl)
+  const [audioPreload, setAudioPreload] = useState<{
+    sourceUrl: string | undefined
+    blobUrl: string | null
+  }>({ sourceUrl: undefined, blobUrl: null })
   const [starting, setStarting] = useState(false)
 
   // If audioUrl wasn't provided (combined.wav doesn't exist yet), call ensure endpoint
@@ -176,11 +194,37 @@ export function ViewAudioBar({
     return () => { cancelled = true }
   }, [resolvedUrl, presentationId, sessionToken])
 
-  // Howler initialization
+  // Download the combined audio once and let Howler consume the local blob.
+  // This avoids a second network request when playback is first started.
   useEffect(() => {
     if (!resolvedUrl) return
+    let cancelled = false
+    let objectUrl: string | null = null
+    fetch(resolvedUrl)
+      .then((response) => {
+        if (!response.ok) throw new Error(`Audio returned ${response.status}`)
+        return response.blob()
+      })
+      .then((blob) => {
+        if (cancelled) return
+        objectUrl = URL.createObjectURL(blob)
+        setAudioPreload({ sourceUrl: resolvedUrl, blobUrl: objectUrl })
+      })
+      .catch(() => {
+        if (!cancelled) setAudioPreload({ sourceUrl: resolvedUrl, blobUrl: null })
+      })
+    return () => {
+      cancelled = true
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
+    }
+  }, [resolvedUrl])
+
+  // Howler initialization
+  useEffect(() => {
+    if (!resolvedUrl || audioPreload.sourceUrl !== resolvedUrl) return
+    const sourceUrl = audioPreload.blobUrl || resolvedUrl
     const howl = new Howl({
-      src: [resolvedUrl],
+      src: [sourceUrl],
       format: ["wav"],
       html5: true,
       preload: true,
@@ -224,6 +268,11 @@ export function ViewAudioBar({
         stopProgressInterval()
         const secs = Math.round(currentTimeRef.current)
         sendTracking("completed", 100, secs)
+        const lastSlide = slideCountRef.current
+        if (lastSlide > 0 && lastSlideRef.current !== lastSlide) {
+          lastSlideRef.current = lastSlide
+          onSlideChangeRef.current?.(lastSlide)
+        }
       },
       onseek: () => {
         // HTML5 audio quirk: onseek may fire with a stale position.
@@ -256,7 +305,9 @@ export function ViewAudioBar({
       howl.unload()
       howlRef.current = null
     }
-  }, [resolvedUrl, totalDurationMs])
+  // These callbacks intentionally use the current Howler instance and refs.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resolvedUrl, audioPreload, totalDurationMs])
 
   // RAF polling (replaces onTimeUpdate) — also detects slide changes
   function startPolling() {
@@ -264,13 +315,14 @@ export function ViewAudioBar({
       const howl = howlRef.current
       if (!howl || !howl.playing()) return
       if (!isSeeking.current) {
-        const secs = Math.floor(howl.seek() as number)
+        const preciseSecs = Number(howl.seek() as number) || 0
+        const secs = Math.floor(preciseSecs)
         setCurrentTime(secs)
-        currentTimeRef.current = secs
+        currentTimeRef.current = preciseSecs
         // Track furthest position (for first-watch clamping)
         if (secs > maxWatchedRef.current) maxWatchedRef.current = secs
         // Detect slide change during playback
-        detectSlide(secs)
+        detectSlide(preciseSecs)
       }
       rafRef.current = requestAnimationFrame(poll)
     }
@@ -303,6 +355,8 @@ export function ViewAudioBar({
     if (trackedOpened.current) return
     trackedOpened.current = true
     sendTracking("opened", 0, 0)
+  // Tracking is intentionally fire-once; it must not repeat when callback identities change.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Track "closed" on tab hide — uses sendBeacon (not fetch) so it survives page unload
@@ -379,7 +433,6 @@ export function ViewAudioBar({
     const howl = howlRef.current
     if (!howl || howl.state() !== "loaded") return
     const cur = howl.seek() as number
-    const dur = howl.duration() || 0
     const newTime = clampSeek(cur + offset)
     howl.seek(newTime)
     setCurrentTime(Math.floor(newTime))
@@ -440,13 +493,13 @@ export function ViewAudioBar({
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="border-t border-zinc-200 bg-white">
-        <div className="mx-auto flex max-w-[1400px] items-center gap-1.5 px-4 py-2.5">
+      <div className={fullscreen ? "border-t border-white/10 bg-[#18181B] text-white" : "border-t border-zinc-200 bg-white"}>
+        <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-1.5 px-3 py-2.5 sm:flex-nowrap sm:px-4">
           {/* Skip back 10s */}
           <Tooltip>
             <TooltipTrigger asChild>
               <button type="button" aria-label="Skip back 10 seconds" onClick={() => skipSeconds(-10)} disabled={!ready}
-                className="touch-target-sm rounded-md text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 disabled:opacity-30 disabled:pointer-events-none">
+                className="touch-target-sm touch-manipulation shrink-0 rounded-md text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 disabled:opacity-30 disabled:pointer-events-none">
                 <SkipBack className="h-4 w-4" />
               </button>
             </TooltipTrigger>
@@ -457,7 +510,7 @@ export function ViewAudioBar({
           <Tooltip>
             <TooltipTrigger asChild>
               <button type="button" aria-label={loadError ? "Audio error" : starting ? "Starting audio" : ready ? (playing ? "Pause" : "Play") : "Loading audio"} onClick={togglePlay} disabled={!!loadError}
-                className="touch-target rounded-full bg-[#18181B] text-white transition-colors hover:bg-[#27272A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                className="touch-target touch-manipulation shrink-0 rounded-full bg-[#18181B] text-white transition-colors hover:bg-[#27272A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed">
                 {starting ? <Loader2 className="h-4 w-4 animate-spin" /> : loadError ? <Play className="ml-0.5 h-4 w-4" /> : !ready ? <Loader2 className="h-4 w-4 animate-spin" /> : playing ? <Pause className="h-4 w-4" /> : <Play className="ml-0.5 h-4 w-4" />}
               </button>
             </TooltipTrigger>
@@ -468,7 +521,7 @@ export function ViewAudioBar({
           <Tooltip>
             <TooltipTrigger asChild>
               <button type="button" aria-label="Skip forward 10 seconds" onClick={() => skipSeconds(10)} disabled={!ready}
-                className="touch-target-sm rounded-md text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 disabled:opacity-30 disabled:pointer-events-none">
+                className="touch-target-sm touch-manipulation shrink-0 rounded-md text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 disabled:opacity-30 disabled:pointer-events-none">
                 <SkipForward className="h-4 w-4" />
               </button>
             </TooltipTrigger>
@@ -476,7 +529,7 @@ export function ViewAudioBar({
           </Tooltip>
 
           {/* Progress slider */}
-          <div className="flex flex-1 items-center gap-3">
+          <div className="order-last flex basis-full items-center gap-3 sm:order-none sm:min-w-0 sm:flex-1 sm:basis-auto">
             <Slider
               value={[Math.min(currentTime, duration || 1)]}
               max={duration || 1}
@@ -487,7 +540,7 @@ export function ViewAudioBar({
               aria-label="Presentation progress"
             />
             {/* Time display */}
-            <button type="button" onClick={() => setShowTimeRemaining((r) => !r)}
+              <button type="button" onClick={() => setShowTimeRemaining((r) => !r)}
               aria-label={showTimeRemaining ? "Elapsed time" : "Remaining time"}
               className="shrink-0 whitespace-nowrap text-xs font-medium tabular-nums text-zinc-500 transition-colors hover:text-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 rounded px-1">
               {timeLabel}

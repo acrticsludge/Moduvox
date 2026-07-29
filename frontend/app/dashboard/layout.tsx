@@ -4,7 +4,7 @@ import { useState, useEffect, createContext, useContext } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { Navbar } from "@/components/ui/Navbar"
 import { Footer } from "@/components/landing/footer"
-import { LayoutGrid, Mic, Settings, Archive, Menu, Loader2 } from "lucide-react"
+import { LayoutGrid, Mic, Settings, Archive, Menu } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { createClient } from "@/lib/supabase/client"
 import { ErrorBoundary } from "react-error-boundary"
@@ -36,6 +36,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
+  const isPresentationEditor =
+    pathname.includes("/dashboard/projects/") && pathname.includes("/presentations/")
 
   // Defense-in-depth: verify auth client-side even if middleware was bypassed
   useEffect(() => {
@@ -104,7 +106,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           />
         )}
 
-        <div className="flex flex-1 pt-16">
+        <div
+          className={`flex flex-1 pt-16 ${
+            isPresentationEditor
+              ? "h-[calc(100dvh-4rem)] min-h-[calc(100dvh-4rem)] flex-none"
+              : ""
+          }`}
+        >
           {/* ========== SIDEBAR ========== */}
           <ErrorBoundary
             fallback={
@@ -144,7 +152,11 @@ className={`touch-target gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-med
           </ErrorBoundary>
 
           {/* ========== MAIN CONTENT ========== */}
-          <main className="relative flex flex-1 flex-col min-w-0 pb-16">
+          <main
+            className={`relative flex min-w-0 flex-1 flex-col ${
+              isPresentationEditor ? "" : "pb-16"
+            }`}
+          >
             {/* Mobile hamburger — floats above content when sidebar is closed */}
             {!sidebarOpen && (
               <button
