@@ -83,7 +83,8 @@ export function SlidePdfViewer({
       <Document
         file={pdfUrl}
         key={retryKey}
-        onLoadError={() => {
+        onLoadError={(err) => {
+          console.error(`[SlidePdfViewer] PDF load error for "${typeof pdfUrl === 'string' ? pdfUrl.substring(0, 80) : pdfUrl}":`, err)
           setLoadError(true)
           onLoadError?.()
         }}

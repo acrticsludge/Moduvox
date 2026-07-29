@@ -13,13 +13,15 @@ export const GET = withApiHandler(async (
   const supabase = createAdminClient()
 
   // Fetch presentation with published narration versions
-  const { data: presentation } = await supabase
+  const { data: presentation, error: presError } = await supabase
     .from("presentations")
     .select(`
       id, user_id, title, slide_count, password_hash, expires_at, email_gate_enabled, created_at, status, audio_version, viewer_tracking_enabled
     `)
     .eq("share_token", shareToken)
     .single()
+
+  console.log(`[view route] shareToken="${shareToken}" presentation=`, presentation?.id ?? "null", `error=`, presError?.message ?? "null")
 
   if (!presentation) {
     return NextResponse.json({ error: "Presentation not found" }, { status: 404 })
