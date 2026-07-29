@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from "react"
 import { useParams, useSearchParams } from "next/navigation"
 import dynamic from "next/dynamic"
 import { Skeleton } from "@/components/ui/skeleton"
-import { pdfjs } from "react-pdf"
 
 import { EmailSentScreen } from "@/components/view/EmailSentScreen"
 import { VerifyErrorScreen } from "@/components/view/VerifyErrorScreen"
@@ -399,6 +398,9 @@ export default function ViewPresentationPage() {
     for (const url of blobUrlsRef.current) {
       URL.revokeObjectURL(url)
     }
+    // Dynamically import pdfjs here instead of at module top level — avoids SSR crash
+    // (DOMMatrix is not available in Node.js)
+    const { pdfjs } = await import("react-pdf")
     const blobMap: Record<number, string> = {}
     const imageMap: Record<number, string> = {}
     const urls: string[] = []

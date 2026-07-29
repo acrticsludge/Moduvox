@@ -16,8 +16,15 @@ import { RegenerateModal, type RegenStep } from "./RegenerateModal"
 import { SlideParsedData } from "./SlideParsedData"
 import { AudioPlayer, preloadAudioUrls } from "./AudioPlayer"
 import { SharePresentationModal } from "./SharePresentationModal"
-import { SlidePdfViewer } from "@/components/shared/SlidePdfViewer"
+import dynamic from "next/dynamic"
 import { useFullscreen } from "@/lib/use-fullscreen"
+
+// Dynamic import with ssr:false — pdfjs-dist uses DOMMatrix et al. at module load time,
+// which is not available in Node.js SSR context.
+const SlidePdfViewer = dynamic(
+  () => import("@/components/shared/SlidePdfViewer").then((m) => m.SlidePdfViewer),
+  { ssr: false },
+)
 
 type Voice = {
   id: string
