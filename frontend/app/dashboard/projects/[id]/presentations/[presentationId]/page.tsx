@@ -292,7 +292,7 @@ export default function PresentationCreatePage() {
             </div>
           </div>
         </div>
-        <div className="ml-0 mr-0 flex flex-1 flex-col md:ml-80 md:mr-[380px]">
+      <div className="ml-0 mr-0 flex flex-1 flex-col md:ml-80 lg:mr-[380px]">
           <div className="flex flex-wrap items-center gap-2 border-b border-[var(--color-border-faint)] bg-white px-4 py-3 md:flex-nowrap md:px-6 md:py-4">
             <div className="flex items-center gap-2">
               <Skeleton className="h-4 w-20" />

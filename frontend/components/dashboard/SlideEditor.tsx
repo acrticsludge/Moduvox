@@ -1103,6 +1103,14 @@ export function SlideEditor({
   const fullscreenContainerRef = useRef<HTMLElement | null>(null)
   const { isFullscreen, supported, toggle } = useFullscreen()
   const [fitToScreen, setFitToScreen] = useState(false)
+  const [, forceRender] = useState(0)
+
+  // Re-render on window resize so the slide width recalculates dynamically
+  useEffect(() => {
+    function onResize() { forceRender((n) => n + 1) }
+    window.addEventListener("resize", onResize)
+    return () => window.removeEventListener("resize", onResize)
+  }, [])
 
   // Add/remove body class for fullscreen to hide navbar/sidebar outside this component
   useEffect(() => {
@@ -1225,9 +1233,9 @@ export function SlideEditor({
 
   return (
     <>
-      <div className="flex flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col">
       {/* Left — PDF-based slide viewer */}
-      <div ref={(el) => { if (el) fullscreenContainerRef.current = el }} className="relative flex flex-1 flex-col bg-zinc-100">
+      <div ref={(el) => { if (el) fullscreenContainerRef.current = el }} className="relative flex min-w-0 flex-1 flex-col bg-zinc-100">
         {/* Processing overlay during re-upload */}
         {reUploading ? (
           <div className="flex h-full min-h-[60vh] flex-col items-center justify-center gap-3">
@@ -1339,15 +1347,14 @@ export function SlideEditor({
                         return w / h > aspect ? Math.round(h * aspect) : w
                       })()
                     : Math.min(window.innerWidth * 0.85, window.innerHeight * 0.8 / 0.75, 1400)
-                  // Non-fullscreen: parent has md:ml-80 (sidebar 320px) + md:mr-[380px] (right panel)
-                  // + p-4 on slide container (32px) + 1px border = ~733px total deductions at md+
+                  // Non-fullscreen: parent md:ml-80 (sidebar at 768px+) + lg:mr-[380px] (right panel at 1024px+)
+                  // + p-4 on slide container (32px)
                   : (() => {
-                      const pad = 32 // p-4 on each side
-                      if (window.innerWidth >= 768) {
-                        // md+: sidebar (320px) + right margin (380px) + padding (32px)
-                        return Math.min(window.innerWidth - 732, 880)
-                      }
-                      return Math.min(window.innerWidth - pad, 800)
+                      let deductions = 32 // p-4 padding
+                      const w = window.innerWidth
+                      if (w >= 1024) deductions += 380 // right panel reserve (lg+)
+                      if (w >= 768) deductions += 320 // left sidebar (md+)
+                      return Math.min(w - deductions, w >= 768 ? 880 : 800)
                     })()}
                 onLoadError={() => {
                   console.error(`[Editor] Failed to load PDF for slide ${currentIndex + 1}`)
