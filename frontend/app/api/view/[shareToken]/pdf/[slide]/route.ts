@@ -19,7 +19,7 @@ export const GET = withApiHandler(async (
   // Look up presentation by share token
   const { data: presentation } = await supabase
     .from("presentations")
-    .select("id, user_id")
+    .select("id, user_id, email_gate_enabled, password_hash")
     .eq("share_token", shareToken)
     .maybeSingle()
 
@@ -27,19 +27,21 @@ export const GET = withApiHandler(async (
     return NextResponse.json({ error: "Presentation not found" }, { status: 404 })
   }
 
-  // Verify viewer session for gated presentations
+  // Verify viewer session only for gated presentations (same guard as slides route)
   const { searchParams } = new URL(request.url)
-  const sessionToken = searchParams.get("session")
-  const { data: viewer } = await supabase
-    .from("viewers")
-    .select("id")
-    .eq("session_token", sessionToken)
-    .eq("presentation_id", presentation.id)
-    .eq("email_verified", true)
-    .maybeSingle()
+  const sessionToken = searchParams.get("session") || ""
+  if (presentation.email_gate_enabled || presentation.password_hash) {
+    const { data: viewer } = await supabase
+      .from("viewers")
+      .select("id")
+      .eq("session_token", sessionToken)
+      .eq("presentation_id", presentation.id)
+      .eq("email_verified", true)
+      .maybeSingle()
 
-  if (!viewer) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (!viewer) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
   }
 
   // Construct the R2 key
