@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
+import { Maximize2, Minimize2 } from "lucide-react"
 import { useParams, useSearchParams } from "next/navigation"
 import dynamic from "next/dynamic"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -130,7 +131,7 @@ export default function ViewPresentationPage() {
   const visibilityProcessingRef = useRef(false)
   const viewerContentRef = useRef<HTMLDivElement>(null)
   const viewerRootRef = useRef<HTMLDivElement>(null)
-  const { isFullscreen, supported, toggle, exit } = useFullscreen()
+  const { isFullscreen, supported, toggle } = useFullscreen()
 
   // Add/remove body class for viewer fullscreen
   useEffect(() => {
@@ -719,7 +720,7 @@ export default function ViewPresentationPage() {
                           type="button"
                           onClick={() => goToSlide(currentSlide)} // 0-indexed, clampSlide handles floor of 1
                           disabled={currentSlide === 0}
-                          className="mx-3 flex h-12 w-12 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition-colors hover:bg-black/70 disabled:opacity-20 disabled:cursor-not-allowed"
+                          className="mx-4 flex h-12 w-12 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition-colors hover:bg-black/70 disabled:opacity-20 disabled:cursor-not-allowed"
                           aria-label="Previous slide"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>
@@ -730,7 +731,7 @@ export default function ViewPresentationPage() {
                           type="button"
                           onClick={() => goToSlide(currentSlide + 2)}
                           disabled={currentSlide >= slides.length - 1}
-                          className="mx-3 flex h-12 w-12 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition-colors hover:bg-black/70 disabled:opacity-20 disabled:cursor-not-allowed"
+                          className="mx-4 flex h-12 w-12 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition-colors hover:bg-black/70 disabled:opacity-20 disabled:cursor-not-allowed"
                           aria-label="Next slide"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6"/></svg>
@@ -755,24 +756,18 @@ export default function ViewPresentationPage() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => {
-                                if (supported && viewerRootRef.current) {
-                                  toggle(viewerRootRef.current)
-                                } else {
-                                  exit()
-                                }
-                              }}
+                              onClick={() => toggle(viewerRootRef.current!)}
                               className="flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition-colors hover:bg-black/70"
                               aria-label="Exit full screen"
                             >
-                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+                              <Minimize2 className="h-4 w-4" />
                             </button>
                           </div>
                         </div>
 
                         {/* Bottom hint */}
                         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-black/40 px-3 py-1 text-xs text-white/70 backdrop-blur-sm">
-                          ← → to navigate · Esc to exit
+                          ← → arrow keys to navigate · Esc to exit
                         </div>
                       </div>
                     )}
@@ -780,29 +775,48 @@ export default function ViewPresentationPage() {
 
                   {/* Normal slide navigation (hidden in fullscreen) */}
                   {!isFullscreen && (
-                    <div className="mt-4 flex items-center gap-4">
+                    <>
+                      <div className="mt-4 flex items-center gap-4">
+                        <button
+                          type="button"
+                          onClick={() => goToSlide(currentSlide)}
+                          disabled={currentSlide === 0}
+                          className="inline-flex min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-600 transition-colors hover:text-zinc-800 disabled:cursor-not-allowed disabled:opacity-30"
+                          aria-label="Previous slide"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
+                        </button>
+                        <span className="min-w-[60px] text-center text-sm tabular-nums text-zinc-500">
+                          {currentSlide + 1} / {slides.length}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => goToSlide(currentSlide + 2)}
+                          disabled={currentSlide >= slides.length - 1}
+                          className="inline-flex min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-600 transition-colors hover:text-zinc-800 disabled:cursor-not-allowed disabled:opacity-30"
+                          aria-label="Next slide"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
+                        </button>
+                      </div>
                       <button
                         type="button"
-                        onClick={() => goToSlide(currentSlide)}
-                        disabled={currentSlide === 0}
-                        className="inline-flex min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-600 transition-colors hover:text-zinc-800 disabled:cursor-not-allowed disabled:opacity-30"
-                        aria-label="Previous slide"
+                        onClick={() => {
+                          if (supported && viewerRootRef.current) {
+                            toggle(viewerRootRef.current)
+                          } else {
+                            const currentSlideData = slides[currentSlide]
+                            const url = slideBlobUrls[currentSlideData?.slideNumber ?? -1] ?? currentSlideData?.pdfUrl
+                            if (url) window.open(url, '_blank')
+                          }
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-[#71717A] shadow-sm transition-colors hover:text-[#18181B]"
+                        title="Full screen"
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
+                        <Maximize2 className="h-3 w-3" />
+                        Full screen
                       </button>
-                      <span className="min-w-[60px] text-center text-sm tabular-nums text-zinc-500">
-                        {currentSlide + 1} / {slides.length}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => goToSlide(currentSlide + 2)}
-                        disabled={currentSlide >= slides.length - 1}
-                        className="inline-flex min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-600 transition-colors hover:text-zinc-800 disabled:cursor-not-allowed disabled:opacity-30"
-                        aria-label="Next slide"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
-                      </button>
-                    </div>
+                    </>
                   )}
                 </>
               ) : (
@@ -835,25 +849,6 @@ export default function ViewPresentationPage() {
               )}
             </main>
 
-            {/* Fullscreen button — fixed position, outside slide stacking context, targets entire page (CSS hides navbar/sidebar) */}
-            {!isFullscreen && slides && slides.length > 0 && (
-              <button
-                type="button"
-                onClick={() => {
-                  if (supported && viewerRootRef.current) {
-                    toggle(viewerRootRef.current)
-                  } else {
-                    const currentSlideData = slides[currentSlide]
-                    const url = slideBlobUrls[currentSlideData?.slideNumber ?? -1] ?? currentSlideData?.pdfUrl
-                    if (url) window.open(url, '_blank')
-                  }
-                }}
-                className="fixed right-4 top-20 z-50 flex h-9 w-9 items-center justify-center rounded-lg bg-black/40 text-white backdrop-blur-sm transition-colors hover:bg-black/60"
-                aria-label="Full screen"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
-              </button>
-            )}
           </div>
         <div className={`transition-opacity duration-300 ${isFullscreen ? 'absolute bottom-0 left-0 right-0 z-[100] opacity-0 pointer-events-auto hover:opacity-100' : ''}`}>
           <ViewAudioBar key={audioRefreshKey} seekToSlideRef={seekToSlideRef}
