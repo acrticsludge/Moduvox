@@ -130,7 +130,7 @@ export default function ViewPresentationPage() {
   const visibilityProcessingRef = useRef(false)
   const viewerContentRef = useRef<HTMLDivElement>(null)
   const viewerRootRef = useRef<HTMLDivElement>(null)
-  const { isFullscreen, supported, toggle } = useFullscreen()
+  const { isFullscreen, supported, toggle, exit } = useFullscreen()
 
   // Add/remove body class for viewer fullscreen
   useEffect(() => {
@@ -707,10 +707,19 @@ export default function ViewPresentationPage() {
                     ))}
 
                     {/* Floating fullscreen button — top-right of slide, on hover */}
-                    {supported && !isFullscreen && (
+                    {!isFullscreen && (
                       <button
                         type="button"
-                        onClick={() => toggle(viewerRootRef.current!)}
+                        onClick={() => {
+                          if (supported && viewerRootRef.current) {
+                            toggle(viewerRootRef.current)
+                          } else {
+                            // Fallback: open current slide PDF in new tab
+                            const currentSlideData = slides?.[currentSlide]
+                            const url = slideBlobUrls[currentSlideData?.slideNumber ?? -1] ?? currentSlideData?.pdfUrl
+                            if (url) window.open(url, '_blank')
+                          }
+                        }}
                         className="absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-lg bg-black/40 text-white backdrop-blur-sm transition-colors hover:bg-black/60"
                         aria-label="Full screen"
                       >
@@ -762,7 +771,13 @@ export default function ViewPresentationPage() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => toggle(viewerRootRef.current!)}
+                              onClick={() => {
+                                if (supported && viewerRootRef.current) {
+                                  toggle(viewerRootRef.current)
+                                } else {
+                                  exit()
+                                }
+                              }}
                               className="flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition-colors hover:bg-black/70"
                               aria-label="Exit full screen"
                             >
