@@ -109,7 +109,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div
           className={`flex flex-1 pt-16 ${
             isPresentationEditor
-              ? "min-h-[calc(100dvh-4rem)]"
+              ? "h-[calc(100dvh-4rem)] min-h-[calc(100dvh-4rem)] flex-none"
               : ""
           }`}
         >
