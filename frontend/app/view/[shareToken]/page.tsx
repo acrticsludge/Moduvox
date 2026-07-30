@@ -131,6 +131,7 @@ export default function ViewPresentationPage() {
   const visibilityProcessingRef = useRef(false)
   const viewerContentRef = useRef<HTMLDivElement>(null)
   const viewerRootRef = useRef<HTMLDivElement>(null)
+  const fullscreenContainerRef = useRef<HTMLDivElement>(null)
   const { isFullscreen, supported, toggle } = useFullscreen()
 
   // Add/remove body class for viewer fullscreen
@@ -645,10 +646,10 @@ export default function ViewPresentationPage() {
       const sessionToken = state.sessionToken || ""
       sessionRef.current = sessionToken
       return (
-        <div ref={viewerRootRef} className="relative flex min-h-screen flex-col bg-[#F9FAFB]">
+          <div ref={viewerRootRef} className="relative flex min-h-screen flex-col bg-[#F9FAFB]">
           <ViewNavbar />
 
-          <div className="flex flex-1">
+          <div className="flex flex-1 min-h-0">
             {/* Mobile sidebar toggle */}
             {!sidebarOpen && (
               <button
@@ -672,7 +673,12 @@ export default function ViewPresentationPage() {
               currentSlide={currentSlide}
               onSlideClick={(sn) => goToSlide(sn)}
             />
-            <main id="viewer-main-content" ref={viewerContentRef} className={`flex flex-1 flex-col items-center ${isFullscreen ? "bg-black p-0" : "p-4 md:p-8"}`}>
+            {/* Fullscreen target — wraps only slide area + audio bar (matching editor pattern) */}
+            <div
+              ref={(el) => { if (el) fullscreenContainerRef.current = el }}
+              className={`flex flex-1 flex-col min-h-0 ${isFullscreen ? 'bg-black' : ''}`}
+            >
+            <main id="viewer-main-content" ref={viewerContentRef} className={`flex flex-1 flex-col items-center ${isFullscreen ? "p-0" : "p-4 md:p-8"}`}>
               {slidesError && (
                 <div className="mb-4 w-full max-w-2xl rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                   {slidesError}
@@ -690,7 +696,7 @@ export default function ViewPresentationPage() {
                 </div>
               ) : slides && slides.length > 0 ? (
                 <>
-                  <div className="group relative w-full max-w-5xl" style={{ minHeight: '400px' }}>
+                  <div className={`group relative w-full ${isFullscreen ? 'max-w-none' : 'max-w-5xl'}`} style={{ minHeight: '400px' }}>
                     {/* Render ALL slides, only current is visible — prevents react-pdf re-parsing on nav */}
                     {slides.map((slide, i) => (
                       <div
@@ -756,7 +762,7 @@ export default function ViewPresentationPage() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => toggle(viewerRootRef.current!)}
+                              onClick={() => toggle(fullscreenContainerRef.current!)}
                               className="flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition-colors hover:bg-black/70"
                               aria-label="Exit full screen"
                             >
@@ -778,8 +784,8 @@ export default function ViewPresentationPage() {
                         <button
                           type="button"
                           onClick={() => {
-                            if (supported && viewerRootRef.current) {
-                              toggle(viewerRootRef.current)
+                            if (supported && fullscreenContainerRef.current) {
+                              toggle(fullscreenContainerRef.current)
                             } else {
                               const currentSlideData = slides[currentSlide]
                               const url = slideBlobUrls[currentSlideData?.slideNumber ?? -1] ?? currentSlideData?.pdfUrl
@@ -853,29 +859,30 @@ export default function ViewPresentationPage() {
               )}
             </main>
 
+            <div className={`transition-opacity duration-300 ${isFullscreen ? 'absolute bottom-0 left-0 right-0 z-[100] opacity-0 pointer-events-auto hover:opacity-100' : ''}`}>
+              <ViewAudioBar key={audioRefreshKey} seekToSlideRef={seekToSlideRef}
+                shareToken={shareToken}
+                sessionToken={sessionToken}
+                viewerId={state.viewerId}
+                trackingEnabled={!!state.sessionToken && viewDataRef.current?.viewer_tracking_enabled !== false}
+                presentationId={viewDataRef.current?.presentation_id || ""}
+                slideCount={viewDataRef.current?.slide_count}
+                totalDurationMs={viewDataRef.current?.total_duration_ms}
+                audioUrl={viewDataRef.current?.audio_url || undefined}
+                versionStatus={versionStatus}
+                onRefresh={applyChanges}
+                refreshing={refreshing}
+                slideTimings={viewDataRef.current?.slide_timings}
+                onSlideChange={(sn) => {
+                  setCurrentSlide(sn - 1)
+                }}
+                firstWatch={firstWatch}
+                onDurationReady={(sec) => setRealDurationMs(sec * 1000)}
+                fullscreen={isFullscreen}
+              />
+            </div>
+            </div>{/* end fullscreen container */}
           </div>
-        <div className={`transition-opacity duration-300 ${isFullscreen ? 'absolute bottom-0 left-0 right-0 z-[100] opacity-0 pointer-events-auto hover:opacity-100' : ''}`}>
-          <ViewAudioBar key={audioRefreshKey} seekToSlideRef={seekToSlideRef}
-            shareToken={shareToken}
-            sessionToken={sessionToken}
-            viewerId={state.viewerId}
-            trackingEnabled={!!state.sessionToken && viewDataRef.current?.viewer_tracking_enabled !== false}
-            presentationId={viewDataRef.current?.presentation_id || ""}
-            slideCount={viewDataRef.current?.slide_count}
-            totalDurationMs={viewDataRef.current?.total_duration_ms}
-            audioUrl={viewDataRef.current?.audio_url || undefined}
-            versionStatus={versionStatus}
-            onRefresh={applyChanges}
-            refreshing={refreshing}
-            slideTimings={viewDataRef.current?.slide_timings}
-            onSlideChange={(sn) => {
-              setCurrentSlide(sn - 1)
-            }}
-            firstWatch={firstWatch}
-            onDurationReady={(sec) => setRealDurationMs(sec * 1000)}
-            fullscreen={isFullscreen}
-          />
-        </div>
           <ViewFooter />
         </div>
       )
