@@ -376,10 +376,10 @@ export default function ViewPresentationPage() {
       const json = await res.json()
       if (json.data) {
         setSlides(json.data.slides)
-        // Preload ALL slide PDFs as blobs for instant navigation (fire-and-forget).
-        // Don't await — if one URL hangs, all slides would be stuck loading.
-        // Slides render immediately with fresh signed URLs, then blobs upgrade them.
-        prefetchAllSlideBlobs(json.data.slides)
+        // Preload ALL slide PDFs as blobs for instant navigation
+        // Await prefetch so the loading skeleton stays until content is fully ready
+        // (eliminates per-slide loading spinners after the skeleton hides)
+        await prefetchAllSlideBlobs(json.data.slides)
         if (json.data.slides.length === 0 || json.data.slides.every((s: { pdfUrl: unknown }) => !s.pdfUrl)) {
           setSlidesError("Slides are being generated. Check back soon.")
         }
@@ -671,218 +671,212 @@ export default function ViewPresentationPage() {
               currentSlide={currentSlide}
               onSlideClick={(sn) => goToSlide(sn)}
             />
-            {/* Fullscreen container — wraps slides + audio bar (matches editor pattern) */}
-            <div ref={viewerContentRef} className="group relative flex flex-1 flex-col">
-              <main id="viewer-main-content" className={`flex flex-1 flex-col items-center min-h-0 ${isFullscreen ? "bg-black p-0" : "p-4 md:p-8"}`}>
-                {slidesError && (
-                  <div className="mb-4 w-full max-w-2xl rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                    {slidesError}
-                  </div>
-                )}
-                {convertFailed && (
-                  <div className="mb-4 w-full max-w-2xl rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-xs text-red-700">
-                    Slide conversion request failed. Try again.
-                  </div>
-                )}
-                {slidesLoading ? (
-                  <div className="flex min-h-[60vh] flex-1 flex-col items-center justify-center p-6">
-                    <Skeleton className="mb-4 h-6 w-48" />
-                    <Skeleton className="h-[400px] w-full max-w-4xl rounded-xl" />
-                  </div>
-                ) : slides && slides.length > 0 ? (
-                  <>
-                    <div className="relative w-full max-w-5xl" style={{ minHeight: '400px' }}>
-                      {/* Render ALL slides, only current is visible — prevents react-pdf re-parsing on nav */}
-                      {slides.map((slide, i) => (
-                        <div
-                          key={slide.slideNumber}
-                          className={
-                            i === currentSlide
-                              ? "relative z-10"
-                              : "invisible absolute inset-0 pointer-events-none"
-                          }
-                        >
-                          <ViewSlide
-                            pdfUrl={slideBlobUrls[slide.slideNumber] ?? slide.pdfUrl ?? null}
-                            imageUrl={slideCachedImages[slide.slideNumber]}
-                            slideNumber={slide.slideNumber}
-                            totalSlides={slides.length}
-                            fullscreen={isFullscreen}
-                            fitToScreen={fitToScreen}
-                          />
-                        </div>
-                      ))}
+            <main id="viewer-main-content" ref={viewerContentRef} className={`flex flex-1 flex-col items-center ${isFullscreen ? "bg-black p-0" : "p-4 md:p-8"}`}>
+              {slidesError && (
+                <div className="mb-4 w-full max-w-2xl rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  {slidesError}
+                </div>
+              )}
+              {convertFailed && (
+                <div className="mb-4 w-full max-w-2xl rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-xs text-red-700">
+                  Slide conversion request failed. Try again.
+                </div>
+              )}
+              {slidesLoading ? (
+                <div className="flex min-h-[60vh] flex-1 flex-col items-center justify-center p-6">
+                  <Skeleton className="mb-4 h-6 w-48" />
+                  <Skeleton className="h-[400px] w-full max-w-4xl rounded-xl" />
+                </div>
+              ) : slides && slides.length > 0 ? (
+                <>
+                  <div className="group relative w-full max-w-5xl" style={{ minHeight: '400px' }}>
+                    {/* Render ALL slides, only current is visible — prevents react-pdf re-parsing on nav */}
+                    {slides.map((slide, i) => (
+                      <div
+                        key={slide.slideNumber}
+                        className={
+                          i === currentSlide
+                            ? "relative z-10"
+                            : "invisible absolute inset-0 pointer-events-none"
+                        }
+                      >
+                        <ViewSlide
+                          pdfUrl={slideBlobUrls[slide.slideNumber] ?? slide.pdfUrl ?? null}
+                          imageUrl={slideCachedImages[slide.slideNumber]}
+                          slideNumber={slide.slideNumber}
+                          totalSlides={slides.length}
+                          fullscreen={isFullscreen}
+                          fitToScreen={fitToScreen}
+                        />
+                      </div>
+                    ))}
 
-                      {/* Fullscreen overlay — only visible in fullscreen on hover */}
-                      {isFullscreen && (
-                        <div className="pointer-events-none absolute inset-0 z-50 flex items-center justify-between opacity-0 transition-opacity duration-300 group-hover:pointer-events-auto group-hover:opacity-100">
-                          {/* Previous slide */}
-                          <button
-                            type="button"
-                            onClick={() => goToSlide(currentSlide)}
-                            disabled={currentSlide === 0}
-                            className="mx-3 flex h-12 w-12 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition-colors hover:bg-black/70 disabled:opacity-20 disabled:cursor-not-allowed"
-                            aria-label="Previous slide"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>
-                          </button>
-
-                          {/* Next slide */}
-                          <button
-                            type="button"
-                            onClick={() => goToSlide(currentSlide + 2)}
-                            disabled={currentSlide >= slides.length - 1}
-                            className="mx-3 flex h-12 w-12 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition-colors hover:bg-black/70 disabled:opacity-20 disabled:cursor-not-allowed"
-                            aria-label="Next slide"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6"/></svg>
-                          </button>
-
-                          {/* Top bar: slide counter + fit-to-screen + exit fullscreen */}
-                          <div className="absolute left-0 right-0 top-0 flex items-center justify-between p-4">
-                            <span className="rounded-full bg-black/50 px-3 py-1 text-xs text-white backdrop-blur-sm">
-                              {currentSlide + 1} / {slides.length}
-                            </span>
-                            <div className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={() => setFitToScreen((f) => !f)}
-                                className={`flex h-9 w-9 items-center justify-center rounded-full backdrop-blur-sm transition-colors hover:bg-black/70 ${
-                                  fitToScreen ? "bg-white/30 text-white" : "bg-black/50 text-white/70"
-                                }`}
-                                aria-label={fitToScreen ? "Exit fit to screen" : "Fit to screen"}
-                                title={fitToScreen ? "Exit fit to screen" : "Fit to screen"}
-                              >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (supported && viewerContentRef.current) {
-                                    toggle(viewerContentRef.current)
-                                  } else {
-                                    exit()
-                                  }
-                                }}
-                                className="flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition-colors hover:bg-black/70"
-                                aria-label="Exit full screen"
-                              >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* Bottom hint */}
-                          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-black/40 px-3 py-1 text-xs text-white/70 backdrop-blur-sm">
-                            ← → to navigate · Esc to exit
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Normal slide navigation (hidden in fullscreen) */}
-                    {!isFullscreen && (
-                      <div className="mt-4 flex items-center gap-4">
+                    {/* Fullscreen overlay — only visible in fullscreen on hover */}
+                    {isFullscreen && (
+                      <div className="pointer-events-none absolute inset-0 z-50 flex items-center justify-between opacity-0 transition-opacity duration-300 group-hover:pointer-events-auto group-hover:opacity-100">
+                        {/* Previous slide */}
                         <button
                           type="button"
-                          onClick={() => goToSlide(currentSlide)}
+                          onClick={() => goToSlide(currentSlide)} // 0-indexed, clampSlide handles floor of 1
                           disabled={currentSlide === 0}
-                          className="inline-flex min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-600 transition-colors hover:text-zinc-800 disabled:cursor-not-allowed disabled:opacity-30"
+                          className="mx-3 flex h-12 w-12 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition-colors hover:bg-black/70 disabled:opacity-20 disabled:cursor-not-allowed"
                           aria-label="Previous slide"
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>
                         </button>
-                        <span className="min-w-[60px] text-center text-sm tabular-nums text-zinc-500">
-                          {currentSlide + 1} / {slides.length}
-                        </span>
+
+                        {/* Next slide */}
                         <button
                           type="button"
                           onClick={() => goToSlide(currentSlide + 2)}
                           disabled={currentSlide >= slides.length - 1}
-                          className="inline-flex min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-600 transition-colors hover:text-zinc-800 disabled:cursor-not-allowed disabled:opacity-30"
+                          className="mx-3 flex h-12 w-12 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition-colors hover:bg-black/70 disabled:opacity-20 disabled:cursor-not-allowed"
                           aria-label="Next slide"
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6"/></svg>
                         </button>
+
+                        {/* Top bar: slide counter + fit-to-screen + exit fullscreen */}
+                        <div className="absolute left-0 right-0 top-0 flex items-center justify-between p-4">
+                          <span className="rounded-full bg-black/50 px-3 py-1 text-xs text-white backdrop-blur-sm">
+                            {currentSlide + 1} / {slides.length}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setFitToScreen((f) => !f)}
+                              className={`flex h-9 w-9 items-center justify-center rounded-full backdrop-blur-sm transition-colors hover:bg-black/70 ${
+                                fitToScreen ? "bg-white/30 text-white" : "bg-black/50 text-white/70"
+                              }`}
+                              aria-label={fitToScreen ? "Exit fit to screen" : "Fit to screen"}
+                              title={fitToScreen ? "Exit fit to screen" : "Fit to screen"}
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (supported && viewerContentRef.current) {
+                                  toggle(viewerContentRef.current)
+                                } else {
+                                  exit()
+                                }
+                              }}
+                              className="flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition-colors hover:bg-black/70"
+                              aria-label="Exit full screen"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Bottom hint */}
+                        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-black/40 px-3 py-1 text-xs text-white/70 backdrop-blur-sm">
+                          ← → to navigate · Esc to exit
+                        </div>
                       </div>
                     )}
-                  </>
-                ) : (
-                  <div className="flex flex-1 flex-col items-center justify-center gap-4">
-                    <p className="text-sm text-zinc-500">No slides available</p>
-                    <p className="text-xs text-zinc-400">Slides may still be generating. Click below to retry.</p>
-                    <button
-                      type="button"
-                      disabled={slidesLoading}
-                      onClick={async () => {
-                        if (state.type !== "verified") return
-                        const tok = state.sessionToken || ""
-                        setConvertFailed(false)
-                        try {
-                          const res = await fetch(`/api/view/${shareToken}/convert`, {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ sessionToken: tok }),
-                          })
-                          if (!res.ok) setConvertFailed(true)
-                        } catch { setConvertFailed(true) }
-                        if (tok) await fetchSlides(tok, shareToken)
-                        else await fetchSlides("", shareToken)
-                      }}
-                      className="min-h-[44px] rounded-lg bg-zinc-800 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50"
-                    >
-                      {slidesLoading ? "Generating..." : "Generate slides"}
-                    </button>
                   </div>
-                )}
-              </main>
 
-              {/* Fullscreen enter button — at top-right of slide area, always clickable */}
-              {!isFullscreen && slides && slides.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (supported && viewerContentRef.current) {
-                      toggle(viewerContentRef.current)
-                    } else {
-                      const currentSlideData = slides[currentSlide]
-                      const url = slideBlobUrls[currentSlideData?.slideNumber ?? -1] ?? currentSlideData?.pdfUrl
-                      if (url) window.open(url, '_blank')
-                    }
-                  }}
-                  className="absolute right-2 top-2 z-20 flex h-9 w-9 items-center justify-center rounded-lg bg-black/40 text-white backdrop-blur-sm transition-colors hover:bg-black/60"
-                  aria-label="Full screen"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
-                </button>
+                  {/* Normal slide navigation (hidden in fullscreen) */}
+                  {!isFullscreen && (
+                    <div className="mt-4 flex items-center gap-4">
+                      <button
+                        type="button"
+                        onClick={() => goToSlide(currentSlide)}
+                        disabled={currentSlide === 0}
+                        className="inline-flex min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-600 transition-colors hover:text-zinc-800 disabled:cursor-not-allowed disabled:opacity-30"
+                        aria-label="Previous slide"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
+                      </button>
+                      <span className="min-w-[60px] text-center text-sm tabular-nums text-zinc-500">
+                        {currentSlide + 1} / {slides.length}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => goToSlide(currentSlide + 2)}
+                        disabled={currentSlide >= slides.length - 1}
+                        className="inline-flex min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-600 transition-colors hover:text-zinc-800 disabled:cursor-not-allowed disabled:opacity-30"
+                        aria-label="Next slide"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
+                      </button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="flex flex-1 flex-col items-center justify-center gap-4">
+                  <p className="text-sm text-zinc-500">No slides available</p>
+                  <p className="text-xs text-zinc-400">Slides may still be generating. Click below to retry.</p>
+                  <button
+                    type="button"
+                    disabled={slidesLoading}
+                    onClick={async () => {
+                      if (state.type !== "verified") return
+                      const tok = state.sessionToken || ""
+                      setConvertFailed(false)
+                      try {
+                        const res = await fetch(`/api/view/${shareToken}/convert`, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ sessionToken: tok }),
+                        })
+                        if (!res.ok) setConvertFailed(true)
+                      } catch { setConvertFailed(true) }
+                      if (tok) await fetchSlides(tok, shareToken)
+                      else await fetchSlides("", shareToken)
+                    }}
+                    className="min-h-[44px] rounded-lg bg-zinc-800 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50"
+                  >
+                    {slidesLoading ? "Generating..." : "Generate slides"}
+                  </button>
+                </div>
               )}
+            </main>
 
-              {/* Audio bar — inside fullscreen container so it's visible during fullscreen (like editor).
-                  Absolute when fullscreen (at bottom), static when not. */}
-              <div className={`${isFullscreen ? "absolute bottom-0 left-0 right-0 z-[100] opacity-0 group-hover:opacity-100" : ""} transition-opacity duration-300`}>
-                <ViewAudioBar key={audioRefreshKey} seekToSlideRef={seekToSlideRef}
-                  shareToken={shareToken}
-                  sessionToken={sessionToken}
-                  viewerId={state.viewerId}
-                  trackingEnabled={!!state.sessionToken && viewDataRef.current?.viewer_tracking_enabled !== false}
-                  presentationId={viewDataRef.current?.presentation_id || ""}
-                  slideCount={viewDataRef.current?.slide_count}
-                  totalDurationMs={viewDataRef.current?.total_duration_ms}
-                  audioUrl={viewDataRef.current?.audio_url || undefined}
-                  versionStatus={versionStatus}
-                  onRefresh={applyChanges}
-                  refreshing={refreshing}
-                  slideTimings={viewDataRef.current?.slide_timings}
-                  onSlideChange={(sn) => {
-                    setCurrentSlide(sn - 1)
-                  }}
-                  firstWatch={firstWatch}
-                  onDurationReady={(sec) => setRealDurationMs(sec * 1000)}
-                  fullscreen={isFullscreen}
-                />
-              </div>
-            </div>
+            {/* Floating fullscreen button — fixed to viewport, outside slide stacking context */}
+            {!isFullscreen && slides && slides.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (supported && viewerContentRef.current) {
+                    toggle(viewerContentRef.current)
+                  } else {
+                    const currentSlideData = slides[currentSlide]
+                    const url = slideBlobUrls[currentSlideData?.slideNumber ?? -1] ?? currentSlideData?.pdfUrl
+                    if (url) window.open(url, '_blank')
+                  }
+                }}
+                className="fixed right-4 top-20 z-50 flex h-9 w-9 items-center justify-center rounded-lg bg-black/40 text-white backdrop-blur-sm transition-colors hover:bg-black/60"
+                aria-label="Full screen"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+              </button>
+            )}
           </div>
+        <div className={`transition-opacity duration-300 ${isFullscreen ? 'absolute bottom-0 left-0 right-0 z-[100] opacity-0 pointer-events-auto hover:opacity-100' : ''}`}>
+          <ViewAudioBar key={audioRefreshKey} seekToSlideRef={seekToSlideRef}
+            shareToken={shareToken}
+            sessionToken={sessionToken}
+            viewerId={state.viewerId}
+            trackingEnabled={!!state.sessionToken && viewDataRef.current?.viewer_tracking_enabled !== false}
+            presentationId={viewDataRef.current?.presentation_id || ""}
+            slideCount={viewDataRef.current?.slide_count}
+            totalDurationMs={viewDataRef.current?.total_duration_ms}
+            audioUrl={viewDataRef.current?.audio_url || undefined}
+            versionStatus={versionStatus}
+            onRefresh={applyChanges}
+            refreshing={refreshing}
+            slideTimings={viewDataRef.current?.slide_timings}
+            onSlideChange={(sn) => {
+              setCurrentSlide(sn - 1)
+            }}
+            firstWatch={firstWatch}
+            onDurationReady={(sec) => setRealDurationMs(sec * 1000)}
+            fullscreen={isFullscreen}
+          />
+        </div>
           <ViewFooter />
         </div>
       )
