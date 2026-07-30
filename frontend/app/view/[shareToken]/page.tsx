@@ -676,9 +676,9 @@ export default function ViewPresentationPage() {
             {/* Fullscreen target — wraps only slide area + audio bar (matching editor pattern) */}
             <div
               ref={(el) => { if (el) fullscreenContainerRef.current = el }}
-              className={`flex flex-1 flex-col min-h-0 ${isFullscreen ? 'bg-black' : ''}`}
+              className={`relative flex flex-1 flex-col min-h-0 ${isFullscreen ? 'bg-black' : ''}`}
             >
-            <main id="viewer-main-content" ref={viewerContentRef} className={`flex flex-1 flex-col items-center ${isFullscreen ? "p-0" : "p-4 md:p-8"}`}>
+            <main id="viewer-main-content" ref={viewerContentRef} className={`flex flex-1 flex-col items-center ${isFullscreen ? "p-0 justify-center overflow-hidden" : "p-4 md:p-8"}`}>
               {slidesError && (
                 <div className="mb-4 w-full max-w-2xl rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                   {slidesError}
