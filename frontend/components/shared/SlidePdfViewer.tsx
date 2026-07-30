@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useLayoutEffect } from "react"
 import { Document, Page, pdfjs } from "react-pdf"
 
 // Set up pdf.js worker from CDN — the local file via import.meta.url gets intercepted
@@ -11,11 +11,6 @@ try {
 } catch {
   console.warn("Failed to set pdfjs worker URL, using default")
 }
-
-// Fixed render resolution — react-pdf renders at this once, CSS scale handles all resizing.
-// This eliminates blank-canvas flashes on fullscreen toggle and window resize.
-const RENDER_WIDTH = 1200
-const RENDER_HEIGHT = 900 // 4:3
 
 export type SlidePdfViewerProps = {
   pdfUrl: string | null
@@ -35,6 +30,9 @@ export function SlidePdfViewer({
   onLoadError,
 }: SlidePdfViewerProps) {
   const [loadError, setLoadError] = useState(false)
+  // Track whether the PDF page content has been painted on the canvas.
+  // Reset synchronously (useLayoutEffect) when pdfUrl or slideWidth changes
+  // to prevent the brief white-canvas flash during re-render.
   const [rendered, setRendered] = useState(false)
   const [retryKey, setRetryKey] = useState(0)
   const handleRetry = useCallback(() => {
@@ -48,8 +46,11 @@ export function SlidePdfViewer({
     (typeof window !== "undefined" ? Math.min(window.innerWidth * 0.5, maxWidth) : Math.min(800, maxWidth))
   const slideHeight = Math.round(slideWidth * aspectRatio)
 
-  // CSS scale factor: fixed render size → container size (changes on resize/fullscreen, no re-render)
-  const scale = slideWidth / RENDER_WIDTH
+  // Reset overlay synchronously before browser paints when doc or size changes
+  // — prevents the white-canvas flash between the old render and new render.
+  useLayoutEffect(() => {
+    setRendered(false)
+  }, [pdfUrl, slideWidth])
 
   if (!pdfUrl) {
     return (
@@ -82,14 +83,15 @@ export function SlidePdfViewer({
 
   return (
     <div
-      className="relative flex max-w-full items-center justify-center overflow-hidden rounded-lg shrink-0"
+      className="relative flex items-center justify-center overflow-hidden rounded-lg shrink-0"
       style={{
         width: slideWidth,
         height: slideHeight,
-        maxWidth: "100%",
       }}
     >
-      {/* Loading overlay — covers the canvas until PDF page content is painted */}
+      {/* Loading overlay — covers canvas until page content is painted.
+          Reset via useLayoutEffect on pdfUrl/slideWidth change so it
+          hides the blank-white frame during react-pdf re-render. */}
       {!rendered && (
         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-zinc-100 rounded-lg">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-600" />
@@ -97,36 +99,26 @@ export function SlidePdfViewer({
         </div>
       )}
 
-      {/* Scaled container: PDF renders once at fixed resolution, CSS scale handles all sizing */}
-      <div
-        className="flex shrink-0 items-center justify-center"
-        style={{
-          width: RENDER_WIDTH,
-          height: RENDER_HEIGHT,
-          transform: `scale(${scale})`,
+      <Document
+        file={pdfUrl}
+        key={retryKey}
+        onLoadError={(err) => {
+          console.error(`[SlidePdfViewer] PDF load error:`, err)
+          setLoadError(true)
+          onLoadError?.()
         }}
       >
-        <Document
-          file={pdfUrl}
-          key={retryKey}
-          onLoadError={(err) => {
-            console.error(`[SlidePdfViewer] PDF load error:`, err)
-            setLoadError(true)
-            onLoadError?.()
-          }}
-        >
-          <Page
-            pageNumber={1}
-            renderTextLayer={false}
-            renderAnnotationLayer={false}
-            width={RENDER_WIDTH}
-            canvasBackground="#F4F4F5"
-            className="shadow-sm"
-            onRenderSuccess={() => setRendered(true)}
-            onRenderError={() => setRendered(true)}
-          />
-        </Document>
-      </div>
+        <Page
+          pageNumber={1}
+          renderTextLayer={false}
+          renderAnnotationLayer={false}
+          width={slideWidth}
+          canvasBackground="#F4F4F5"
+          className="shadow-sm"
+          onRenderSuccess={() => setRendered(true)}
+          onRenderError={() => setRendered(true)}
+        />
+      </Document>
     </div>
   )
 }
