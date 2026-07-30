@@ -394,16 +394,15 @@ export default function ViewPresentationPage() {
 
   /** Fetch all PDFs as blobs and render to canvas images — zero network + zero react-pdf on nav */
   async function prefetchAllSlideBlobs(slideList: { slideNumber: number; pdfUrl: string | null }[]) {
-    // Revoke previous blob URLs to avoid memory leaks
-    for (const url of blobUrlsRef.current) {
-      URL.revokeObjectURL(url)
-    }
-    // Dynamically import pdfjs here instead of at module top level — avoids SSR crash
-    // (DOMMatrix is not available in Node.js)
-    const { pdfjs } = await import("react-pdf")
+    // Save old URLs to revoke AFTER new ones are ready — prevents PDF.js
+    // from hitting "Unexpected server response (0)" when a blob is yanked mid-read.
+    const oldUrls = blobUrlsRef.current
     const blobMap: Record<number, string> = {}
     const imageMap: Record<number, string> = {}
     const urls: string[] = []
+    // Dynamically import pdfjs here instead of at module top level — avoids SSR crash
+    // (DOMMatrix is not available in Node.js)
+    const { pdfjs } = await import("react-pdf")
     await Promise.allSettled(
       slideList.map(async (s) => {
         if (!s.pdfUrl) return
@@ -435,6 +434,10 @@ export default function ViewPresentationPage() {
         }
       })
     )
+    // Revoke OLD blob URLs ONLY AFTER new ones are ready
+    for (const url of oldUrls) {
+      URL.revokeObjectURL(url)
+    }
     // Track blob URLs for cleanup
     blobUrlsRef.current = urls
     setSlideBlobUrls(blobMap)
