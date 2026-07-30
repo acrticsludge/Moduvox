@@ -140,6 +140,8 @@ body.editor-fullscreen {
 }
 
 /* Viewer fullscreen: hide sidebar, navbar, footer */
+body.viewer-fullscreen header,
+body.viewer-fullscreen aside,
 body.viewer-fullscreen [class*="ViewSidebar"],
 body.viewer-fullscreen [class*="sidebar"],
 body.viewer-fullscreen [class*="ViewNavbar"],

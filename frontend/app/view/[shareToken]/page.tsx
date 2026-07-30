@@ -771,52 +771,56 @@ export default function ViewPresentationPage() {
                         </div>
                       </div>
                     )}
+
+                    {/* Fullscreen button — floating at bottom-right of slide, hidden in fullscreen */}
+                    {!isFullscreen && (
+                      <div className="absolute bottom-3 right-3 z-20">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (supported && viewerRootRef.current) {
+                              toggle(viewerRootRef.current)
+                            } else {
+                              const currentSlideData = slides[currentSlide]
+                              const url = slideBlobUrls[currentSlideData?.slideNumber ?? -1] ?? currentSlideData?.pdfUrl
+                              if (url) window.open(url, '_blank')
+                            }
+                          }}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-[#71717A] shadow-sm transition-colors hover:text-[#18181B]"
+                          title="Full screen"
+                        >
+                          <Maximize2 className="h-3 w-3" />
+                          Full screen
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {/* Normal slide navigation (hidden in fullscreen) */}
                   {!isFullscreen && (
-                    <>
-                      <div className="mt-4 flex items-center gap-4">
-                        <button
-                          type="button"
-                          onClick={() => goToSlide(currentSlide)}
-                          disabled={currentSlide === 0}
-                          className="inline-flex min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-600 transition-colors hover:text-zinc-800 disabled:cursor-not-allowed disabled:opacity-30"
-                          aria-label="Previous slide"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
-                        </button>
-                        <span className="min-w-[60px] text-center text-sm tabular-nums text-zinc-500">
-                          {currentSlide + 1} / {slides.length}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => goToSlide(currentSlide + 2)}
-                          disabled={currentSlide >= slides.length - 1}
-                          className="inline-flex min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-600 transition-colors hover:text-zinc-800 disabled:cursor-not-allowed disabled:opacity-30"
-                          aria-label="Next slide"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
-                        </button>
-                      </div>
+                    <div className="mt-4 flex items-center gap-4">
                       <button
                         type="button"
-                        onClick={() => {
-                          if (supported && viewerRootRef.current) {
-                            toggle(viewerRootRef.current)
-                          } else {
-                            const currentSlideData = slides[currentSlide]
-                            const url = slideBlobUrls[currentSlideData?.slideNumber ?? -1] ?? currentSlideData?.pdfUrl
-                            if (url) window.open(url, '_blank')
-                          }
-                        }}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-[#71717A] shadow-sm transition-colors hover:text-[#18181B]"
-                        title="Full screen"
+                        onClick={() => goToSlide(currentSlide)}
+                        disabled={currentSlide === 0}
+                        className="inline-flex min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-600 transition-colors hover:text-zinc-800 disabled:cursor-not-allowed disabled:opacity-30"
+                        aria-label="Previous slide"
                       >
-                        <Maximize2 className="h-3 w-3" />
-                        Full screen
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
                       </button>
-                    </>
+                      <span className="min-w-[60px] text-center text-sm tabular-nums text-zinc-500">
+                        {currentSlide + 1} / {slides.length}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => goToSlide(currentSlide + 2)}
+                        disabled={currentSlide >= slides.length - 1}
+                        className="inline-flex min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-600 transition-colors hover:text-zinc-800 disabled:cursor-not-allowed disabled:opacity-30"
+                        aria-label="Next slide"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
+                      </button>
+                    </div>
                   )}
                 </>
               ) : (
