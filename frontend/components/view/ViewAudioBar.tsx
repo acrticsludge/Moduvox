@@ -426,6 +426,8 @@ export function ViewAudioBar({
   }
 
   function clampSeek(targetSec: number): number {
+    const max = durationRef.current
+    if (max > 0) return Math.min(Math.max(0, targetSec), max)
     return Math.max(0, targetSec)
   }
 

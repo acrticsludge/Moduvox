@@ -377,7 +377,9 @@ export default function ViewPresentationPage() {
       if (json.data) {
         setSlides(json.data.slides)
         // Preload ALL slide PDFs as blobs for instant navigation
-        prefetchAllSlideBlobs(json.data.slides)
+        // Await prefetch so the loading skeleton stays until content is fully ready
+        // (eliminates per-slide loading spinners after the skeleton hides)
+        await prefetchAllSlideBlobs(json.data.slides)
         if (json.data.slides.length === 0 || json.data.slides.every((s: { pdfUrl: unknown }) => !s.pdfUrl)) {
           setSlidesError("Slides are being generated. Check back soon.")
         }
@@ -723,7 +725,7 @@ export default function ViewPresentationPage() {
                             if (url) window.open(url, '_blank')
                           }
                         }}
-                        className="absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-lg bg-black/40 text-white backdrop-blur-sm transition-colors hover:bg-black/60"
+                        className="absolute right-2 top-2 z-20 flex h-9 w-9 items-center justify-center rounded-lg bg-black/40 text-white backdrop-blur-sm transition-colors hover:bg-black/60"
                         aria-label="Full screen"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>

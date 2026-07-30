@@ -12,6 +12,11 @@ try {
   console.warn("Failed to set pdfjs worker URL, using default")
 }
 
+// Fixed render resolution — react-pdf renders at this once, CSS scale handles all resizing.
+// This eliminates blank-canvas flashes on fullscreen toggle and window resize.
+const RENDER_WIDTH = 1200
+const RENDER_HEIGHT = 900 // 4:3
+
 export type SlidePdfViewerProps = {
   pdfUrl: string | null
   /** Fixed pixel width (overrides responsive sizing) */
@@ -30,9 +35,11 @@ export function SlidePdfViewer({
   onLoadError,
 }: SlidePdfViewerProps) {
   const [loadError, setLoadError] = useState(false)
+  const [rendered, setRendered] = useState(false)
   const [retryKey, setRetryKey] = useState(0)
   const handleRetry = useCallback(() => {
     setLoadError(false)
+    setRendered(false)
     setRetryKey((k) => k + 1)
   }, [])
 
@@ -40,6 +47,9 @@ export function SlidePdfViewer({
     externalWidth ??
     (typeof window !== "undefined" ? Math.min(window.innerWidth * 0.5, maxWidth) : Math.min(800, maxWidth))
   const slideHeight = Math.round(slideWidth * aspectRatio)
+
+  // CSS scale factor: fixed render size → container size (changes on resize/fullscreen, no re-render)
+  const scale = slideWidth / RENDER_WIDTH
 
   if (!pdfUrl) {
     return (
@@ -72,36 +82,51 @@ export function SlidePdfViewer({
 
   return (
     <div
-      className="relative flex max-w-full items-center justify-center overflow-hidden rounded-lg shrink-0 [&_canvas]:max-w-full [&_canvas]:h-auto"
+      className="relative flex max-w-full items-center justify-center overflow-hidden rounded-lg shrink-0"
       style={{
         width: slideWidth,
         height: slideHeight,
         maxWidth: "100%",
       }}
     >
-      <Document
-        file={pdfUrl}
-        key={retryKey}
-        onLoadError={(err) => {
-          console.error(`[SlidePdfViewer] PDF load error for "${typeof pdfUrl === 'string' ? pdfUrl.substring(0, 80) : pdfUrl}":`, err)
-          setLoadError(true)
-          onLoadError?.()
+      {/* Loading overlay — covers the canvas until PDF page content is painted */}
+      {!rendered && (
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-zinc-100 rounded-lg">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-600" />
+          <div className="text-xs text-zinc-400">Loading slide…</div>
+        </div>
+      )}
+
+      {/* Scaled container: PDF renders once at fixed resolution, CSS scale handles all sizing */}
+      <div
+        className="flex shrink-0 items-center justify-center"
+        style={{
+          width: RENDER_WIDTH,
+          height: RENDER_HEIGHT,
+          transform: `scale(${scale})`,
         }}
-        loading={
-          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-zinc-100 rounded-lg">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-600" />
-            <div className="text-xs text-zinc-400">Loading slide…</div>
-          </div>
-        }
       >
-        <Page
-          pageNumber={1}
-          renderTextLayer={false}
-          renderAnnotationLayer={false}
-          className="shadow-sm"
-          width={slideWidth}
-        />
-      </Document>
+        <Document
+          file={pdfUrl}
+          key={retryKey}
+          onLoadError={(err) => {
+            console.error(`[SlidePdfViewer] PDF load error:`, err)
+            setLoadError(true)
+            onLoadError?.()
+          }}
+        >
+          <Page
+            pageNumber={1}
+            renderTextLayer={false}
+            renderAnnotationLayer={false}
+            width={RENDER_WIDTH}
+            canvasBackground="#F4F4F5"
+            className="shadow-sm"
+            onRenderSuccess={() => setRendered(true)}
+            onRenderError={() => setRendered(true)}
+          />
+        </Document>
+      </div>
     </div>
   )
 }
