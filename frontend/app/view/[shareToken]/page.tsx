@@ -711,27 +711,6 @@ export default function ViewPresentationPage() {
                       </div>
                     ))}
 
-                    {/* Floating fullscreen button — top-right of slide, on hover */}
-                    {!isFullscreen && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (supported && viewerRootRef.current) {
-                            toggle(viewerRootRef.current)
-                          } else {
-                            // Fallback: open current slide PDF in new tab
-                            const currentSlideData = slides?.[currentSlide]
-                            const url = slideBlobUrls[currentSlideData?.slideNumber ?? -1] ?? currentSlideData?.pdfUrl
-                            if (url) window.open(url, '_blank')
-                          }
-                        }}
-                        className="absolute right-2 top-2 z-20 flex h-9 w-9 items-center justify-center rounded-lg bg-black/40 text-white backdrop-blur-sm transition-colors hover:bg-black/60"
-                        aria-label="Full screen"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
-                      </button>
-                    )}
-
                     {/* Fullscreen overlay — only visible in fullscreen on hover */}
                     {isFullscreen && (
                       <div className="pointer-events-none absolute inset-0 z-50 flex items-center justify-between opacity-0 transition-opacity duration-300 group-hover:pointer-events-auto group-hover:opacity-100">
@@ -777,8 +756,8 @@ export default function ViewPresentationPage() {
                             <button
                               type="button"
                               onClick={() => {
-                                if (supported && viewerRootRef.current) {
-                                  toggle(viewerRootRef.current)
+                                if (supported && viewerContentRef.current) {
+                                  toggle(viewerContentRef.current)
                                 } else {
                                   exit()
                                 }
@@ -855,6 +834,26 @@ export default function ViewPresentationPage() {
                 </div>
               )}
             </main>
+
+            {/* Floating fullscreen button — fixed to viewport, outside slide stacking context */}
+            {!isFullscreen && slides && slides.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (supported && viewerContentRef.current) {
+                    toggle(viewerContentRef.current)
+                  } else {
+                    const currentSlideData = slides[currentSlide]
+                    const url = slideBlobUrls[currentSlideData?.slideNumber ?? -1] ?? currentSlideData?.pdfUrl
+                    if (url) window.open(url, '_blank')
+                  }
+                }}
+                className="fixed right-4 top-20 z-50 flex h-9 w-9 items-center justify-center rounded-lg bg-black/40 text-white backdrop-blur-sm transition-colors hover:bg-black/60"
+                aria-label="Full screen"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+              </button>
+            )}
           </div>
         <div className={`transition-opacity duration-300 ${isFullscreen ? 'absolute bottom-0 left-0 right-0 z-[100] opacity-0 pointer-events-auto hover:opacity-100' : ''}`}>
           <ViewAudioBar key={audioRefreshKey} seekToSlideRef={seekToSlideRef}
