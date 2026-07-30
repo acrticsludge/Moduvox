@@ -676,9 +676,9 @@ export default function ViewPresentationPage() {
             {/* Fullscreen target — wraps only slide area + audio bar (matching editor pattern) */}
             <div
               ref={(el) => { if (el) fullscreenContainerRef.current = el }}
-              className={`relative flex flex-1 flex-col min-h-0 ${isFullscreen ? 'bg-black' : ''}`}
+              className="relative flex flex-1 flex-col min-h-0 bg-zinc-100"
             >
-            <main id="viewer-main-content" ref={viewerContentRef} className={`flex flex-1 flex-col items-center ${isFullscreen ? "p-0 justify-center overflow-hidden" : "p-4 md:p-8"}`}>
+            <main id="viewer-main-content" ref={viewerContentRef} className={`relative flex flex-1 flex-col items-center ${isFullscreen ? `group min-h-0 min-w-0 p-0 justify-center overflow-hidden${fitToScreen ? " bg-black" : ""}` : "p-4 md:p-8"}`}>
               {slidesError && (
                 <div className="mb-4 w-full max-w-2xl rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                   {slidesError}
@@ -696,14 +696,13 @@ export default function ViewPresentationPage() {
                 </div>
               ) : slides && slides.length > 0 ? (
                 <>
-                  <div className={`group relative w-full ${isFullscreen ? 'max-w-none' : 'max-w-5xl'}`} style={{ minHeight: '400px' }}>
                     {/* Render ALL slides, only current is visible — prevents react-pdf re-parsing on nav */}
                     {slides.map((slide, i) => (
                       <div
                         key={slide.slideNumber}
                         className={
                           i === currentSlide
-                            ? "relative z-10"
+                            ? "contents"
                             : "invisible absolute inset-0 pointer-events-none"
                         }
                       >
@@ -752,9 +751,7 @@ export default function ViewPresentationPage() {
                             <button
                               type="button"
                               onClick={() => setFitToScreen((f) => !f)}
-                              className={`flex h-9 w-9 items-center justify-center rounded-full backdrop-blur-sm transition-colors hover:bg-black/70 ${
-                                fitToScreen ? "bg-white/30 text-white" : "bg-black/50 text-white/70"
-                              }`}
+                              className="flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-white/70 backdrop-blur-sm transition-colors hover:bg-black/70"
                               aria-label={fitToScreen ? "Exit fit to screen" : "Fit to screen"}
                               title={fitToScreen ? "Exit fit to screen" : "Fit to screen"}
                             >
@@ -778,7 +775,7 @@ export default function ViewPresentationPage() {
                       </div>
                     )}
 
-                    {/* Fullscreen button — floating at bottom-right of slide, hidden in fullscreen */}
+                    {/* Fullscreen button — floating at bottom-right, hidden in fullscreen */}
                     {!isFullscreen && (
                       <div className="absolute bottom-3 right-3 z-20">
                         <button
@@ -800,7 +797,6 @@ export default function ViewPresentationPage() {
                         </button>
                       </div>
                     )}
-                  </div>
 
                   {/* Normal slide navigation (hidden in fullscreen) */}
                   {!isFullscreen && (

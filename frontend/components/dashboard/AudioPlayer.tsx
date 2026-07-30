@@ -38,12 +38,14 @@ export function AudioPlayer({
   slideNumber,
   onEnded,
   onError,
+  fullscreen,
 }: {
   audioUrl: string | null
   presentationId?: string
   slideNumber?: number | null
   onEnded?: () => void
   onError?: () => void
+  fullscreen?: boolean
 }) {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const [playing, setPlaying] = useState(false)
@@ -142,7 +144,7 @@ export function AudioPlayer({
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0
 
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-zinc-200 bg-white p-3 shadow-sm">
+    <div className={`flex items-center gap-3 ${fullscreen ? "p-0" : "rounded-xl border border-zinc-200 bg-white p-3 shadow-sm"}`}>
       {/* Play/Pause */}
       <button
         type="button"
@@ -162,7 +164,7 @@ export function AudioPlayer({
 
       {/* Time / Seek bar */}
       <div className="flex flex-1 items-center gap-2">
-        <span className="w-8 text-right text-[11px] tabular-nums text-[#71717A]">
+        <span className={`w-8 text-right text-[11px] tabular-nums ${fullscreen ? "text-zinc-400" : "text-[#71717A]"}`}>
           {formatTime(currentTime)}
         </span>
         <div
@@ -170,19 +172,19 @@ export function AudioPlayer({
           onClick={handleSeek}
           className="relative flex-1 cursor-pointer"
         >
-          <div className="h-1.5 rounded-full bg-zinc-200">
+          <div className={`h-1.5 rounded-full ${fullscreen ? "bg-zinc-700" : "bg-zinc-200"}`}>
             <div
-              className="h-1.5 rounded-full bg-[#18181B] transition-[width] duration-75"
+              className={`h-1.5 rounded-full ${fullscreen ? "bg-white/60" : "bg-[#18181B]"} transition-[width] duration-75`}
               style={{ width: `${progress}%` }}
             />
           </div>
           {/* Hidden seek thumb for accessibility */}
           <div
-            className="absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-[#18181B] opacity-0 transition-opacity group-hover:opacity-100"
+            className={`absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full ${fullscreen ? "bg-white/60" : "bg-[#18181B]"} opacity-0 transition-opacity group-hover:opacity-100`}
             style={{ left: `calc(${progress}% - 6px)` }}
           />
         </div>
-        <span className="w-8 text-left text-[11px] tabular-nums text-[#71717A]">
+        <span className={`w-8 text-left text-[11px] tabular-nums ${fullscreen ? "text-zinc-400" : "text-[#71717A]"}`}>
           {formatTime(duration)}
         </span>
       </div>

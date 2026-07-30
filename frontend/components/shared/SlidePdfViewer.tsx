@@ -3,13 +3,10 @@
 import { useState, useCallback } from "react"
 import { Document, Page, pdfjs } from "react-pdf"
 
-// Set up pdf.js worker from CDN — the local file via import.meta.url gets intercepted
-// by Next.js route params (e.g. /view/pdf.worker.mjs matches [shareToken]).
-try {
-  const ver = pdfjs.version?.split("-")[0] || "4.9.155"
-  pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${ver}/build/pdf.worker.min.mjs`
-} catch {
-  console.warn("Failed to set pdfjs worker URL, using default")
+// Use local worker file copied to public/ at build time (see frontend/public/pdf.worker.min.mjs).
+// Avoids CDN dependency, CORS issues, and version-mismatch bugs from using pdfjs.version.
+if (typeof window !== "undefined") {
+  pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs"
 }
 
 export type SlidePdfViewerProps = {

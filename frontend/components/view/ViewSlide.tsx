@@ -1,7 +1,11 @@
 "use client"
 
-import type { CSSProperties } from "react"
-import { SlidePdfViewer } from "@/components/shared/SlidePdfViewer"
+import dynamic from "next/dynamic"
+
+const SlidePdfViewer = dynamic(
+  () => import("@/components/shared/SlidePdfViewer").then((m) => m.SlidePdfViewer),
+  { ssr: false },
+)
 
 type ViewSlideProps = {
   pdfUrl: string | null
@@ -46,32 +50,30 @@ export function ViewSlide({ pdfUrl, slideNumber, totalSlides, fullscreen = false
 
   // ── Pre-rendered image mode ──
   if (imageUrl) {
-    const imgStyle: CSSProperties = {
-      width: imgW,
-      height: imgH,
-      objectFit: "contain",
-      borderRadius: "0.5rem",
-      boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-    }
     return (
-      <div className="flex flex-1 items-center justify-center">
-        {/* Pre-rendered data URLs are intentionally kept as plain images to avoid re-encoding them. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={imageUrl} alt={`Slide ${slideNumber}`} style={imgStyle} />
-      </div>
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={imageUrl}
+        alt={`Slide ${slideNumber}`}
+        style={{
+          width: imgW,
+          height: imgH,
+          objectFit: "contain",
+          borderRadius: "0.5rem",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+        }}
+      />
     )
   }
 
   // ── Normal react-pdf mode (fallback while pre-rendering) ──
   return (
-    <div className="flex flex-1 items-center justify-center">
-      <SlidePdfViewer
-        pdfUrl={pdfUrl}
-        slideWidth={imgW}
-        onLoadError={() => {
-          console.error(`[ViewSlide] Failed to load slide ${slideNumber}/${totalSlides}`)
-        }}
-      />
-    </div>
+    <SlidePdfViewer
+      pdfUrl={pdfUrl}
+      slideWidth={imgW}
+      onLoadError={() => {
+        console.error(`[ViewSlide] Failed to load slide ${slideNumber}/${totalSlides}`)
+      }}
+    />
   )
 }

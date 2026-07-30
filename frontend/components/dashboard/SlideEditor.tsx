@@ -1541,15 +1541,18 @@ export function SlideEditor({
           </div>
         )}
 
-        {/* Audio player for fullscreen mode — hidden normally, shows at bottom in fullscreen */}
+        {/* Audio player for fullscreen mode — fades in on hover at bottom (matches viewer fullscreen pattern) */}
         {isFullscreen && audioUrl && (
-          <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-[100] opacity-0 transition-opacity duration-300 group-hover:pointer-events-auto group-hover:opacity-100">
-            <div className="mx-auto max-w-3xl px-4 py-3">
-              <AudioPlayer
-                audioUrl={audioUrl}
-                presentationId={presentationId}
-                slideNumber={currentIndex + 1}
-              />
+          <div className="absolute bottom-0 left-0 right-0 z-[100] opacity-0 transition-opacity duration-300 hover:opacity-100 pointer-events-auto">
+            <div className="border-t border-white/10 bg-[#18181B] text-white">
+              <div className="mx-auto max-w-3xl px-4 py-3">
+                <AudioPlayer
+                  audioUrl={audioUrl}
+                  presentationId={presentationId}
+                  slideNumber={currentIndex + 1}
+                  fullscreen
+                />
+              </div>
             </div>
           </div>
         )}
