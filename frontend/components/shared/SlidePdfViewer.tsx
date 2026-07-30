@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useLayoutEffect } from "react"
+import { useState, useCallback } from "react"
 import { Document, Page, pdfjs } from "react-pdf"
 
 // Set up pdf.js worker from CDN — the local file via import.meta.url gets intercepted
@@ -30,14 +30,9 @@ export function SlidePdfViewer({
   onLoadError,
 }: SlidePdfViewerProps) {
   const [loadError, setLoadError] = useState(false)
-  // Track whether the PDF page content has been painted on the canvas.
-  // Reset synchronously (useLayoutEffect) when pdfUrl or slideWidth changes
-  // to prevent the brief white-canvas flash during re-render.
-  const [rendered, setRendered] = useState(false)
   const [retryKey, setRetryKey] = useState(0)
   const handleRetry = useCallback(() => {
     setLoadError(false)
-    setRendered(false)
     setRetryKey((k) => k + 1)
   }, [])
 
@@ -45,12 +40,6 @@ export function SlidePdfViewer({
     externalWidth ??
     (typeof window !== "undefined" ? Math.min(window.innerWidth * 0.5, maxWidth) : Math.min(800, maxWidth))
   const slideHeight = Math.round(slideWidth * aspectRatio)
-
-  // Reset overlay synchronously before browser paints when doc or size changes
-  // — prevents the white-canvas flash between the old render and new render.
-  useLayoutEffect(() => {
-    setRendered(false)
-  }, [pdfUrl, slideWidth])
 
   if (!pdfUrl) {
     return (
@@ -83,40 +72,34 @@ export function SlidePdfViewer({
 
   return (
     <div
-      className="relative flex items-center justify-center overflow-hidden rounded-lg shrink-0"
+      className="relative flex max-w-full items-center justify-center overflow-hidden rounded-lg shrink-0 [&_canvas]:max-w-full [&_canvas]:h-auto"
       style={{
         width: slideWidth,
         height: slideHeight,
+        maxWidth: "100%",
       }}
     >
-      {/* Loading overlay — covers canvas until page content is painted.
-          Reset via useLayoutEffect on pdfUrl/slideWidth change so it
-          hides the blank-white frame during react-pdf re-render. */}
-      {!rendered && (
-        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-zinc-100 rounded-lg">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-600" />
-          <div className="text-xs text-zinc-400">Loading slide…</div>
-        </div>
-      )}
-
       <Document
         file={pdfUrl}
         key={retryKey}
         onLoadError={(err) => {
-          console.error(`[SlidePdfViewer] PDF load error:`, err)
+          console.error(`[SlidePdfViewer] PDF load error for "${typeof pdfUrl === 'string' ? pdfUrl.substring(0, 80) : pdfUrl}":`, err)
           setLoadError(true)
           onLoadError?.()
         }}
+        loading={
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-zinc-100 rounded-lg">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-600" />
+            <div className="text-xs text-zinc-400">Loading slide…</div>
+          </div>
+        }
       >
         <Page
           pageNumber={1}
           renderTextLayer={false}
           renderAnnotationLayer={false}
-          width={slideWidth}
-          canvasBackground="#F4F4F5"
           className="shadow-sm"
-          onRenderSuccess={() => setRendered(true)}
-          onRenderError={() => setRendered(true)}
+          width={slideWidth}
         />
       </Document>
     </div>
