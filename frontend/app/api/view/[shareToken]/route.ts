@@ -150,6 +150,8 @@ export const GET = withApiHandler(async (
       viewer_id: viewerData?.id || null,
       first_watch_done: !!viewerCompletedAt,
       narrations: narrationMap, // published narrations for viewer
+      has_password: !!presentation.password_hash,
+      email_gate_enabled: presentation.email_gate_enabled,
     },
   })
 })

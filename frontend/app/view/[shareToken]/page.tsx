@@ -717,7 +717,7 @@ export default function ViewPresentationPage() {
               onClose={() => setSidebarOpen(false)}
               currentSlide={currentSlide}
               onSlideClick={(sn) => goToSlide(sn)}
-              isPublic={state.viewerId === "public"}
+              isPublic={!(viewDataRef.current?.has_password || viewDataRef.current?.email_gate_enabled)}
             />
             {/* Fullscreen target — wraps only slide area + audio bar (matching editor pattern) */}
             <div
