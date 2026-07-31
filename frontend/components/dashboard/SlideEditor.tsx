@@ -530,7 +530,9 @@ export function SlideEditor({
 
   // When image descriptions arrive AFTER initial narration generation,
   // automatically re-generate narration with visual context.
+  // Only fires for fresh uploads (file truthy), not restored state (file null).
   useEffect(() => {
+    if (!file) return // Don't regen on page reload with restored state
     // Reset regen flag when descriptions are cleared (new upload)
     if (!externalImageDescriptions) {
       regenWithImagesRef.current = false
@@ -548,7 +550,7 @@ export function SlideEditor({
     regenWithImagesRef.current = true
     console.log("[ImageDesc] Re-generating narration with image context")
     generateNarrations(slides, false).catch(() => {})
-  }, [externalImageDescriptions, slides])
+  }, [externalImageDescriptions, slides, file])
   // eslint-disable-next-line react-hooks/exhaustive-deps
 
   // Snapshot narrations as the "original" baseline when first populated (from saved state or initial AI gen)
