@@ -1795,8 +1795,8 @@ export function SlideEditor({
               </div>
             )}
 
-            {/* Audio player */}
-            {audioUrl && (
+            {/* Audio player — only when not in fullscreen (fullscreen has its own instance below) */}
+            {audioUrl && !isFullscreen && (
               <AudioPlayer
                 key={`desktop-${fullscreenExitKey}`}
                 audioUrl={audioUrl}
@@ -2023,8 +2023,8 @@ export function SlideEditor({
                   </div>
                 )}
 
-                {/* Audio player */}
-                {audioUrl && (
+                {/* Audio player — only when not in fullscreen */}
+                {audioUrl && !isFullscreen && (
                   <AudioPlayer
                     key={`mobile-${fullscreenExitKey}`}
                     audioUrl={audioUrl}
