@@ -951,7 +951,7 @@ export default function ViewPresentationPage() {
               )}
             </main>
 
-            <div className={isFullscreen ? 'absolute bottom-0 left-0 right-0 z-[100]' : ''}>
+            <div className={isFullscreen ? 'absolute bottom-0 left-0 right-0 z-[100] opacity-0 transition-opacity duration-300 hover:opacity-100' : ''}>
               <ViewAudioBar key={audioRefreshKey} seekToSlideRef={seekToSlideRef}
                 shareToken={shareToken}
                 sessionToken={sessionToken}
