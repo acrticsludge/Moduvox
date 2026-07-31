@@ -129,6 +129,8 @@ export function SlideEditor({
   const [uploadProgress, setUploadProgress] = useState(0)
   const [internalChangedSlides, setInternalChangedSlides] = useState<number[]>([])
   const [showRegenModal, setShowRegenModal] = useState(false)
+  // Track whether we've already auto-regen'd narration after images arrived
+  const regenWithImagesRef = useRef(false)
   const [showShareModal, setShowShareModal] = useState(false)
   const [, setLastRegenCount] = useState(0)
   const [generatingNarrations, setGeneratingNarrations] = useState(false)
@@ -176,6 +178,9 @@ export function SlideEditor({
 
   // Use controlled props when provided, otherwise internal state
   const narrations = externalNarrations ?? internalNarrations
+  // Ref for stale-closure-safe access in useEffect callbacks
+  const narrationsRef = useRef<Record<number, string>>({})
+  useEffect(() => { narrationsRef.current = narrations }, [narrations])
   const audioGenerated = externalAudioGenerated ?? internalAudioGenerated
   const currentIndex = externalCurrentSlide ?? internalIndex
   const changedSlides = externalChangedSlides ?? internalChangedSlides
@@ -522,6 +527,29 @@ export function SlideEditor({
   // request is in flight or narration data has already been restored.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slides, file])
+
+  // When image descriptions arrive AFTER initial narration generation,
+  // automatically re-generate narration with visual context.
+  useEffect(() => {
+    // Reset regen flag when descriptions are cleared (new upload)
+    if (!externalImageDescriptions) {
+      regenWithImagesRef.current = false
+      return
+    }
+    const hasNarrations = Object.keys(narrationsRef.current).length > 0
+    if (!hasNarrations) return
+    if (regenWithImagesRef.current) return
+    // Only regen if we actually got some image descriptions (not all errors)
+    const hasDescriptions = Object.values(externalImageDescriptions).some(
+      (descs) => descs.some((d) => d.description && !d.error)
+    )
+    if (!hasDescriptions) return
+
+    regenWithImagesRef.current = true
+    console.log("[ImageDesc] Re-generating narration with image context")
+    generateNarrations(slides, false).catch(() => {})
+  }, [externalImageDescriptions, slides])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
 
   // Snapshot narrations as the "original" baseline when first populated (from saved state or initial AI gen)
   useEffect(() => {
@@ -2022,8 +2050,8 @@ export function SlideEditor({
         </div>
       )}
 
-      {/* Batch-fetch image descriptions for ALL slides in one API call */}
-      {showSlideInfo && !externalImageDescriptions?.[current.number] && slides.some((s) => s.images.length > 0) && (
+      {/* Batch-fetch image descriptions for ALL slides — fires immediately when slides with images load */}
+      {!externalImageDescriptions && !imageDescLoading && slides.length > 0 && slides.some((s) => s.images.length > 0) && (
         <BatchImageFetcher
           slides={slides}
           presentationId={presentationId}
