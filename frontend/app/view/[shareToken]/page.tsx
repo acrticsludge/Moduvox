@@ -52,6 +52,7 @@ type PresentationMeta = {
 type PageState =
   | { type: "loading" }
   | { type: "expired" }
+  | { type: "no_content" }
   | { type: "archived" }
   | { type: "not_found" }
   | { type: "gate"; meta: PresentationMeta }
@@ -178,9 +179,13 @@ export default function ViewPresentationPage() {
         if (res.status === 410) {
           const json = await res.json().catch(() => ({}))
           clearGateState(shareToken)
-          setState(json.error?.toLowerCase().includes("archived")
-            ? { type: "archived" }
-            : { type: "expired" })
+          if (json.error?.toLowerCase().includes("archived")) {
+            setState({ type: "archived" })
+          } else if (json.error?.toLowerCase().includes("no slides")) {
+            setState({ type: "no_content" })
+          } else {
+            setState({ type: "expired" })
+          }
           return
         }
         if (!res.ok) {
@@ -231,6 +236,8 @@ export default function ViewPresentationPage() {
         clearGateState(shareToken)
         if (json.error?.toLowerCase().includes("archived")) {
           setState({ type: "archived" })
+        } else if (json.error?.toLowerCase().includes("no slides")) {
+          setState({ type: "no_content" })
         } else {
           setState({ type: "expired" })
         }
@@ -606,6 +613,16 @@ export default function ViewPresentationPage() {
           <div className="w-full max-w-sm text-center">
             <h1 className="mb-2 text-lg font-semibold text-[#18181B]">Presentation Archived</h1>
             <p className="text-sm text-zinc-500">This presentation has been archived by its owner and is no longer available.</p>
+          </div>
+        </div>
+      )
+
+    case "no_content":
+      return (
+        <div className="flex min-h-screen items-center justify-center bg-[#F9FAFB] px-4">
+          <div className="w-full max-w-sm text-center">
+            <h1 className="mb-2 text-lg font-semibold text-[#18181B]">No slides available</h1>
+            <p className="text-sm text-zinc-500">This presentation does not have any slides yet.</p>
           </div>
         </div>
       )

@@ -35,6 +35,14 @@ export const GET = withApiHandler(async (
     )
   }
 
+  // Check draft status — presentation has no content to show
+  if (presentation.status === "draft" || presentation.slide_count === 0) {
+    return NextResponse.json(
+      { error: "This presentation has no slides." },
+      { status: 410 },
+    )
+  }
+
   // Check expiration
   if (presentation.expires_at && new Date(presentation.expires_at) < new Date()) {
     return NextResponse.json({ error: "This presentation link has expired" }, { status: 410 })

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { deleteFile, createDownloadUrl } from "@/lib/r2"
+import { deleteFile, listFiles, createDownloadUrl } from "@/lib/r2"
 import { withApiHandler } from "@/lib/api-handler"
 import { validateUuid } from "@/lib/validate-uuid"
 
@@ -71,6 +71,18 @@ export const DELETE = withApiHandler(async (
   // Remove PPTX from storage
   const filePath = `${user.id}/${presentationId}.pptx`
   await deleteFile(filePath)
+
+  // Clean up all per-slide PDFs and audio files from R2
+  const prefixes = [
+    `${user.id}/pdf/${presentationId}/`,
+    `${user.id}/audio/${presentationId}/`,
+  ]
+  for (const prefix of prefixes) {
+    const listed = await listFiles(prefix)
+    if (listed.success && listed.data.length > 0) {
+      await Promise.all(listed.data.map((obj: { Key: string }) => deleteFile(obj.Key)))
+    }
+  }
 
   // Reset presentation: clear editor_state, reset status to draft
   const { error: updateError } = await supabase

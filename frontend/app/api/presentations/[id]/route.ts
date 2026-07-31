@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { deleteFile } from "@/lib/r2"
+import { deleteFile, listFiles } from "@/lib/r2"
 import { updatePresentationSchema } from "@/lib/validations/presentation"
 import { withApiHandler } from "@/lib/api-handler"
 import { logAuditFromRequest } from "@/lib/audit"
@@ -145,6 +145,18 @@ export const DELETE = withApiHandler(async (
   // Clean up PPTX from R2 if it exists
   const filePath = `${user.id}/${presentationId}.pptx`
   await deleteFile(filePath)
+
+  // Clean up all per-slide PDFs and audio files from R2
+  const prefixes = [
+    `${user.id}/pdf/${presentationId}/`,
+    `${user.id}/audio/${presentationId}/`,
+  ]
+  for (const prefix of prefixes) {
+    const listed = await listFiles(prefix)
+    if (listed.success && listed.data.length > 0) {
+      await Promise.all(listed.data.map((obj: { Key: string }) => deleteFile(obj.Key)))
+    }
+  }
 
   // Delete the DB record
   const { error } = await supabase
