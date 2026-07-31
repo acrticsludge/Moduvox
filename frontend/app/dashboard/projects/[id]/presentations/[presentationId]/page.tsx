@@ -73,6 +73,9 @@ export default function PresentationCreatePage() {
   const [imageDescriptions, setImageDescriptions] = useState<Record<number, ImageDesc[]>>({})
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle")
   const [dirty, setDirty] = useState(false)
+  // Ref to avoid stale closure in handleChangedSlidesChange (narrations setState is async)
+  const narrationsRef = useRef<Record<number, string>>({})
+  useEffect(() => { narrationsRef.current = narrations }, [narrations])
   const [restoring, setRestoring] = useState(false)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
 
@@ -146,17 +149,20 @@ export default function PresentationCreatePage() {
       selectedVoiceId,
       controlInstructions,
       ultimateMode,
-      narrations,
+      narrations: narrationsRef.current,
       audioGenerated,
-      audioStoragePath: audioStoragePath ?? undefined,
-      storagePath,
-      currentSlide,
-      slideData: slideData.length > 0 ? slideData : undefined,
-      changedSlides: slides.length > 0 ? slides : undefined,
-      slideCount: slideData.length > 0 ? slideData.length : undefined,
-      imageDescriptions: Object.keys(imageDescriptions).length > 0 ? imageDescriptions : undefined,
-      parsedImageKeys: Object.keys(parsedImageKeys).length > 0 ? parsedImageKeys : undefined,
-    }
+        audioStoragePath: audioStoragePath ?? undefined,
+        storagePath,
+        currentSlide,
+        // Always include every field — never drop empty values to undefined.
+        // The PATCH endpoint replaces the entire JSONB column, so dropping a
+        // field permanently deletes it from the database.
+        slideData,
+        changedSlides: slides,
+        slideCount: slideData.length,
+        imageDescriptions,
+        parsedImageKeys,
+      }
     fetch(`/api/presentations/${params.presentationId}/state`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -197,6 +203,10 @@ export default function PresentationCreatePage() {
           if (saved.narrations) setNarrations(saved.narrations)
           if (saved.audioGenerated) setAudioGenerated(saved.audioGenerated)
           if (saved.storagePath) {
+            setStoragePath(saved.storagePath)
+            setMode("editor")
+          } else if (typeof saved.storagePath === "string") {
+            // storagePath exists but is empty string — still valid, treat as editor
             setStoragePath(saved.storagePath)
             setMode("editor")
           } else if ((p.slide_count ?? 0) > 0) {
@@ -243,6 +253,7 @@ export default function PresentationCreatePage() {
             // The combine endpoint reads all per-slide WAVs on demand
             setAudioUrl(`/api/presentations/${params.presentationId}/audio/combined`)
           }
+          if (saved.audioStoragePath) setAudioStoragePath(saved.audioStoragePath)
           if (saved.currentSlide !== undefined) setCurrentSlide(saved.currentSlide)
           if (saved.slideData?.length) setSlideData(saved.slideData)
           if (saved.changedSlides) setChangedSlides(saved.changedSlides)
@@ -271,11 +282,14 @@ export default function PresentationCreatePage() {
         audioStoragePath: audioStoragePath ?? undefined,
         storagePath,
         currentSlide,
-        slideData: slideData.length > 0 ? slideData : undefined,
-        changedSlides: changedSlides.length > 0 ? changedSlides : undefined,
-        slideCount: slideData.length > 0 ? slideData.length : undefined,
-        imageDescriptions: Object.keys(imageDescriptions).length > 0 ? imageDescriptions : undefined,
-        parsedImageKeys: Object.keys(parsedImageKeys).length > 0 ? parsedImageKeys : undefined,
+        // Always include every field — never drop empty values to undefined.
+        // The PATCH endpoint replaces the entire JSONB column, so dropping a
+        // field permanently deletes it from the database.
+        slideData,
+        changedSlides,
+        slideCount: slideData.length,
+        imageDescriptions,
+        parsedImageKeys,
       }
       fetch(`/api/presentations/${params.presentationId}/state`, {
         method: "PATCH",
