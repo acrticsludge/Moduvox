@@ -39,6 +39,9 @@ export function AudioPlayer({
   onEnded,
   onError,
   fullscreen,
+  initialCurrentTime = 0,
+  initialPlaying = false,
+  onTimeUpdate: onTimeUpdateProp,
 }: {
   audioUrl: string | null
   presentationId?: string
@@ -46,6 +49,12 @@ export function AudioPlayer({
   onEnded?: () => void
   onError?: () => void
   fullscreen?: boolean
+  /** Seek to this position (seconds) once the audio is ready. Used to preserve playback position across fullscreen toggle. */
+  initialCurrentTime?: number
+  /** Start playing once the audio is ready. Used to preserve play state across fullscreen toggle. */
+  initialPlaying?: boolean
+  /** Called on every timeupdate with the current position, for sharing state with sibling players. */
+  onTimeUpdate?: (time: number, playing: boolean) => void
 }) {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const [playing, setPlaying] = useState(false)
@@ -55,6 +64,7 @@ export function AudioPlayer({
   const [error, setError] = useState(false)
   const [playbackUrl, setPlaybackUrl] = useState<string | null>(null)
   const progressRef = useRef<HTMLDivElement>(null)
+  const initialSeekDone = useRef(false)
 
   // Build per-slide URL when slideNumber/presentationId are provided
   const resolvedUrl =
@@ -67,6 +77,7 @@ export function AudioPlayer({
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     let active = true
+    initialSeekDone.current = false
     setPlaying(false)
     setCurrentTime(0)
     setDuration(0)
@@ -92,9 +103,11 @@ export function AudioPlayer({
 
   const handleTimeUpdate = useCallback(() => {
     if (audioRef.current) {
-      setCurrentTime(audioRef.current.currentTime)
+      const t = audioRef.current.currentTime
+      setCurrentTime(t)
+      onTimeUpdateProp?.(t, playing)
     }
-  }, [])
+  }, [playing, onTimeUpdateProp])
 
   const handleLoadedMetadata = useCallback(() => {
     if (audioRef.current) {
@@ -102,6 +115,19 @@ export function AudioPlayer({
       setLoading(false)
     }
   }, [])
+
+  // Initial seek: when the audio is ready and an initial position was passed,
+  // seek to it and optionally resume playback.
+  useEffect(() => {
+    const el = audioRef.current
+    if (!el || loading || duration === 0 || initialCurrentTime <= 0 || initialSeekDone.current) return
+    initialSeekDone.current = true
+    el.currentTime = initialCurrentTime
+    setCurrentTime(initialCurrentTime)
+    if (initialPlaying) {
+      el.play().then(() => setPlaying(true)).catch(() => { /* autoplay blocked */ })
+    }
+  }, [loading, duration, initialCurrentTime, initialPlaying])
 
   const handleEnded = useCallback(() => {
     setPlaying(false)

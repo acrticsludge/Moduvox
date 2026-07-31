@@ -97,6 +97,11 @@ export function SlideEditor({
   const slidesRef = useRef<ParsedSlide[]>(slides)
   // Sync ref with state so pollForPdfs (useCallback, stale closure) can read current slides
   useEffect(() => { slidesRef.current = slides }, [slides])
+  // Shared audio position ref — updated by visible AudioPlayer, used by fullscreen instance for initial seek
+  const audioPositionRef = useRef<{ currentTime: number; playing: boolean }>({ currentTime: 0, playing: false })
+  const handleAudioTimeUpdate = useCallback((time: number, playing: boolean) => {
+    audioPositionRef.current = { currentTime: time, playing }
+  }, [])
   const [internalIndex, setInternalIndex] = useState(0)
   const [generating, setGenerating] = useState(false)
   const [internalAudioGenerated, setInternalAudioGenerated] = useState(false)
@@ -1573,6 +1578,8 @@ export function SlideEditor({
                   presentationId={presentationId}
                   slideNumber={currentIndex + 1}
                   fullscreen
+                  initialCurrentTime={audioPositionRef.current.currentTime}
+                  initialPlaying={audioPositionRef.current.playing}
                 />
               </div>
             </div>
@@ -1759,6 +1766,7 @@ export function SlideEditor({
                 audioUrl={audioUrl}
                 presentationId={presentationId}
                 slideNumber={currentIndex + 1}
+                onTimeUpdate={handleAudioTimeUpdate}
               />
             )}
 
@@ -1983,6 +1991,7 @@ export function SlideEditor({
                     audioUrl={audioUrl}
                     presentationId={presentationId}
                     slideNumber={currentIndex + 1}
+                    onTimeUpdate={handleAudioTimeUpdate}
                   />
                 )}
 

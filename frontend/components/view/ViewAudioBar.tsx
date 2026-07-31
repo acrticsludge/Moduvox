@@ -5,6 +5,7 @@ import { Howl } from "howler"
 import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Loader2 } from "lucide-react"
 import { Slider } from "@/components/ui/slider"
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip"
+import { cn } from "@/lib/utils"
 
 const SPEEDS = [0.75, 1, 1.25, 1.5, 2] as const
 const PROGRESS_INTERVAL_MS = 30_000
@@ -501,7 +502,13 @@ export function ViewAudioBar({
           <Tooltip>
             <TooltipTrigger asChild>
               <button type="button" aria-label="Skip back 10 seconds" onClick={() => skipSeconds(-10)} disabled={!ready}
-                className="touch-target-sm touch-manipulation shrink-0 rounded-md text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 disabled:opacity-30 disabled:pointer-events-none">
+                className={cn(
+                  "touch-target-sm touch-manipulation shrink-0 rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 disabled:opacity-30 disabled:pointer-events-none",
+                  fullscreen
+                    ? "text-white/50 hover:bg-white/10 hover:text-white"
+                    : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
+                )}
+              >
                 <SkipBack className="h-4 w-4" />
               </button>
             </TooltipTrigger>
@@ -531,7 +538,10 @@ export function ViewAudioBar({
           </Tooltip>
 
           {/* Progress slider */}
-          <div className="order-last flex basis-full items-center gap-3 sm:order-none sm:min-w-0 sm:flex-1 sm:basis-auto">
+          <div className={cn(
+            "order-last flex basis-full items-center gap-3 sm:order-none sm:min-w-0 sm:flex-1 sm:basis-auto",
+            fullscreen && "[&_[data-orientation='horizontal']]:bg-white/20 [&_[data-orientation='horizontal']>span]:bg-white [&_span.border-primary]:border-white [&_[class*='ring-offset-background']]:ring-offset-[#18181B]"
+          )}>
             <Slider
               value={[Math.min(currentTime, duration || 1)]}
               max={duration || 1}
@@ -544,7 +554,10 @@ export function ViewAudioBar({
             {/* Time display */}
               <button type="button" onClick={() => setShowTimeRemaining((r) => !r)}
               aria-label={showTimeRemaining ? "Elapsed time" : "Remaining time"}
-              className="shrink-0 whitespace-nowrap text-xs font-medium tabular-nums text-zinc-500 transition-colors hover:text-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 rounded px-1">
+              className={cn(
+                "shrink-0 whitespace-nowrap text-xs font-medium tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 rounded px-1",
+                fullscreen ? "text-white/60 hover:text-white" : "text-zinc-500 hover:text-zinc-700"
+              )}>
               {timeLabel}
             </button>
           </div>
@@ -553,7 +566,10 @@ export function ViewAudioBar({
           <Tooltip>
             <TooltipTrigger asChild>
               <button type="button" aria-label={`Playback speed. Current: ${currentSpeed}x`} onClick={cycleSpeed} disabled={!ready}
-                className="touch-target-sm rounded-md px-2 text-xs font-medium text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 disabled:opacity-30 disabled:pointer-events-none">
+                className={cn(
+                  "touch-target-sm rounded-md px-2 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 disabled:opacity-30 disabled:pointer-events-none",
+                  fullscreen ? "text-white/60 hover:bg-white/10 hover:text-white" : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700"
+                )}>
                 {currentSpeed}x
               </button>
             </TooltipTrigger>
@@ -565,11 +581,17 @@ export function ViewAudioBar({
             onMouseEnter={() => setShowVolumeSlider(true)}
             onMouseLeave={() => setShowVolumeSlider(false)}>
             <button type="button" aria-label={muted ? "Unmute" : "Mute"} onClick={() => { toggleMute(); setShowVolumeSlider(!showVolumeSlider); }} disabled={!ready}
-              className="touch-target-sm shrink-0 rounded-md text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 disabled:opacity-30 disabled:pointer-events-none">
+              className={cn(
+                "touch-target-sm shrink-0 rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 disabled:opacity-30 disabled:pointer-events-none",
+                fullscreen ? "text-white/50 hover:bg-white/10 hover:text-white" : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
+              )}>
               {muted || volume === 0 ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
             </button>
             {showVolumeSlider && (
-              <div className="w-20">
+              <div className={cn(
+                "w-20",
+                fullscreen && "[&_[data-orientation='horizontal']]:bg-white/20 [&_[data-orientation='horizontal']>span]:bg-white [&_span.border-primary]:border-white [&_[class*='ring-offset-background']]:ring-offset-[#18181B]"
+              )}>
                 <Slider value={[muted ? 0 : volume]} max={100} step={1} onValueChange={handleVolume} aria-label="Volume" />
               </div>
             )}
