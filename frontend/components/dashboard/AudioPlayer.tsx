@@ -1,14 +1,17 @@
 "use client"
 
 import { useRef, useState, useEffect, useCallback } from "react"
-import { Pause, Play, Loader2 } from "lucide-react"
+import { Pause, Play, Loader2, SkipBack, SkipForward, Volume2, VolumeX } from "lucide-react"
+import { Slider } from "@/components/ui/slider"
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip"
+import { cn } from "@/lib/utils"
 
+const SPEEDS = [0.75, 1, 1.25, 1.5, 2] as const
 const audioBlobCache = new Map<string, Promise<string | null>>()
 
 export function preloadAudioUrl(url: string): Promise<string | null> {
   const existing = audioBlobCache.get(url)
   if (existing) return existing
-
   const request = fetch(url)
     .then(async (response) => {
       if (!response.ok) return null
@@ -16,7 +19,6 @@ export function preloadAudioUrl(url: string): Promise<string | null> {
       return URL.createObjectURL(blob)
     })
     .catch(() => null)
-
   audioBlobCache.set(url, request)
   return request
 }
@@ -49,11 +51,8 @@ export function AudioPlayer({
   onEnded?: () => void
   onError?: () => void
   fullscreen?: boolean
-  /** Seek to this position (seconds) once the audio is ready. Used to preserve playback position across fullscreen toggle. */
   initialCurrentTime?: number
-  /** Start playing once the audio is ready. Used to preserve play state across fullscreen toggle. */
   initialPlaying?: boolean
-  /** Called on every timeupdate with the current position, for sharing state with sibling players. */
   onTimeUpdate?: (time: number, playing: boolean) => void
 }) {
   const audioRef = useRef<HTMLAudioElement | null>(null)
@@ -63,8 +62,14 @@ export function AudioPlayer({
   const [duration, setDuration] = useState(0)
   const [error, setError] = useState(false)
   const [playbackUrl, setPlaybackUrl] = useState<string | null>(null)
-  const progressRef = useRef<HTMLDivElement>(null)
   const initialSeekDone = useRef(false)
+
+  // Speed, volume, elapsed/remaining state
+  const [speed, setSpeed] = useState(1)
+  const [volume, setVolume] = useState(100)
+  const [muted, setMuted] = useState(false)
+  const [showRemaining, setShowRemaining] = useState(false)
+  const [showVolumeSlider, setShowVolumeSlider] = useState(false)
 
   // Build per-slide URL when slideNumber/presentationId are provided
   const resolvedUrl =
@@ -73,7 +78,6 @@ export function AudioPlayer({
       : audioUrl
 
   // Reset when resolvedUrl changes
-  // Reset playback state whenever the active slide's audio changes.
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     let active = true
@@ -83,9 +87,6 @@ export function AudioPlayer({
     setDuration(0)
     setLoading(true)
     setError(false)
-    // Keep the element unloaded until the shared cache resolves. Assigning the
-    // network URL here first would trigger a duplicate request before the blob
-    // URL is ready, which is especially noticeable when changing slides.
     setPlaybackUrl(null)
 
     if (!resolvedUrl) {
@@ -100,6 +101,18 @@ export function AudioPlayer({
     return () => { active = false }
   }, [resolvedUrl])
   /* eslint-enable react-hooks/set-state-in-effect */
+
+  // Apply speed to audio element
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.playbackRate = speed
+  }, [speed])
+
+  // Apply volume to audio element
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = muted ? 0 : volume / 100
+    }
+  }, [volume, muted])
 
   const handleTimeUpdate = useCallback(() => {
     if (audioRef.current) {
@@ -116,8 +129,7 @@ export function AudioPlayer({
     }
   }, [])
 
-  // Initial seek: when the audio is ready and an initial position was passed,
-  // seek to it and optionally resume playback.
+  // Initial seek: when the audio is ready and an initial position was passed
   useEffect(() => {
     const el = audioRef.current
     if (!el || loading || duration === 0 || initialCurrentTime <= 0 || initialSeekDone.current) return
@@ -142,19 +154,40 @@ export function AudioPlayer({
       audioRef.current.pause()
       setPlaying(false)
     } else {
-      audioRef.current.play().then(() => setPlaying(true)).catch(() => {
-        // Browser blocked autoplay or network error — keep playing=false
-      })
+      audioRef.current.play().then(() => setPlaying(true)).catch(() => {})
     }
   }, [playing, resolvedUrl])
 
-  function handleSeek(e: React.MouseEvent<HTMLDivElement>) {
-    if (!progressRef.current || !audioRef.current || !duration) return
-    const rect = progressRef.current.getBoundingClientRect()
-    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
-    audioRef.current.currentTime = ratio * duration
-    setCurrentTime(ratio * duration)
-  }
+  const skipSeconds = useCallback((delta: number) => {
+    if (!audioRef.current || !duration) return
+    const next = Math.max(0, Math.min(duration, audioRef.current.currentTime + delta))
+    audioRef.current.currentTime = next
+    setCurrentTime(next)
+  }, [duration])
+
+  const handleSeek = useCallback((value: number[]) => {
+    const t = value[0]
+    if (audioRef.current) audioRef.current.currentTime = t
+    setCurrentTime(t)
+  }, [])
+
+  const cycleSpeed = useCallback(() => {
+    setSpeed((s) => {
+      const idx = SPEEDS.indexOf(s as typeof SPEEDS[number])
+      return idx >= 0 ? SPEEDS[(idx + 1) % SPEEDS.length] : 1
+    })
+  }, [])
+
+  const toggleMute = useCallback(() => setMuted((m) => !m), [])
+
+  const ready = !loading && !error && !!playbackUrl
+  const timeLabel = (() => {
+    if (showRemaining) {
+      const rem = Math.max(0, duration - currentTime)
+      return `-${formatTime(rem)} / ${formatTime(duration)}`
+    }
+    return `${formatTime(currentTime)} / ${formatTime(duration)}`
+  })()
 
   if (!resolvedUrl) return null
 
@@ -167,54 +200,113 @@ export function AudioPlayer({
     )
   }
 
-  const progress = duration > 0 ? (currentTime / duration) * 100 : 0
+  // Dark wrapper in fullscreen mode; light border-card in normal mode
+  const darkOverrides = "[&_[data-orientation='horizontal']]:bg-white/20 [&_[data-orientation='horizontal']>span]:bg-white [&_span.border-primary]:border-white [&_[class*='ring-offset-background']]:ring-offset-[#18181B]"
 
-  return (
-    <div className={`flex items-center gap-3 ${fullscreen ? "p-0" : "rounded-xl border border-zinc-200 bg-white p-3 shadow-sm"}`}>
+  const controls = (
+    <div className={cn("mx-auto flex max-w-[1400px] flex-wrap items-center gap-1.5 px-3 py-2.5 sm:flex-nowrap sm:px-4", fullscreen && "text-white")}>
+      {/* Skip back 10s */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button type="button" aria-label="Skip back 10 seconds" onClick={() => skipSeconds(-10)} disabled={!ready}
+            className={cn(
+              "touch-target-sm touch-manipulation shrink-0 rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 disabled:opacity-30 disabled:pointer-events-none",
+              fullscreen ? "text-white/50 hover:bg-white/10 hover:text-white" : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
+            )}>
+            <SkipBack className="h-4 w-4" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top">Back 10s</TooltipContent>
+      </Tooltip>
+
       {/* Play/Pause */}
-      <button
-        type="button"
-        onClick={togglePlay}
-        disabled={loading}
-        className="flex min-h-[44px] min-w-[44px] flex-shrink-0 items-center justify-center rounded-full bg-[#18181B] text-white transition-colors hover:bg-[#27272A] disabled:opacity-50 sm:h-9 sm:w-9"
-        aria-label={playing ? "Pause" : "Play"}
-      >
-        {loading ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : playing ? (
-          <Pause className="h-4 w-4" />
-        ) : (
-          <Play className="h-4 w-4 ml-0.5" />
-        )}
-      </button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button type="button" aria-label={playing ? "Pause" : "Play"} onClick={togglePlay} disabled={!ready}
+            className="touch-target touch-manipulation shrink-0 rounded-full bg-[#18181B] text-white transition-colors hover:bg-[#27272A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed">
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : playing ? <Pause className="h-4 w-4" /> : <Play className="ml-0.5 h-4 w-4" />}
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top">{playing ? "Pause" : "Play"}</TooltipContent>
+      </Tooltip>
 
-      {/* Time / Seek bar */}
-      <div className="flex flex-1 items-center gap-2">
-        <span className={`w-8 text-right text-[11px] tabular-nums ${fullscreen ? "text-zinc-400" : "text-[#71717A]"}`}>
-          {formatTime(currentTime)}
-        </span>
-        <div
-          ref={progressRef}
-          onClick={handleSeek}
-          className="relative flex-1 cursor-pointer"
-        >
-          <div className={`h-1.5 rounded-full ${fullscreen ? "bg-zinc-700" : "bg-zinc-200"}`}>
-            <div
-              className={`h-1.5 rounded-full ${fullscreen ? "bg-white/60" : "bg-[#18181B]"} transition-[width] duration-75`}
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-          {/* Hidden seek thumb for accessibility */}
-          <div
-            className={`absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full ${fullscreen ? "bg-white/60" : "bg-[#18181B]"} opacity-0 transition-opacity group-hover:opacity-100`}
-            style={{ left: `calc(${progress}% - 6px)` }}
-          />
-        </div>
-        <span className={`w-8 text-left text-[11px] tabular-nums ${fullscreen ? "text-zinc-400" : "text-[#71717A]"}`}>
-          {formatTime(duration)}
-        </span>
+      {/* Skip forward 10s */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button type="button" aria-label="Skip forward 10 seconds" onClick={() => skipSeconds(10)} disabled={!ready}
+            className={cn(
+              "touch-target-sm touch-manipulation shrink-0 rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 disabled:opacity-30 disabled:pointer-events-none",
+              fullscreen ? "text-white/50 hover:bg-white/10 hover:text-white" : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
+            )}>
+            <SkipForward className="h-4 w-4" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top">Forward 10s</TooltipContent>
+      </Tooltip>
+
+      {/* Progress slider */}
+      <div className={cn(
+        "order-last flex basis-full items-center gap-3 sm:order-none sm:min-w-0 sm:flex-1 sm:basis-auto",
+        fullscreen && darkOverrides
+      )}>
+        <Slider
+          value={[Math.min(currentTime, duration || 1)]}
+          max={duration || 1}
+          step={1}
+          disabled={!ready}
+          onValueChange={handleSeek}
+          aria-label="Audio progress"
+        />
+        <button type="button" onClick={() => setShowRemaining((r) => !r)}
+          aria-label={showRemaining ? "Elapsed time" : "Remaining time"}
+          className={cn(
+            "shrink-0 whitespace-nowrap text-xs font-medium tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 rounded px-1",
+            fullscreen ? "text-white/60 hover:text-white" : "text-zinc-500 hover:text-zinc-700"
+          )}>
+          {timeLabel}
+        </button>
       </div>
 
+      {/* Speed */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button type="button" aria-label={`Playback speed. Current: ${speed}x`} onClick={cycleSpeed} disabled={!ready}
+            className={cn(
+              "touch-target-sm rounded-md px-2 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 disabled:opacity-30 disabled:pointer-events-none",
+              fullscreen ? "text-white/60 hover:bg-white/10 hover:text-white" : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700"
+            )}>
+            {speed}x
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top">Speed</TooltipContent>
+      </Tooltip>
+
+      {/* Volume */}
+      <div className="relative flex items-center gap-1"
+        onMouseEnter={() => setShowVolumeSlider(true)}
+        onMouseLeave={() => setShowVolumeSlider(false)}>
+        <button type="button" aria-label={muted ? "Unmute" : "Mute"}
+          onClick={() => { toggleMute(); setShowVolumeSlider(!showVolumeSlider); }} disabled={!ready}
+          className={cn(
+            "touch-target-sm shrink-0 rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 disabled:opacity-30 disabled:pointer-events-none",
+            fullscreen ? "text-white/50 hover:bg-white/10 hover:text-white" : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
+          )}>
+          {muted || volume === 0 ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+        </button>
+        {showVolumeSlider && (
+          <div className={cn("w-20", fullscreen && darkOverrides)}>
+            <Slider value={[muted ? 0 : volume]} max={100} step={1} onValueChange={([v]) => setVolume(v)} aria-label="Volume" />
+          </div>
+        )}
+      </div>
+    </div>
+  )
+
+  return (
+    <TooltipProvider delayDuration={300}>
+      <div className={fullscreen ? "border-t border-white/10 bg-[#18181B]" : "rounded-xl border border-zinc-200 bg-white shadow-sm"}>
+        {controls}
+      </div>
       {/* Hidden audio element */}
       <audio
         ref={audioRef}
@@ -225,6 +317,6 @@ export function AudioPlayer({
         onEnded={handleEnded}
         onError={() => { setLoading(false); setError(true); onError?.() }}
       />
-    </div>
+    </TooltipProvider>
   )
 }

@@ -102,6 +102,14 @@ export function SlideEditor({
   const handleAudioTimeUpdate = useCallback((time: number, playing: boolean) => {
     audioPositionRef.current = { currentTime: time, playing }
   }, [])
+  // Key that increments when exiting fullscreen, forcing desktop AudioPlayer to remount
+  // with fresh initialCurrentTime/initialPlaying from audioPositionRef (no audio gap).
+  const [fullscreenExitKey, setFullscreenExitKey] = useState(0)
+  useEffect(() => {
+    if (!isFullscreen) setFullscreenExitKey((k) => k + 1)
+    // We intentionally only want this to fire on the falling edge (true → false).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isFullscreen])
   const [internalIndex, setInternalIndex] = useState(0)
   const [generating, setGenerating] = useState(false)
   const [internalAudioGenerated, setInternalAudioGenerated] = useState(false)
@@ -1598,22 +1606,18 @@ export function SlideEditor({
           </div>
         )}
 
-        {/* Audio player for fullscreen mode — fades in on hover at bottom (matches viewer fullscreen pattern) */}
+        {/* Audio player for fullscreen mode — anchored at bottom */}
         {isFullscreen && audioUrl && (
-          <div className="absolute bottom-0 left-0 right-0 z-[100] opacity-0 transition-opacity duration-300 hover:opacity-100 pointer-events-auto">
-            <div className="border-t border-white/10 bg-[#18181B] text-white">
-              <div className="mx-auto max-w-3xl px-4 py-3">
-                <AudioPlayer
-                  audioUrl={audioUrl}
-                  presentationId={presentationId}
-                  slideNumber={currentIndex + 1}
-                  fullscreen
-                  initialCurrentTime={audioPositionRef.current.currentTime}
-                  initialPlaying={audioPositionRef.current.playing}
-                  onTimeUpdate={handleAudioTimeUpdate}
-                />
-              </div>
-            </div>
+          <div className="absolute bottom-0 left-0 right-0 z-[100] pointer-events-auto">
+            <AudioPlayer
+              audioUrl={audioUrl}
+              presentationId={presentationId}
+              slideNumber={currentIndex + 1}
+              fullscreen
+              initialCurrentTime={audioPositionRef.current.currentTime}
+              initialPlaying={audioPositionRef.current.playing}
+              onTimeUpdate={handleAudioTimeUpdate}
+            />
           </div>
         )}
       </div>
@@ -1792,11 +1796,14 @@ export function SlideEditor({
             )}
 
             {/* Audio player */}
-            {audioUrl && !isFullscreen && (
+            {audioUrl && (
               <AudioPlayer
+                key={`desktop-${fullscreenExitKey}`}
                 audioUrl={audioUrl}
                 presentationId={presentationId}
                 slideNumber={currentIndex + 1}
+                initialCurrentTime={fullscreenExitKey > 0 ? audioPositionRef.current.currentTime : 0}
+                initialPlaying={fullscreenExitKey > 0 ? audioPositionRef.current.playing : false}
                 onTimeUpdate={handleAudioTimeUpdate}
               />
             )}
@@ -2017,11 +2024,14 @@ export function SlideEditor({
                 )}
 
                 {/* Audio player */}
-                {audioUrl && !isFullscreen && (
+                {audioUrl && (
                   <AudioPlayer
+                    key={`mobile-${fullscreenExitKey}`}
                     audioUrl={audioUrl}
                     presentationId={presentationId}
                     slideNumber={currentIndex + 1}
+                    initialCurrentTime={fullscreenExitKey > 0 ? audioPositionRef.current.currentTime : 0}
+                    initialPlaying={fullscreenExitKey > 0 ? audioPositionRef.current.playing : false}
                     onTimeUpdate={handleAudioTimeUpdate}
                   />
                 )}
