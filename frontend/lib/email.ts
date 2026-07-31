@@ -50,6 +50,11 @@ export async function sendEmail({
     })
 
     if (!queueError) {
+      // Wake the Render worker to ensure timely email delivery
+      // (Vercel Hobby ignores cron jobs; lazy wake is the fallback)
+      if (process.env.RENDER_WORKER_URL) {
+        fetch(`${process.env.RENDER_WORKER_URL}/health`).catch(() => {})
+      }
       return { success: true }
     }
 

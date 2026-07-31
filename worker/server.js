@@ -9,6 +9,8 @@ import { pipeline } from "stream/promises";
 import fetch from "node-fetch";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
+import { isValidWav, concatWavBuffers } from "./lib/wav-utils.js";
+import { getObject, putObject, deleteObject, copyObject } from "./lib/r2.js";
 
 const app = express();
 app.use(express.json({ limit: "1mb" }));
@@ -215,6 +217,71 @@ app.post("/convert", auth, async (req, res) => {
     res.status(500).json({ error: err.message });
   } finally {
     if (existsSync(TMP_DIR)) rmSync(TMP_DIR, { recursive: true });
+  }
+});
+
+// ── Rebuild combined audio from per-slide WAVs ─────────────────────
+app.post("/rebuild-audio", auth, async (req, res) => {
+  try {
+    const { userId, presentationId, slideCount } = req.body;
+    if (!userId || !presentationId || !slideCount || slideCount < 1) {
+      return res.status(400).json({ error: "Missing userId, presentationId, or valid slideCount" });
+    }
+
+    const prefix = `${userId}/audio/${presentationId}/slides/`;
+    const combinedKey = `${userId}/audio/${presentationId}/combined.wav`;
+    const tempKey = `${userId}/audio/${presentationId}/combined-rebuild.wav`;
+
+    // Download all slide WAVs in parallel
+    const downloadJobs = [];
+    for (let i = 1; i <= slideCount; i++) {
+      const key = `${prefix}slide-${i}.wav`;
+      downloadJobs.push(getObject(key));
+    }
+    const results = await Promise.all(downloadJobs);
+
+    // Collect valid WAV buffers
+    const wavBuffers = [];
+    for (let i = 0; i < results.length; i++) {
+      const r = results[i];
+      if (r.success && r.data && isValidWav(r.data)) {
+        wavBuffers.push(r.data);
+      } else {
+        console.warn(`[rebuild-audio] Skipping slide ${i + 1}: ${r.error || "invalid WAV"}`);
+      }
+    }
+
+    if (wavBuffers.length === 0) {
+      return res.status(500).json({ error: "No valid slide WAVs found" });
+    }
+
+    console.log(`[rebuild-audio] Concatenating ${wavBuffers.length} slide WAVs`);
+    const combined = concatWavBuffers(wavBuffers);
+
+    // Write to temp key first (atomic swap pattern)
+    const tempResult = await putObject(tempKey, combined, "audio/wav");
+    if (!tempResult.success) {
+      return res.status(500).json({ error: "Failed to write temp combined audio" });
+    }
+
+    // Delete old combined.wav
+    await deleteObject(combinedKey);
+
+    // Copy temp to final key (atomic on R2)
+    const copyResult = await copyObject(tempKey, combinedKey);
+    if (!copyResult.success) {
+      // Temp file persists — next rebuild will clean it up
+      return res.status(500).json({ error: "Failed to promote combined audio" });
+    }
+
+    // Clean up temp
+    await deleteObject(tempKey);
+
+    console.log(`[rebuild-audio] Done — ${combined.length} bytes`);
+    res.json({ ok: true, size: combined.length });
+  } catch (err) {
+    console.error("[rebuild-audio] Error:", err.message);
+    res.status(500).json({ error: err.message });
   }
 });
 

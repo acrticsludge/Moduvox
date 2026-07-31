@@ -22,8 +22,9 @@ type ViewAudioBarProps = {
   slideCount?: number
   totalDurationMs?: number
   audioUrl?: string
-  versionStatus?: "synced" | "outdated" | null
+  versionStatus?: "synced" | "outdated" | "access_changed" | null
   onRefresh?: () => void
+  onRevalidateAccess?: () => void
   refreshing?: boolean
   slideTimings?: SlideTiming[]
   onSlideChange?: (slideNumber: number) => void
@@ -36,7 +37,7 @@ type ViewAudioBarProps = {
 
 export function ViewAudioBar({
   shareToken, sessionToken, presentationId, slideCount = 0, totalDurationMs, audioUrl,
-  versionStatus, onRefresh, slideTimings = [], onSlideChange,
+  versionStatus, onRefresh, onRevalidateAccess, slideTimings = [], onSlideChange,
   seekToSlideRef, onDurationReady, refreshing = false, trackingEnabled = true,
   fullscreen = false,
 }: ViewAudioBarProps) {
@@ -608,12 +609,21 @@ export function ViewAudioBar({
             <div className="ml-auto flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] leading-none"
               style={versionStatus === "synced"
                 ? { borderColor: "#bbf7d0", backgroundColor: "#f0fdf4", color: "#166534" }
+                : versionStatus === "access_changed"
+                ? { borderColor: "#fed7aa", backgroundColor: "#fff7ed", color: "#9a3412" }
                 : { borderColor: "#fde68a", backgroundColor: "#fffbeb", color: "#92400e" }}
             >
               {versionStatus === "synced" ? (
                 <>
                   <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
                   <span>Up to date</span>
+                </>
+              ) : versionStatus === "access_changed" ? (
+                <>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                  <button type="button" onClick={onRevalidateAccess} className="underline decoration-dotted underline-offset-2 hover:decoration-solid leading-none">
+                    Access changed — Verify
+                  </button>
                 </>
               ) : (
                 <>

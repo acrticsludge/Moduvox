@@ -120,12 +120,13 @@ export default function ViewPresentationPage() {
   const loadingRef = useRef(false)
   const [audioRefreshKey, setAudioRefreshKey] = useState(0)
   const [convertFailed, setConvertFailed] = useState(false)
-  const [versionStatus, setVersionStatus] = useState<"synced" | "outdated" | null>(null)
+  const [versionStatus, setVersionStatus] = useState<"synced" | "outdated" | "access_changed" | null>(null)
   const [firstWatch, setFirstWatch] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [realDurationMs, setRealDurationMs] = useState<number | undefined>(undefined)
   const viewDataRef = useRef<{ title: string; created_at?: string; slide_count?: number; expires_at?: string | null; total_duration_ms?: number; audio_url?: string | null; audio_version?: number; slide_timings?: SlideTiming[]; viewer_created_at?: string | null; presentation_id?: string; viewer_id?: string | null; first_watch_done?: boolean; viewer_tracking_enabled?: boolean } | null>(null)
   const audioVersionRef = useRef(0)
+  const gateRef = useRef<{ hasPassword: boolean; emailGateEnabled: boolean }>({ hasPassword: false, emailGateEnabled: false })
   const sessionRef = useRef("")
   const seekToSlideRef = useRef<SeekToSlideFn | null>(null)
   const blobUrlsRef = useRef<string[]>([])
@@ -253,6 +254,7 @@ export default function ViewPresentationPage() {
       const data = json.data
       viewDataRef.current = data
       audioVersionRef.current = data.audio_version ?? 0
+      gateRef.current = { hasPassword: data.has_password ?? false, emailGateEnabled: data.email_gate_enabled ?? false }
       setVersionStatus("synced")
       // Invert: first_watch_done means "was completed", firstWatch means "is this the first"
       if (data.first_watch_done !== undefined) setFirstWatch(!data.first_watch_done)
@@ -338,6 +340,7 @@ export default function ViewPresentationPage() {
 
               viewDataRef.current = viewJson.data
               audioVersionRef.current = viewJson.data.audio_version ?? 0
+              gateRef.current = { hasPassword: viewJson.data.has_password ?? false, emailGateEnabled: viewJson.data.email_gate_enabled ?? false }
               setVersionStatus("synced")
               // Invert: first_watch_done means "was completed", firstWatch means "is this the first"
               if (viewJson.data.first_watch_done !== undefined) setFirstWatch(!viewJson.data.first_watch_done)
@@ -512,6 +515,16 @@ export default function ViewPresentationPage() {
             viewDataRef.current = { ...viewDataRef.current!, slide_count: newSlideCount, total_duration_ms: newDuration }
           }
         }
+
+        // Detect access-control changes (password or email gate enabled mid-session)
+        const newHasPassword = json.data.has_password ?? false
+        const newEmailGate = json.data.email_gate_enabled ?? false
+        const prevGate = gateRef.current
+        const gateEnabledSinceLastPoll = (newHasPassword || newEmailGate) && (!prevGate.hasPassword && !prevGate.emailGateEnabled)
+        gateRef.current = { hasPassword: newHasPassword, emailGateEnabled: newEmailGate }
+        if (gateEnabledSinceLastPoll) {
+          setVersionStatus("access_changed")
+        }
       } catch {
         // silent — polling errors should not disrupt the viewer
       }
@@ -555,6 +568,43 @@ export default function ViewPresentationPage() {
     setAudioRefreshKey(k => k + 1)
     setVersionStatus("synced")
     setRefreshing(false)
+  }
+
+  // Revalidate access when the owner changes gate settings mid-viewing.
+  // Fetches without session token to check if a gate is now required.
+  async function revalidateAccess() {
+    try {
+      const res = await fetch(`/api/view/${shareToken}`)
+      if (!res.ok) {
+        if (res.status === 410) {
+          const json = await res.json().catch(() => ({}))
+          clearGateState(shareToken)
+          if (json.error?.toLowerCase().includes("archived")) {
+            setState({ type: "archived" })
+          } else if (json.error?.toLowerCase().includes("no slides")) {
+            setState({ type: "no_content" })
+          } else {
+            setState({ type: "expired" })
+          }
+          return
+        }
+        setState({ type: "not_found" })
+        return
+      }
+      const json = await res.json()
+      if (!json.data) return
+
+      if (json.data.has_password || json.data.email_gate_enabled) {
+        // Gate is now required — send viewer back to gate dialog
+        clearGateState(shareToken)
+        setState({ type: "gate", meta: json.data })
+      } else {
+        // Gate was disabled again — just clear the warning
+        setVersionStatus("synced")
+      }
+    } catch {
+      // Network error — keep watching, banner stays until next poll
+    }
   }
 
   function clampSlide(sn: number) {
@@ -913,6 +963,7 @@ export default function ViewPresentationPage() {
                 audioUrl={viewDataRef.current?.audio_url || undefined}
                 versionStatus={versionStatus}
                 onRefresh={applyChanges}
+                onRevalidateAccess={revalidateAccess}
                 refreshing={refreshing}
                 slideTimings={viewDataRef.current?.slide_timings}
                 onSlideChange={(sn) => {

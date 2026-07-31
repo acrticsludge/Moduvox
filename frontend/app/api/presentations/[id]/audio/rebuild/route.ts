@@ -1,17 +1,15 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { concatWavBuffers, isValidWav } from "@/lib/wav-utils"
-import { listFiles, downloadFileAsBuffer, uploadFile, deleteFile } from "@/lib/r2"
 import { withApiHandler } from "@/lib/api-handler"
 
 /**
  * POST /api/presentations/[id]/audio/rebuild
  *
- * Rebuild combined.wav from per-slide WAVs and bump audio_version.
- * Called by the editor after all per-slide audio generation is complete.
- * This prevents race conditions where a viewer requests combined audio
- * while individual slides are still being generated.
+ * Bump audio_version and delegate the slow combined-WAV rebuild to the
+ * Render worker.  On Vercel Hobby (10s timeout) the R2 download+concat+upload
+ * is guaranteed to time out, so we fire-and-forget to the worker which has
+ * no timeout constraint.
  */
 export const POST = withApiHandler(async (
   _request: Request,
@@ -25,69 +23,23 @@ export const POST = withApiHandler(async (
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const slidesPrefix = `${user.id}/audio/${presentationId}/slides/`
-  const combinedKey = `${user.id}/audio/${presentationId}/combined.wav`
+  // Get slide count from editor_state for the worker
+  const { data: presentation, error: presError } = await supabase
+    .from("presentations")
+    .select("editor_state, slide_count")
+    .eq("id", presentationId)
+    .single()
 
-  // List per-slide WAVs
-  const allFiles = await listFiles(slidesPrefix)
-  if (!allFiles.success || allFiles.data.length === 0) {
-    return NextResponse.json({ error: "No slide audio files found" }, { status: 404 })
+  if (presError || !presentation) {
+    return NextResponse.json({ error: "Presentation not found" }, { status: 404 })
   }
 
-  // Parse slide numbers and sort
-  const slideFiles = allFiles.data
-    .map((f) => {
-      const key = f.Key ?? ""
-      const name = key.replace(slidesPrefix, "")
-      const match = name.match(/^slide-(\d+)\.wav$/)
-      return match ? { number: parseInt(match[1], 10), key } : null
-    })
-    .filter(Boolean)
-    .sort((a, b) => a!.number - b!.number) as { number: number; key: string }[]
-
-  if (slideFiles.length === 0) {
-    return NextResponse.json({ error: "No slide audio files found" }, { status: 404 })
+  const slideCount = presentation.slide_count ?? 0
+  if (slideCount === 0) {
+    return NextResponse.json({ error: "No slides to rebuild" }, { status: 400 })
   }
 
-  // Read and concatenate all per-slide WAVs
-  const wavBuffers: Buffer[] = []
-  for (const sf of slideFiles) {
-    const result = await downloadFileAsBuffer(sf.key)
-    if (result.success && isValidWav(result.data)) {
-      wavBuffers.push(result.data)
-    } else {
-      console.warn(`[rebuild] Skipping corrupt or missing slide ${sf.number}`)
-    }
-  }
-
-  if (wavBuffers.length === 0) {
-    return NextResponse.json({ error: "Failed to read slide audio files" }, { status: 500 })
-  }
-
-  const combined = concatWavBuffers(wavBuffers)
-
-  // Write to a temp key first to avoid delete-before-write data loss.
-  // If the R2 write succeeds, remove the old combined.wav and upload in its place.
-  const tempKey = combinedKey.replace(".wav", "-rebuild.wav")
-  const tempResult = await uploadFile(tempKey, combined, "audio/wav")
-  if (!tempResult.success) {
-    return NextResponse.json({ error: "Failed to save combined audio" }, { status: 500 })
-  }
-
-  // Delete old combined.wav
-  await deleteFile(combinedKey)
-
-  // Write to real key (buffer still in memory)
-  const uploadResult = await uploadFile(combinedKey, combined, "audio/wav")
-  if (!uploadResult.success) {
-    console.error(`[rebuild] Failed to write final combined.wav — temp file preserved at ${tempKey}`)
-    return NextResponse.json({ error: "Failed to save combined audio" }, { status: 500 })
-  }
-
-  // Clean up temp file
-  await deleteFile(tempKey).catch(() => {})
-
-  // Bump audio_version so viewers know to refresh
+  // Bump audio_version immediately so viewers know an update is coming
   try {
     const admin = createAdminClient()
     await admin.rpc("increment_audio_version", { p_presentation_id: presentationId })
@@ -95,11 +47,34 @@ export const POST = withApiHandler(async (
     console.error("[rebuild] Failed to bump audio_version:", err)
   }
 
+  // Fire-and-forget to worker for the heavy R2 I/O
+  const workerUrl = process.env.RENDER_WORKER_URL
+  const workerKey = process.env.RENDER_WORKER_API_KEY
+  if (workerUrl && workerKey) {
+    const workerPayload = {
+      userId: user.id,
+      presentationId,
+      slideCount,
+    }
+
+    fetch(`${workerUrl}/rebuild-audio`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${workerKey}`,
+      },
+      body: JSON.stringify(workerPayload),
+    }).catch((err) => {
+      console.error("[rebuild] Worker fire-and-forget failed:", err)
+    })
+  } else {
+    console.warn("[rebuild] RENDER_WORKER_URL or RENDER_WORKER_API_KEY not set — skipping worker rebuild")
+  }
+
   return NextResponse.json({
     data: {
-      success: true,
-      slideCount: wavBuffers.length,
-      durationMs: 0, // caller can compute from audio metadata if needed
+      queued: true,
+      slideCount,
     },
-  })
+  }, { status: 202 })
 })
