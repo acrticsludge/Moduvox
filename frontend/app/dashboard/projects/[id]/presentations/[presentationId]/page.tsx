@@ -6,6 +6,7 @@ import { ChevronRight, Trash2, Pencil, Archive, RotateCcw, Loader2 } from "lucid
 import { toastSuccess, toastError } from "@/components/ui/CustomToast"
 import { createClient } from "@/lib/supabase/client"
 import type { SlideImage, SlideComment } from "@/lib/pptx-renderer"
+import { parsePptxText } from "@/lib/pptx-renderer"
 import type { Presentation as PresentationType } from "@/lib/validations/presentation"
 import { CreatePageSidebar } from "@/components/dashboard/CreatePageSidebar"
 import { PptxUploadZone } from "@/components/dashboard/PptxUploadZone"
@@ -206,15 +207,34 @@ export default function PresentationCreatePage() {
             const recoveredPath = `${p.user_id}/${params.presentationId}.pptx`
             setStoragePath(recoveredPath)
             setMode("editor")
-            // If slideData was also lost, create placeholder entries from slide_count
-            // so the editor can render the PDF slide viewer (pollForPdfs needs slide count).
+            // If slideData was also lost, re-download the original PPTX from R2
+            // and re-parse it to recover text content.
             if (!saved.slideData?.length) {
-              console.log("[Recovery] slideData also missing, creating", p.slide_count, "placeholder slides")
-              const placeholderSlides: SlideDataItem[] = Array.from(
-                { length: p.slide_count },
-                (_, i) => ({ number: i + 1, title: `Slide ${i + 1}`, bullets: [] }),
-              )
-              setSlideData(placeholderSlides)
+              console.log("[Recovery] slideData also missing — re-downloading PPTX from R2 for", p.slide_count, "slides")
+              fetch(`/api/presentations/${params.presentationId}/file`)
+                .then(async (res) => {
+                  const json = await res.json()
+                  if (!json.data?.url) { console.warn("[Recovery] No PPTX download URL returned"); return }
+                  const pptxRes = await fetch(json.data.url)
+                  if (!pptxRes.ok) { console.warn("[Recovery] PPTX download failed"); return }
+                  const blob = await pptxRes.blob()
+                  const file = new File([blob], "presentation.pptx", {
+                    type: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                  })
+                  const parsed = await parsePptxText(file)
+                  if (!parsed.length) { console.warn("[Recovery] Parsed 0 slides from PPTX"); return }
+                  const data: SlideDataItem[] = parsed.map((s) => ({
+                    number: s.number,
+                    title: s.title,
+                    bullets: s.bullets,
+                    notes: s.notes ?? null,
+                    comments: s.comments ?? [],
+                    rawText: s.rawText || s.title + (s.bullets.length > 0 ? "\n" + s.bullets.join("\n") : ""),
+                  }))
+                  console.log("[Recovery] Re-parsed", data.length, "slides from PPTX")
+                  setSlideData(data)
+                })
+                .catch((err) => console.warn("[Recovery] PPTX re-parse failed:", err))
             } else {
               console.log("[Recovery] slideData exists with", saved.slideData.length, "entries — reusing")
             }

@@ -1588,7 +1588,9 @@ export function SlideEditor({
         />
       )}
 
-      {/* Desktop right panel */}
+      {/* Desktop right panel — only render when slide data exists (guards against crash
+          when PDFs are loaded but text data was lost; synthetic slides fill the gap) */}
+      {slides.length > 0 && (
       <div className="absolute bottom-0 right-0 top-0 z-20 hidden w-[380px] flex-col gap-5 overflow-y-auto border-l border-[var(--color-border-faint)] bg-white p-6 lg:flex hide-scrollbar">
         {/* Slide info + jump input */}
         <div className="flex items-center justify-between gap-2">
@@ -1783,6 +1785,7 @@ export function SlideEditor({
           </>
         )}
       </div>
+      )}
 
       {/* Mobile toggle button — shown on < lg screens when panel is closed */}
       {!showMobilePanel && (
@@ -1796,7 +1799,8 @@ export function SlideEditor({
         </button>
       )}
 
-      {/* Mobile drawer — overlay + slide-in panel */}
+      {/* Mobile drawer — overlay + slide-in panel (only when slide data exists) */}
+      {slides.length > 0 && (
         <div className="fixed inset-0 z-50 transition-opacity duration-300 lg:hidden">
           <div className={`absolute inset-0 transition-opacity duration-300 ${showMobilePanel ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={() => { if (showMobilePanel) setShowMobilePanel(false) }} />
           <div className={`absolute bottom-0 right-0 left-0 z-10 max-h-[75vh] flex-col gap-4 overflow-y-auto rounded-t-2xl border-t border-zinc-200 bg-white p-5 shadow-xl transition-transform duration-300 ease-out ${showMobilePanel ? 'translate-y-0' : 'translate-y-full'}`}>
@@ -2006,6 +2010,7 @@ export function SlideEditor({
             )}
           </div>
         </div>
+      )}
 
       {/* Batch-fetch image descriptions for ALL slides in one API call */}
       {showSlideInfo && !externalImageDescriptions?.[current.number] && slides.some((s) => s.images.length > 0) && (

@@ -112,11 +112,26 @@ const setsEditorMode = editorPage.includes("setMode(\"editor\")")
 assert(setsEditorMode, "Editor page sets mode to 'editor'")
 
 // Check placeholder slide data is created when slideData was also lost
-const hasPlaceholderSlides = editorPage.includes("placeholderSlides")
-assert(hasPlaceholderSlides, "Editor page creates placeholder slideData from slide_count when lost")
-// Verify the Array.from is driven by p.slide_count (whitespace-insensitive check)
-const hasSlideCount = /Array\.from[\s\S]*?p\.slide_count/.test(editorPage)
-assert(hasSlideCount, "Placeholder slides use p.slide_count as array length")
+const hasReDownload = editorPage.includes('re-downloading PPTX from R2')
+assert(hasReDownload, "Editor page re-downloads PPTX from R2 when slideData lost")
+const hasPptxDownload = editorPage.includes('/api/presentations/${params.presentationId}/file')
+assert(hasPptxDownload, "Editor page calls file endpoint for PPTX download URL")
+const hasReParse = editorPage.includes('parsePptxText(file)')
+assert(hasReParse, "Editor page re-parses downloaded PPTX")
+
+// ─── Test 4: File route GET endpoint ────────────────────────────────────
+console.log("\n── Test 4: File route GET endpoint for PPTX download")
+
+const fileRoute = readFileSync(
+  resolve(FRONTEND, "app", "api", "presentations", "[id]", "file", "route.ts"),
+  "utf-8",
+)
+
+const hasGetHandler = fileRoute.includes("export const GET")
+assert(hasGetHandler, "file/route.ts has GET export for PPTX download URL")
+
+const hasCreateDownloadUrl = fileRoute.includes("createDownloadUrl")
+assert(hasCreateDownloadUrl, "GET handler uses createDownloadUrl for presigned URL")
 
 // ─── Summary ─────────────────────────────────────────────────────────────
 console.log(`\n${"─".repeat(50)}`)
