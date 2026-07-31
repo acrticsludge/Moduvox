@@ -492,10 +492,25 @@ export default function ViewPresentationPage() {
 
         // Use local variable to avoid race with applyChanges writing to audioVersionRef
         const newVersion = json.data.audio_version ?? 0
-        if (newVersion !== audioVersionRef.current) {
+        const newSlideCount = json.data.slide_count ?? 0
+        const newDuration = json.data.total_duration_ms ?? 0
+        const prev = viewDataRef.current
+
+        // Detect any stale data: audio version, slide count, duration, or expiry
+        const versionChanged = newVersion !== audioVersionRef.current
+        const slidesChanged = prev && newSlideCount !== (prev.slide_count ?? 0)
+        const durationChanged = prev && newDuration !== (prev.total_duration_ms ?? 0)
+
+        if (versionChanged || slidesChanged || durationChanged) {
           audioVersionRef.current = newVersion
           viewDataRef.current = json.data
-          setVersionStatus("outdated")
+          if (versionChanged) setVersionStatus("outdated")
+          // Auto-refresh when slides or duration change
+          if (slidesChanged || durationChanged) {
+            setVersionStatus("outdated")
+            // Also make viewDataRef reflect new metadata
+            viewDataRef.current = { ...viewDataRef.current!, slide_count: newSlideCount, total_duration_ms: newDuration }
+          }
         }
       } catch {
         // silent — polling errors should not disrupt the viewer
@@ -669,7 +684,15 @@ export default function ViewPresentationPage() {
       sessionRef.current = sessionToken
       return (
           <div ref={viewerRootRef} className="relative flex min-h-screen flex-col bg-[#F9FAFB]">
-          <ViewNavbar />
+          <ViewNavbar
+            onRefresh={() => {
+              if (verifiedSessionToken) {
+                void applyChanges()
+              } else {
+                window.location.reload()
+              }
+            }}
+          />
 
           <div className="flex flex-1 min-h-0">
             {/* Mobile sidebar toggle */}
@@ -694,6 +717,7 @@ export default function ViewPresentationPage() {
               onClose={() => setSidebarOpen(false)}
               currentSlide={currentSlide}
               onSlideClick={(sn) => goToSlide(sn)}
+              isPublic={state.viewerId === "public"}
             />
             {/* Fullscreen target — wraps only slide area + audio bar (matching editor pattern) */}
             <div

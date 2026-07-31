@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import dynamic from "next/dynamic"
 
 const SlidePdfViewer = dynamic(
@@ -46,7 +47,20 @@ function calcSlideSize(fullscreen: boolean, fitToScreen: boolean): { width: numb
 }
 
 export function ViewSlide({ pdfUrl, slideNumber, totalSlides, fullscreen = false, imageUrl, fitToScreen = false }: ViewSlideProps) {
-  const { width: imgW, height: imgH } = calcSlideSize(!!fullscreen, fitToScreen)
+  const [imgSize, setImgSize] = useState(() => calcSlideSize(!!fullscreen, fitToScreen))
+
+  useEffect(() => {
+    function onResize() { setImgSize(calcSlideSize(!!fullscreen, fitToScreen)) }
+    window.addEventListener("resize", onResize)
+    return () => window.removeEventListener("resize", onResize)
+  }, [fullscreen, fitToScreen])
+
+  // Also recalc when fullscreen/fitToScreen props change (in case parent doesn't remount)
+  useEffect(() => {
+    setImgSize(calcSlideSize(!!fullscreen, fitToScreen))
+  }, [fullscreen, fitToScreen])
+
+  const { width: imgW, height: imgH } = imgSize
 
   // ── Pre-rendered image mode ──
   if (imageUrl) {

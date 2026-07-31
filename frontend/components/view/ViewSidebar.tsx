@@ -16,6 +16,8 @@ type ViewSidebarProps = {
   onClose?: () => void
   currentSlide?: number
   onSlideClick?: (slideNumber: number) => void
+  /** true = publicly accessible (no gate), false = restricted (password/email gate) */
+  isPublic?: boolean
 }
 
 function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
@@ -41,7 +43,7 @@ function formatDuration(ms: number): string {
   return `${minutes}:${seconds.toString().padStart(2, "0")}`
 }
 
-export function ViewSidebar({ title, createdAt, slideCount, expiresAt, viewerFirstViewed, totalDurationMs, isOpen, onClose, currentSlide, onSlideClick }: ViewSidebarProps) {
+export function ViewSidebar({ title, createdAt, slideCount, expiresAt, viewerFirstViewed, totalDurationMs, isOpen, onClose, currentSlide, onSlideClick, isPublic }: ViewSidebarProps) {
   const [copied, setCopied] = useState(false)
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -80,6 +82,16 @@ export function ViewSidebar({ title, createdAt, slideCount, expiresAt, viewerFir
         {/* Presentation Info */}
         <div className="space-y-3">
           <h4 className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">Presentation</h4>
+          {isPublic !== undefined && (
+            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${
+              isPublic
+                ? "bg-emerald-100 text-emerald-700"
+                : "bg-amber-100 text-amber-700"
+            }`}>
+              <span className={`h-1.5 w-1.5 rounded-full ${isPublic ? "bg-emerald-500" : "bg-amber-500"}`} />
+              {isPublic ? "Public" : "Restricted"}
+            </span>
+          )}
           <InfoRow
             icon={<Calendar className="h-4 w-4" />}
             label="Created"
