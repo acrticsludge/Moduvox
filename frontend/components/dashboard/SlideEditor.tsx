@@ -1580,6 +1580,7 @@ export function SlideEditor({
                   fullscreen
                   initialCurrentTime={audioPositionRef.current.currentTime}
                   initialPlaying={audioPositionRef.current.playing}
+                  onTimeUpdate={handleAudioTimeUpdate}
                 />
               </div>
             </div>
@@ -1761,7 +1762,7 @@ export function SlideEditor({
             )}
 
             {/* Audio player */}
-            {audioUrl && (
+            {audioUrl && !isFullscreen && (
               <AudioPlayer
                 audioUrl={audioUrl}
                 presentationId={presentationId}
@@ -1986,7 +1987,7 @@ export function SlideEditor({
                 )}
 
                 {/* Audio player */}
-                {audioUrl && (
+                {audioUrl && !isFullscreen && (
                   <AudioPlayer
                     audioUrl={audioUrl}
                     presentationId={presentationId}

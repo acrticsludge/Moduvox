@@ -530,7 +530,13 @@ export function ViewAudioBar({
           <Tooltip>
             <TooltipTrigger asChild>
               <button type="button" aria-label="Skip forward 10 seconds" onClick={() => skipSeconds(10)} disabled={!ready}
-                className="touch-target-sm touch-manipulation shrink-0 rounded-md text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 disabled:opacity-30 disabled:pointer-events-none">
+                className={cn(
+                  "touch-target-sm touch-manipulation shrink-0 rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 disabled:opacity-30 disabled:pointer-events-none",
+                  fullscreen
+                    ? "text-white/50 hover:bg-white/10 hover:text-white"
+                    : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
+                )}
+              >
                 <SkipForward className="h-4 w-4" />
               </button>
             </TooltipTrigger>
