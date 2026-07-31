@@ -124,7 +124,7 @@ export default function ViewPresentationPage() {
   const [firstWatch, setFirstWatch] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [realDurationMs, setRealDurationMs] = useState<number | undefined>(undefined)
-  const viewDataRef = useRef<{ title: string; created_at?: string; slide_count?: number; expires_at?: string | null; total_duration_ms?: number; audio_url?: string | null; audio_version?: number; slide_timings?: SlideTiming[]; viewer_created_at?: string | null; presentation_id?: string; viewer_id?: string | null; first_watch_done?: boolean; viewer_tracking_enabled?: boolean } | null>(null)
+  const viewDataRef = useRef<{ title: string; created_at?: string; slide_count?: number; expires_at?: string | null; total_duration_ms?: number; audio_url?: string | null; audio_version?: number; slide_timings?: SlideTiming[]; viewer_created_at?: string | null; presentation_id?: string; viewer_id?: string | null; first_watch_done?: boolean; viewer_tracking_enabled?: boolean; has_password?: boolean; email_gate_enabled?: boolean } | null>(null)
   const audioVersionRef = useRef(0)
   const gateRef = useRef<{ hasPassword: boolean; emailGateEnabled: boolean }>({ hasPassword: false, emailGateEnabled: false })
   const sessionRef = useRef("")

@@ -30,17 +30,16 @@ The 10s limit changes every verdict from the earlier analysis. Below are the rev
 
 ## Task-by-Task Analysis (Revised for Hobby)
 
-### 1. Combined Audio Rebuild — **MUST MOVE (was MEDIUM → now CRITICAL)**
+### 1. Combined Audio Rebuild — **MUST MOVE (was MEDIUM → now CRITICAL) — DONE 2026-07-31**
 
 **Risk on Hobby:** 17-42s vs 10s limit. **Guaranteed to timeout** for any presentation.
 
-**Fix:** Move to Render worker. Needs:
-- R2 SDK (`@aws-sdk/client-s3`, `@aws-sdk/s3-request-presigner`) on worker
-- Port `concatWavBuffers` + `findDataOffset` from `lib/wav-utils.ts` to worker
-- New `/rebuild-audio` endpoint
-- Vercel route delegates to worker (fire-and-forget)
-
-**Impact:** Eliminates a hard timeout. Background task, no cold-start UX penalty.
+**Fix applied:** Moved to Render worker.
+- `worker/lib/r2.js` — R2 S3 client for worker
+- `worker/lib/wav-utils.js` — ported WAV validation + concatenation
+- `worker/server.js` — new `POST /rebuild-audio` endpoint
+- `frontend/app/api/presentations/[id]/audio/rebuild/route.ts` — delegates to worker via fire-and-forget, returns 202 immediately
+- See `docs/specs/2026-07-31-worker-public-audit-design.md` for details
 
 ### 2. Image Descriptions — **MUST MOVE (was CONDITIONAL → now CRITICAL)**
 
@@ -69,16 +68,16 @@ The 10s limit changes every verdict from the earlier analysis. Below are the rev
 
 **Fix:** Add `export const maxDuration = 15` (Hobby ignores, but documents intent). For large presentations, the user would need to upgrade to Pro for the 60s limit. Not worth moving to worker — Gemini API is fast enough that most cases complete under 10s.
 
-### 5. Email Queue — **COLD START FIX NEEDS ALTERNATIVE**
+### 5. Email Queue — **COLD START FIX APPLIED 2026-07-31**
 
 **Hobby limitation:** Vercel Hobby does NOT support cron jobs. The `vercel.json` cron config is silently ignored.
 
-**Alternative approaches:**
-1. **External cron service** (e.g., cron-job.org free tier) — pings the worker `/health` every 10 min
-2. **Lazy wake:** Every Vercel API route that needs email (magic link, welcome email) also pings worker `/health` as a side effect before inserting to the queue
-3. **Manual trigger:** Add a button in the admin dashboard to ping the worker
+**Fix applied (Option 2 - lazy wake):**
+- `frontend/lib/email.ts` — after successful queue insert, fires a side-effect `fetch(workerUrl + "/health")` to wake the Render worker. Zero-cost, self-healing — emails are delivered whenever the app is active.
 
-**Recommended:** Option 2 (lazy wake) is zero-cost and always timely — emails are delivered whenever the app is active, which is when emails are being sent.
+**Alternative approaches (not implemented):**
+1. External cron service (e.g., cron-job.org free tier) — supplemental if lazy wake isn't enough
+3. Manual trigger button in admin dashboard — not needed given lazy wake
 
 ### 6. PPTX-to-PDF Conversion — **CORRECTLY ON WORKER**
 
