@@ -198,6 +198,13 @@ export default function PresentationCreatePage() {
           if (saved.storagePath) {
             setStoragePath(saved.storagePath)
             setMode("editor")
+          } else if ((p.slide_count ?? 0) > 0) {
+            // Recovery: editor_state.storagePath was lost (e.g. corrupted by a prior
+            // save bug) but the presentation still has per-slide PDFs in R2. Reconstruct
+            // the conventional R2 key so processFile can poll for existing PDFs.
+            const recoveredPath = `${p.user_id}/${params.presentationId}.pptx`
+            setStoragePath(recoveredPath)
+            setMode("editor")
           }
           if (saved.audioGenerated) {
             // The combine endpoint reads all per-slide WAVs on demand

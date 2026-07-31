@@ -1,3 +1,13 @@
+## 2026-07-31: [Bug] PDF worker 404 + editor_state corruption caused "Upload PPT" default on production
+
+**What happened:** View page showed "Failed to load slide" for every slide with error "Failed to resolve module specifier 'pdf.worker.mjs'". Editor page showed "Upload PPT" instead of saved data. Both regressions deployed from yesterday's session.
+
+**Root cause:** (1) Commit `9183938` deleted `public/pdf.worker.min.mjs` but did NOT apply the `new URL()` code changes it claimed to — leaving `SlidePdfViewer.tsx` pointing to a 404. Also, `prefetchAllSlideBlobs` never set `workerSrc` before calling `pdfjs.getDocument()`. (2) Commit `fa2411d` fixed a bug where `handleChangedSlidesChange` overwrote `editor_state` (deleting `storagePath`), but any presentation saved BEFORE the fix had permanently corrupted state with no `storagePath` — the editor gate `if (saved.storagePath)` failed and mode stayed "upload".
+
+**Fix:** (1) Restored `public/pdf.worker.min.mjs` from `node_modules/pdfjs-dist/build/`. Added `workerSrc = "/pdf.worker.min.mjs"` with a guard in `prefetchAllSlideBlobs` before the first `getDocument()` call. (2) Added a recovery fallback in the editor page: if `storagePath` is missing but `p.slide_count > 0`, reconstruct the conventional R2 key (`{userId}/{presentationId}.pptx`) and enter editor mode — per-slide PDFs still exist in R2 and `pollForPdfs` doesn't depend on the storage path being correct.
+
+**Prevention:** Never delete a static file without either applying the corresponding code changes OR verifying the code no longer references it. When changing PDF worker loading strategy, test BOTH the viewer (SlidePdfViewer) AND any other code paths that import pdfjs (prefetchAllSlideBlobs, etc.). When fixing state corruption bugs, consider data migration or recovery for existing rows.
+
 ## 2026-07-26: [Performance] Lighthouse score 25→target 50+ with JS bundle, preconnect, & image optimizations
 
 **What happened:** Lighthouse audit showed Performance score 25 — TBT 5,850ms, unused JS 1,294 KiB, JS execution 7.6s. Browser extensions (AI Chat, Loom) inflated ~40% of the metrics but our own code was still 3.4s of main thread time.

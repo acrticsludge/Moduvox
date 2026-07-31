@@ -407,6 +407,11 @@ export default function ViewPresentationPage() {
     // Dynamically import pdfjs here instead of at module top level — avoids SSR crash
     // (DOMMatrix is not available in Node.js)
     const { pdfjs } = await import("react-pdf")
+    // Configure worker before any getDocument() call — must be set on the singleton
+    // before the first PDF rendering, even if SlidePdfViewer has not loaded yet.
+    if (!pdfjs.GlobalWorkerOptions.workerSrc) {
+      pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs"
+    }
     await Promise.allSettled(
       slideList.map(async (s) => {
         if (!s.pdfUrl) return
