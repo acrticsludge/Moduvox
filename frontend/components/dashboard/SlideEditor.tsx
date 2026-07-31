@@ -105,11 +105,6 @@ export function SlideEditor({
   // Key that increments when exiting fullscreen, forcing desktop AudioPlayer to remount
   // with fresh initialCurrentTime/initialPlaying from audioPositionRef (no audio gap).
   const [fullscreenExitKey, setFullscreenExitKey] = useState(0)
-  useEffect(() => {
-    if (!isFullscreen) setFullscreenExitKey((k) => k + 1)
-    // We intentionally only want this to fire on the falling edge (true → false).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isFullscreen])
   const [internalIndex, setInternalIndex] = useState(0)
   const [generating, setGenerating] = useState(false)
   const [internalAudioGenerated, setInternalAudioGenerated] = useState(false)
@@ -1177,6 +1172,11 @@ export function SlideEditor({
   const [slideViewport, setSlideViewport] = useState({ width: 0, height: 0 })
   const fullscreenContainerRef = useRef<HTMLElement | null>(null)
   const { isFullscreen, supported, toggle } = useFullscreen()
+  // When exiting fullscreen, remount desktop AudioPlayer with current position
+  useEffect(() => {
+    if (!isFullscreen) setFullscreenExitKey((k) => k + 1)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isFullscreen])
   const [fitToScreen, setFitToScreen] = useState(false)
   const [, forceRender] = useState(0)
 
