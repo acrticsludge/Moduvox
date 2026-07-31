@@ -205,6 +205,15 @@ export default function PresentationCreatePage() {
             const recoveredPath = `${p.user_id}/${params.presentationId}.pptx`
             setStoragePath(recoveredPath)
             setMode("editor")
+            // If slideData was also lost, create placeholder entries from slide_count
+            // so the editor can render the PDF slide viewer (pollForPdfs needs slide count).
+            if (!saved.slideData?.length) {
+              const placeholderSlides: SlideDataItem[] = Array.from(
+                { length: p.slide_count },
+                (_, i) => ({ number: i + 1, title: `Slide ${i + 1}`, bullets: [] }),
+              )
+              setSlideData(placeholderSlides)
+            }
           }
           if (saved.audioGenerated) {
             // The combine endpoint reads all per-slide WAVs on demand

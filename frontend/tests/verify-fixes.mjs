@@ -56,13 +56,14 @@ const viewPage = readFileSync(
   "utf-8",
 )
 
-// Check workerSrc is set after the pdfjs import
+// Check workerSrc is set UNCONDITIONALLY (no guard — react-pdf already sets
+// a truthy 'pdf.worker.mjs' default before our code runs)
 const hasWorkerConfig = viewPage.includes('pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs"')
 assert(hasWorkerConfig, "prefetchAllSlideBlobs sets workerSrc after pdfjs import")
 
-// Check the guard is present (don't overwrite if already set)
-const hasGuard = viewPage.includes("if (!pdfjs.GlobalWorkerOptions.workerSrc)")
-assert(hasGuard, "prefetchAllSlideBlobs guards against overwriting existing workerSrc")
+// Verify NO guard (guard would prevent override because react-pdf sets a truthy default first)
+const hasNoGuard = !viewPage.includes("if (!pdfjs.GlobalWorkerOptions.workerSrc)")
+assert(hasNoGuard, "prefetchAllSlideBlobs does NOT guard workerSrc (must always override react-pdf default)")
 
 // Verify workerSrc is set BEFORE getDocument
 const importIdx = viewPage.indexOf('await import("react-pdf")')
@@ -109,6 +110,13 @@ assert(hasNormalPath, "Editor page still checks storagePath first (normal path)"
 // Check mode is set to editor in recovery branch
 const setsEditorMode = editorPage.includes("setMode(\"editor\")")
 assert(setsEditorMode, "Editor page sets mode to 'editor'")
+
+// Check placeholder slide data is created when slideData was also lost
+const hasPlaceholderSlides = editorPage.includes("placeholderSlides")
+assert(hasPlaceholderSlides, "Editor page creates placeholder slideData from slide_count when lost")
+// Verify the Array.from is driven by p.slide_count (whitespace-insensitive check)
+const hasSlideCount = /Array\.from[\s\S]*?p\.slide_count/.test(editorPage)
+assert(hasSlideCount, "Placeholder slides use p.slide_count as array length")
 
 // ─── Summary ─────────────────────────────────────────────────────────────
 console.log(`\n${"─".repeat(50)}`)
