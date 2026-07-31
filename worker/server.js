@@ -185,21 +185,28 @@ app.post("/convert", auth, async (req, res) => {
     }
 
     const pagesToProcess = Math.min(actualPageCount, slideCount);
-    for (let i = 1; i <= pagesToProcess; i++) {
-      const newPdf = await PDFDocument.create();
-      const [copiedPage] = await newPdf.copyPages(sourcePdf, [i - 1]);
-      newPdf.addPage(copiedPage);
-      const pdfBytes = await newPdf.save();
 
+    // Split and upload all pages in parallel for maximum throughput
+    const pageJobs = [];
+    for (let i = 1; i <= pagesToProcess; i++) {
       const putUrl = slidePutUrls[String(i)];
       if (!putUrl) {
         console.warn(`[convert] No PUT URL for slide ${i}, skipping`);
         continue;
       }
-
-      console.log(`[convert] Uploading slide ${i}/${pagesToProcess} PDF`);
-      await uploadPdf(putUrl, pdfBytes);
+      pageJobs.push(
+        (async (pageNum, url) => {
+          const newPdf = await PDFDocument.create();
+          const [copiedPage] = await newPdf.copyPages(sourcePdf, [pageNum - 1]);
+          newPdf.addPage(copiedPage);
+          const pdfBytes = await newPdf.save();
+          console.log(`[convert] Uploading slide ${pageNum}/${pagesToProcess} PDF`);
+          await uploadPdf(url, pdfBytes);
+        })(i, putUrl),
+      );
     }
+
+    await Promise.all(pageJobs);
 
     console.log("[convert] Done");
     res.json({ success: true, slideCount: pagesToProcess });

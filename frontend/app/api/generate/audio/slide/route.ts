@@ -74,40 +74,45 @@ export const POST = withApiHandler(async (request: Request) => {
     // Chunking at natural boundaries (≤250 chars) keeps each inference manageable,
     // then we seamlessly concatenate the WAVs with no gaps.
     const chunks = splitIntoChunks(text, 250)
-    const wavBuffers: Buffer[] = []
 
-    for (const chunk of chunks) {
-      let result
-      if (refFile) {
-        result = await generateWithClone(chunk, refFile, voiceDesc, cfgValue)
-      } else {
-        result = await generateWithPreset(chunk, voiceDesc, cfgValue)
-      }
-
-      // Download from Gradio
-      const gradioRes = await fetch(result.audioUrl)
-      if (!gradioRes.ok) throw new Error("Failed to download generated audio")
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let audioBuffer: any = Buffer.from(await gradioRes.arrayBuffer())
-
-      // VoxCPM2 returns MP3; convert to WAV for consistent processing
-      if (!isValidWav(audioBuffer)) {
-        const format = detectFormat(audioBuffer)
-        console.log(`[chunk] Gradio returned ${format}, converting to WAV...`)
-        const wavBuffer = await toWav(audioBuffer)
-        if (isValidWav(wavBuffer)) {
-          audioBuffer = wavBuffer
+    // Process all chunks in parallel for faster generation.
+    // Each chunk is an independent Gradio inference — no ordering dependency.
+    const chunkResults = await Promise.all(
+      chunks.map(async (chunk) => {
+        let result
+        if (refFile) {
+          result = await generateWithClone(chunk, refFile, voiceDesc, cfgValue)
         } else {
-          const contentType = gradioRes.headers.get("content-type") || "unknown"
-          throw new Error(
-            `Gradio returned ${format} (Content-Type: ${contentType}) and ` +
-            `conversion to WAV failed.`,
-          )
+          result = await generateWithPreset(chunk, voiceDesc, cfgValue)
         }
-      }
 
-      wavBuffers.push(audioBuffer as Buffer)
-    }
+        // Download from Gradio
+        const gradioRes = await fetch(result.audioUrl)
+        if (!gradioRes.ok) throw new Error("Failed to download generated audio")
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let audioBuffer: any = Buffer.from(await gradioRes.arrayBuffer())
+
+        // VoxCPM2 returns MP3; convert to WAV for consistent processing
+        if (!isValidWav(audioBuffer)) {
+          const format = detectFormat(audioBuffer)
+          console.log(`[chunk] Gradio returned ${format}, converting to WAV...`)
+          const wavBuffer = await toWav(audioBuffer)
+          if (isValidWav(wavBuffer)) {
+            audioBuffer = wavBuffer
+          } else {
+            const contentType = gradioRes.headers.get("content-type") || "unknown"
+            throw new Error(
+              `Gradio returned ${format} (Content-Type: ${contentType}) and ` +
+              `conversion to WAV failed.`,
+            )
+          }
+        }
+
+        return audioBuffer as Buffer
+      }),
+    )
+
+    const wavBuffers = chunkResults.filter((b): b is Buffer => b !== null)
 
     // ── Phase 3: Concatenate chunk WAVs into a single slide audio ──
     const finalWav = wavBuffers.length === 1 ? wavBuffers[0] : concatWavBuffers(wavBuffers)

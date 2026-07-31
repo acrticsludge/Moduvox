@@ -776,7 +776,7 @@ export function SlideEditor({
         (completed, total) => {
           setAudioGenProgress({ current: completed, total, slideTitle: slideTexts[completed - 1]?.title })
         },
-        3,
+        5,
       )
     } catch (err) {
       const message = err instanceof Error ? err.message : "Audio generation failed"
@@ -880,7 +880,7 @@ export function SlideEditor({
           (completed, total) => {
             setAudioGenProgress({ current: completed, total, slideTitle: slideTexts[completed - 1]?.title })
           },
-          3,
+          5,
         )
       } catch (err) {
         const message = err instanceof Error ? err.message : "Audio generation failed"
