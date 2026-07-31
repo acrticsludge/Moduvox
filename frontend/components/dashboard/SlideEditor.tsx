@@ -94,6 +94,9 @@ export function SlideEditor({
   ultimateMode?: boolean
 }) {
   const [slides, setSlides] = useState<ParsedSlide[]>([])
+  const slidesRef = useRef<ParsedSlide[]>(slides)
+  // Sync ref with state so pollForPdfs (useCallback, stale closure) can read current slides
+  useEffect(() => { slidesRef.current = slides }, [slides])
   const [internalIndex, setInternalIndex] = useState(0)
   const [generating, setGenerating] = useState(false)
   const [internalAudioGenerated, setInternalAudioGenerated] = useState(false)
@@ -171,7 +174,7 @@ export function SlideEditor({
   const audioGenerated = externalAudioGenerated ?? internalAudioGenerated
   const currentIndex = externalCurrentSlide ?? internalIndex
   const changedSlides = externalChangedSlides ?? internalChangedSlides
-  const total = slides.length
+  const total = slides.length > 0 ? slides.length : pdfUrls.filter(Boolean).length
 
   const POLL_INTERVAL = 2000
   const MAX_POLL_ATTEMPTS = 150
@@ -205,6 +208,21 @@ export function SlideEditor({
             urls[slide.slideNumber - 1] = slide.pdfUrl
           }
           setPdfUrls(urls)
+          // If the text-based slide data was never populated (e.g. editor_state
+          // corruption lost slideData), create synthetic entries from the PDF
+          // count so the navigation and slide viewer can render.
+          if (!slidesRef.current || slidesRef.current.length === 0) {
+            const syntheticSlides: ParsedSlide[] = slides.map((s: { slideNumber: number }) => ({
+              number: s.slideNumber,
+              title: `Slide ${s.slideNumber}`,
+              bullets: [] as string[],
+              notes: null,
+              comments: [] as import("@/lib/pptx-renderer").SlideComment[],
+              images: [] as import("@/lib/pptx-renderer").SlideImage[],
+              rawText: "",
+            }))
+            setSlides(syntheticSlides)
+          }
           // Prefetch all PDFs as blobs for instant slide navigation
           prefetchEditorPdfBlobs(urls)
           setConversionStatus("ready")
@@ -1275,7 +1293,11 @@ export function SlideEditor({
     )
   }
 
-  if (!slides.length) {
+  // Only show "no slides" when we're certain there's nothing to display:
+  // no text data AND no PDFs have been loaded. If pdfUrls exist (e.g. after
+  // editor_state corruption recovery), show the PDF viewer regardless of
+  // whether text data was restored.
+  if (!slides.length && pdfUrls.length === 0 && conversionStatus !== "converting") {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8">
         <p className="text-sm text-[#71717A]">No slides found in this presentation.</p>

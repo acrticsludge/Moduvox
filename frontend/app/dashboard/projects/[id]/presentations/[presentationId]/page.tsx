@@ -202,17 +202,21 @@ export default function PresentationCreatePage() {
             // Recovery: editor_state.storagePath was lost (e.g. corrupted by a prior
             // save bug) but the presentation still has per-slide PDFs in R2. Reconstruct
             // the conventional R2 key so processFile can poll for existing PDFs.
+            console.log("[Recovery] storagePath missing but slide_count=", p.slide_count, "recovering editor")
             const recoveredPath = `${p.user_id}/${params.presentationId}.pptx`
             setStoragePath(recoveredPath)
             setMode("editor")
             // If slideData was also lost, create placeholder entries from slide_count
             // so the editor can render the PDF slide viewer (pollForPdfs needs slide count).
             if (!saved.slideData?.length) {
+              console.log("[Recovery] slideData also missing, creating", p.slide_count, "placeholder slides")
               const placeholderSlides: SlideDataItem[] = Array.from(
                 { length: p.slide_count },
                 (_, i) => ({ number: i + 1, title: `Slide ${i + 1}`, bullets: [] }),
               )
               setSlideData(placeholderSlides)
+            } else {
+              console.log("[Recovery] slideData exists with", saved.slideData.length, "entries — reusing")
             }
           }
           if (saved.audioGenerated) {
