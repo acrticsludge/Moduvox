@@ -1,3 +1,13 @@
+## 2026-07-31: [Bug] Service-worker guard prevented workerSrc override — react-pdf sets truthy default first
+
+**What happened:** Adding `if (!pdfjs.GlobalWorkerOptions.workerSrc)` as a guard before setting `workerSrc = "/pdf.worker.min.mjs"` in `prefetchAllSlideBlobs` silently prevented the override. react-pdf sets `workerSrc = 'pdf.worker.mjs'` (a truthy string) at import time, so the guard was always false.
+
+**Root cause:** ES module imports are hoisted and evaluated before module body code. `import { pdfjs } from "react-pdf"` triggers react-pdf's module code which sets the default. By the time our guard check runs, `workerSrc` is already `'pdf.worker.mjs'` (truthy). The guard `if (!workerSrc)` never fires.
+
+**Fix:** Removed the guard entirely. The workerSrc assignment must be unconditional because react-pdf's default is always set first and always needs overriding.
+
+**Prevention:** When overriding a default that's already set by a dependency (especially one set at import time), never guard with a falsiness check. The dependency's default is already truthy. Either set unconditionally or check for the specific default value (`=== 'pdf.worker.mjs'`).
+
 ## 2026-07-31: [Bug] PDF worker 404 + editor_state corruption caused "Upload PPT" default on production
 
 **What happened:** View page showed "Failed to load slide" for every slide with error "Failed to resolve module specifier 'pdf.worker.mjs'". Editor page showed "Upload PPT" instead of saved data. Both regressions deployed from yesterday's session.
