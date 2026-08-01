@@ -9,6 +9,7 @@ import type { SlideImage, SlideComment } from "@/lib/pptx-renderer"
 import { parsePptxText } from "@/lib/pptx-renderer"
 import type { Presentation as PresentationType } from "@/lib/validations/presentation"
 import { CreatePageSidebar } from "@/components/dashboard/CreatePageSidebar"
+import { SidebarToggle } from "@/components/dashboard/SidebarToggle"
 import { PptxUploadZone } from "@/components/dashboard/PptxUploadZone"
 import { SlideEditor } from "@/components/dashboard/SlideEditor"
 import dynamic from "next/dynamic"
@@ -409,18 +410,6 @@ export default function PresentationCreatePage() {
 
   return (
     <>
-      {/* Mobile sidebar toggle */}
-      {!mobileSidebarOpen && (
-        <button
-          type="button"
-          onClick={() => setMobileSidebarOpen(true)}
-          className="fixed right-3 top-20 z-20 inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-zinc-200 bg-white shadow-sm text-zinc-500 transition-colors hover:text-zinc-800 md:hidden"
-          aria-label="Open voice settings"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-        </button>
-      )}
-
       {/* Mobile sidebar drawer */}
       <div className={`fixed inset-0 z-50 md:hidden ${mobileSidebarOpen ? "" : "pointer-events-none"}`}>
         <div
@@ -467,9 +456,10 @@ export default function PresentationCreatePage() {
       </div>
 
       {/* Content */}
-      <div className="ml-0 mr-0 flex min-w-0 flex-1 flex-col md:ml-80 md:mr-[380px]">
+      <div className="ml-0 mr-0 flex min-w-0 flex-1 flex-col md:ml-80 lg:mr-[380px]">
         {/* Top bar */}
         <div className="flex flex-wrap items-start gap-2 border-b border-[var(--color-border-faint)] bg-white px-4 py-3 md:flex-nowrap md:items-center md:px-6 md:py-4">
+          <SidebarToggle />
           <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden text-sm md:gap-2">
             <a
               href="/dashboard"
@@ -509,6 +499,14 @@ export default function PresentationCreatePage() {
 
             {/* Action buttons */}
             <div className="flex items-center gap-1 border-l border-zinc-200 pl-2 md:ml-4 md:pl-4">
+              <button
+                type="button"
+                onClick={() => setMobileSidebarOpen(true)}
+                className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-[#71717A] transition-colors hover:bg-zinc-100 hover:text-[#18181B] md:hidden"
+                aria-label="Open voice settings"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+              </button>
               <button
                 type="button"
                 onClick={() => setShowRename(true)}
@@ -648,7 +646,7 @@ export default function PresentationCreatePage() {
 
       {/* Right panel placeholder — shown when SlideEditor isn't rendering yet */}
       {presentation?.status !== "archived" && mode === "upload" && (
-        <div className="hidden md:flex absolute bottom-0 right-0 top-0 z-20 w-[380px] flex-col items-center justify-center border-l border-[var(--color-border-faint)] bg-white px-6">
+        <div className="hidden lg:flex absolute bottom-0 right-0 top-0 z-20 w-[380px] flex-col items-center justify-center border-l border-[var(--color-border-faint)] bg-white px-6">
           <p className="text-center text-sm text-[#71717A]">
             Upload a presentation to access narration and audio tools
           </p>
