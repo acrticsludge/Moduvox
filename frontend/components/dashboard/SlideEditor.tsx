@@ -189,6 +189,7 @@ export function SlideEditor({
   const [generationSummary, setGenerationSummary] = useState<{ success: number; failed: number } | null>(null)
   const [isInitialGenerate, setIsInitialGenerate] = useState(false)
   const [showMobilePanel, setShowMobilePanel] = useState(false)
+  const [fullscreenControlsVisible, setFullscreenControlsVisible] = useState(false)
   const [retryCount, setRetryCount] = useState(0)
   const [voices, setVoices] = useState<Voice[]>([])
   const [, setVoicesLoading] = useState(true)
@@ -1655,6 +1656,7 @@ export function SlideEditor({
           <>
             <div
               ref={slideViewerRef}
+              onClick={() => { if (isFullscreen) setFullscreenControlsVisible((v) => !v) }}
               className={`group relative flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden transition-all ${
                 isFullscreen ? (fitToScreen ? "p-0 bg-black" : "p-0") : "p-4"
               }`}
@@ -1680,7 +1682,14 @@ export function SlideEditor({
 
               {/* Fullscreen hover overlay — navigation + exit */}
               {isFullscreen && (
-                <div className="pointer-events-none absolute inset-0 z-50 flex items-center justify-between opacity-0 transition-opacity duration-300 group-hover:pointer-events-auto group-hover:opacity-100">
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  className={`absolute inset-0 z-50 flex items-center justify-between transition-opacity duration-300 ${
+                    fullscreenControlsVisible
+                      ? "pointer-events-auto opacity-100"
+                      : "pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100"
+                  }`}
+                >
                   {/* Previous slide */}
                   <button
                     type="button"

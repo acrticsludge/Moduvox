@@ -135,6 +135,7 @@ export default function ViewPresentationPage() {
   const viewerRootRef = useRef<HTMLDivElement>(null)
   const fullscreenContainerRef = useRef<HTMLDivElement>(null)
   const { isFullscreen, supported, toggle } = useFullscreen()
+  const [fullscreenControlsVisible, setFullscreenControlsVisible] = useState(false)
 
   // Add/remove body class for viewer fullscreen
   useEffect(() => {
@@ -774,7 +775,12 @@ export default function ViewPresentationPage() {
               ref={(el) => { if (el) fullscreenContainerRef.current = el }}
               className="relative flex flex-1 flex-col min-h-0 bg-zinc-100"
             >
-            <main id="viewer-main-content" ref={viewerContentRef} className={`relative flex flex-1 flex-col items-center ${isFullscreen ? `group min-h-0 min-w-0 p-0 justify-center overflow-hidden${fitToScreen ? " bg-black" : ""}` : "p-4 md:p-8"}`}>
+            <main
+              id="viewer-main-content"
+              ref={viewerContentRef}
+              onClick={() => { if (isFullscreen) setFullscreenControlsVisible((v) => !v) }}
+              className={`relative flex flex-1 flex-col items-center ${isFullscreen ? `group min-h-0 min-w-0 p-0 justify-center overflow-hidden${fitToScreen ? " bg-black" : ""}` : "p-4 md:p-8"}`}
+            >
               {slidesError && (
                 <div className="mb-4 w-full max-w-2xl rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                   {slidesError}
@@ -815,7 +821,14 @@ export default function ViewPresentationPage() {
 
                     {/* Fullscreen overlay — only visible in fullscreen on hover */}
                     {isFullscreen && (
-                      <div className="pointer-events-none absolute inset-0 z-50 flex items-center justify-between opacity-0 transition-opacity duration-300 group-hover:pointer-events-auto group-hover:opacity-100">
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        className={`absolute inset-0 z-50 flex items-center justify-between transition-opacity duration-300 ${
+                          fullscreenControlsVisible
+                            ? "pointer-events-auto opacity-100"
+                            : "pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100"
+                        }`}
+                      >
                         {/* Previous slide */}
                         <button
                           type="button"
@@ -951,7 +964,10 @@ export default function ViewPresentationPage() {
               )}
             </main>
 
-            <div className={isFullscreen ? 'absolute bottom-0 left-0 right-0 z-[100] opacity-0 transition-opacity duration-300 hover:opacity-100' : ''}>
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className={isFullscreen ? `absolute bottom-0 left-0 right-0 z-[100] transition-opacity duration-300 ${fullscreenControlsVisible ? "opacity-100" : "opacity-0 hover:opacity-100"}` : ''}
+            >
               <ViewAudioBar key={audioRefreshKey} seekToSlideRef={seekToSlideRef}
                 shareToken={shareToken}
                 sessionToken={sessionToken}
