@@ -1,3 +1,23 @@
+## 2026-08-01: [Bug] `!externalImageDescriptions` predicate never true — auto image parsing was dead code
+
+**What happened:** The BatchImageFetcher that auto-described slide images on upload never fired; only manual per-slide retry worked. Users saw "only the first image parsed, rest fail until I click retry."
+
+**Root cause:** Render predicate `!externalImageDescriptions` at `SlideEditor.tsx:2058` was always `false` because the parent initializes `imageDescriptions` to `{}` (a truthy object). Commit `f7a7fbe` changed a per-slide keyed check to a whole-map truthiness check; `!{} === false` permanently killed the fetch.
+
+**Fix:** Replaced the zero-height BatchImageFetcher with an effect-driven parser in SlideEditor: `imageDescStatus` state machine + `runImageParsing()` useCallback. The trigger checks real "needs parsing" via `isSlideParsingComplete()` (per-slide completeness), not object truthiness.
+
+**Prevention:** Never gate "should I fetch?" on `!someObject` when the object is state-initialized to `{}`. Gate on emptiness/coverage semantics (`Object.keys(x).length === 0` or a real completeness predicate).
+
+## 2026-08-01: [Bug] Immediate persist wrote stale state — setState hasn't re-rendered yet
+
+**What happened:** A new "persist immediately" callback (`onRequestPersist`) fired right after `onParsedImageKeysChange(savedKeys)` + `onImageDescriptionsChange(merged)` to close the 2s-debounce data-loss window — but the PATCH body contained the OLD (pre-upload) keys/descriptions.
+
+**Root cause:** React state setters don't re-render synchronously. A useCallback captured during render still closes over the previous render's state, so calling `persistState()` immediately after a setState reads stale values. The fresh data was only saved by the later debounced auto-save (~2s) — the very window the flush was meant to close.
+
+**Fix:** Thread the fresh data through the callback as an explicit payload: `onRequestPersist({ parsedImageKeys, imageDescriptions })`, and `persistState(fresh?)` overrides those fields with `fresh?.x ?? state`. Fresh values ride in the PATCH body regardless of re-render timing.
+
+**Prevention:** When a callback must read values that were just set via setState, pass those values as arguments to the callback — never rely on the callback re-reading component state in the same tick.
+
 ## 2026-07-31: [Bug] Service-worker guard prevented workerSrc override — react-pdf sets truthy default first
 
 **What happened:** Adding `if (!pdfjs.GlobalWorkerOptions.workerSrc)` as a guard before setting `workerSrc = "/pdf.worker.min.mjs"` in `prefetchAllSlideBlobs` silently prevented the override. react-pdf sets `workerSrc = 'pdf.worker.mjs'` (a truthy string) at import time, so the guard was always false.
