@@ -2055,7 +2055,7 @@ export function SlideEditor({
         <button
           type="button"
           onClick={() => setShowMobilePanel(true)}
-          className="fixed right-3 bottom-20 z-30 inline-flex min-h-[48px] min-w-[48px] items-center justify-center rounded-full border border-zinc-200 bg-white shadow-lg text-zinc-600 transition-colors hover:text-zinc-900 lg:hidden"
+          className="fixed right-3 bottom-24 z-30 inline-flex min-h-[48px] min-w-[48px] items-center justify-center rounded-full border border-zinc-200 bg-white shadow-lg text-zinc-600 transition-colors hover:text-zinc-900 lg:hidden"
           aria-label="Open controls panel"
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
@@ -2064,7 +2064,7 @@ export function SlideEditor({
 
       {/* Mobile drawer — overlay + slide-in panel (only when slide data exists) */}
       {slides.length > 0 && (
-        <div className="fixed inset-0 z-50 transition-opacity duration-300 lg:hidden">
+        <div className={`fixed inset-0 z-50 transition-opacity duration-300 lg:hidden ${showMobilePanel ? "" : "pointer-events-none"}`}>
           <div className={`absolute inset-0 transition-opacity duration-300 ${showMobilePanel ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={() => { if (showMobilePanel) setShowMobilePanel(false) }} />
           <div className={`absolute bottom-0 right-0 left-0 z-10 max-h-[75vh] flex-col gap-4 overflow-y-auto rounded-t-2xl border-t border-zinc-200 bg-white p-5 shadow-xl transition-transform duration-300 ease-out ${showMobilePanel ? 'translate-y-0' : 'translate-y-full'}`}>
             <div className="flex items-center justify-between mb-2">
