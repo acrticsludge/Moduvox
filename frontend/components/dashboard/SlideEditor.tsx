@@ -474,8 +474,12 @@ export function SlideEditor({
             // Persist slide data (notes, comments, rawText — but NOT images which are huge base64)
             onSlideDataChange?.(parsedSlides.map(({ number, title, bullets, notes, comments, rawText }) => ({ number, title, bullets, notes, comments, rawText })))
 
-            // Save parsed images to R2 for cross-session persistence (fire-and-forget)
-            saveParsedImagesToR2(presentationId, parsedSlides, onParsedImageKeysChange)
+            // Save parsed images to R2 for cross-session persistence (await so keys persist reliably).
+            const savedKeys = await saveParsedImagesToR2(presentationId, parsedSlides)
+            if (!cancelled && savedKeys && Object.keys(savedKeys).length > 0) {
+              onParsedImageKeysChange?.(savedKeys)
+              onRequestPersist?.()
+            }
 
             setInternalIndex(externalCurrentSlide ?? 0)
           }
@@ -584,12 +588,11 @@ export function SlideEditor({
 
   // ── Parsed image persistence helpers ──────────────────────────
 
-  /** Save parsed slide images to R2 for cross-session persistence. */
+  /** Save parsed slide images to R2 for cross-session persistence. Returns the R2 key map, or null on failure. */
   async function saveParsedImagesToR2(
     presId: string,
     slides: ParsedSlide[],
-    onKeysChange?: (v: Record<string, string>) => void,
-  ) {
+  ): Promise<Record<string, string> | null> {
     try {
       const payload = {
         slides: slides.map((s) => ({
@@ -607,45 +610,60 @@ export function SlideEditor({
         body: JSON.stringify(payload),
       })
       const json = await res.json()
-      if (json.data?.keys && onKeysChange) {
-        onKeysChange(json.data.keys)
-      }
+      if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`)
+      if (json.data?.keys) return json.data.keys as Record<string, string>
+      return null
     } catch (err) {
-      console.warn("[parsed-images] Save failed (non-critical):", err)
+      console.warn("[parsed-images] Save failed:", err)
+      toastError("Failed to persist slide images — they may be lost after refresh.")
+      return null
     }
   }
 
-  /** Load parsed images from R2 using saved keys, return updated slides array. */
+  /** Load parsed images from R2 using saved keys, reconstructing slide images from the key map. */
   async function loadImagesFromParsedKeys(
     presId: string,
     keys: Record<string, string>,
     currentSlides: ParsedSlide[],
   ): Promise<ParsedSlide[]> {
     try {
+      const r2Keys = Object.values(keys)
+      if (r2Keys.length === 0) return currentSlides
+
       const res = await fetch(`/api/presentations/${presId}/parsed-images/load`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ keys: Object.values(keys) }),
+        body: JSON.stringify({ keys: r2Keys }),
       })
       const json = await res.json()
       const imageUrls = json.data?.images as Record<string, string | null> | undefined
       if (!imageUrls) return currentSlides
 
-      // Build lookup: compositeKey → signed URL
-      const keyToUrl = new Map(Object.entries(imageUrls))
-      const compositeToKey = new Map(Object.entries(keys))
+      const extToMime = (key: string): string => {
+        if (key.endsWith(".png")) return "image/png"
+        if (key.endsWith(".jpg") || key.endsWith(".jpeg")) return "image/jpeg"
+        if (key.endsWith(".webp")) return "image/webp"
+        return "application/octet-stream"
+      }
 
       return currentSlides.map((slide) => {
-        const images = slide.images.map((img) => {
-          const compositeKey = `${slide.number}-${img.index}`
-          const r2Key = compositeToKey.get(compositeKey)
-          const signedUrl = r2Key ? keyToUrl.get(r2Key) : null
+        // Reconstruct images for this slide from the persisted key map
+        // (slideData strips images, so slide.images is empty on restore).
+        const reconstructed: SlideImage[] = []
+        for (const [composite, r2Key] of Object.entries(keys)) {
+          const [slideNum, imgIndex] = composite.split("-").map(Number)
+          if (slideNum !== slide.number) continue
+          const signedUrl = imageUrls[r2Key]
           if (signedUrl) {
-            return { ...img, dataUrl: signedUrl, r2Key }
+            reconstructed.push({ index: imgIndex, mimeType: extToMime(r2Key), dataUrl: signedUrl, r2Key })
           }
-          return img
-        })
-        return { ...slide, images }
+        }
+        // Merge any images already present (fresh-parse path carries base64 data URIs).
+        for (const img of slide.images) {
+          if (!reconstructed.some((r) => r.index === img.index)) reconstructed.push(img)
+        }
+        reconstructed.sort((a, b) => a.index - b.index)
+        return { ...slide, images: reconstructed }
       })
     } catch (err) {
       console.warn("[parsed-images] Load failed (non-critical):", err)

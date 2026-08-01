@@ -175,6 +175,10 @@ export default function PresentationCreatePage() {
     setDirty(true)
   }, [])
 
+  const handleResetImageDescriptions = useCallback(() => {
+    setImageDescriptions({})
+  }, [])
+
   function handleStoragePathChange(path: string) {
     setStoragePath(path)
   }
@@ -268,41 +272,49 @@ export default function PresentationCreatePage() {
     })
   }, [params.presentationId, params.id])
 
-  // Auto-save with 2s debounce
+  const persistState = useCallback(() => {
+    const state: EditorState = {
+      selectedVoiceId,
+      controlInstructions,
+      ultimateMode,
+      narrations,
+      audioGenerated,
+      audioStoragePath: audioStoragePath ?? undefined,
+      storagePath,
+      currentSlide,
+      // Always include every field — never drop empty values to undefined.
+      // The PATCH endpoint replaces the entire JSONB column, so dropping a
+      // field permanently deletes it from the database.
+      slideData,
+      changedSlides,
+      slideCount: slideData.length,
+      imageDescriptions,
+      parsedImageKeys,
+    }
+    return fetch(`/api/presentations/${params.presentationId}/state`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(state),
+    })
+      .then((res) => {
+        if (res.ok) { setSaveStatus("saved"); setDirty(false); toastSuccess("Changes saved", { id: "editor-save" }) }
+        else { setSaveStatus("error"); toastError("Failed to save changes", { id: "editor-save" }) }
+      })
+      .catch(() => { setSaveStatus("error"); toastError("Failed to save changes", { id: "editor-save" }) })
+  }, [selectedVoiceId, controlInstructions, ultimateMode, narrations, audioGenerated, audioStoragePath, storagePath, currentSlide, slideData, changedSlides, imageDescriptions, parsedImageKeys, params.presentationId])
+
+  // Debounced save (2s) for normal edits.
   const saveState = useCallback(() => {
     if (saveTimer.current) clearTimeout(saveTimer.current)
     setSaveStatus("saving")
-    saveTimer.current = setTimeout(() => {
-      const state: EditorState = {
-        selectedVoiceId,
-        controlInstructions,
-        ultimateMode,
-        narrations,
-        audioGenerated,
-        audioStoragePath: audioStoragePath ?? undefined,
-        storagePath,
-        currentSlide,
-        // Always include every field — never drop empty values to undefined.
-        // The PATCH endpoint replaces the entire JSONB column, so dropping a
-        // field permanently deletes it from the database.
-        slideData,
-        changedSlides,
-        slideCount: slideData.length,
-        imageDescriptions,
-        parsedImageKeys,
-      }
-      fetch(`/api/presentations/${params.presentationId}/state`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(state),
-      })
-        .then((res) => {
-          if (res.ok) { setSaveStatus("saved"); setDirty(false); toastSuccess("Changes saved", { id: "editor-save" }) }
-          else { setSaveStatus("error"); toastError("Failed to save changes", { id: "editor-save" }) }
-        })
-        .catch(() => { setSaveStatus("error"); toastError("Failed to save changes", { id: "editor-save" }) })
-    }, 2000)
-  }, [selectedVoiceId, controlInstructions, ultimateMode, narrations, audioGenerated, audioStoragePath, storagePath, currentSlide, slideData, changedSlides, imageDescriptions, parsedImageKeys, params.presentationId])
+    saveTimer.current = setTimeout(() => persistState(), 2000)
+  }, [persistState])
+
+  // Immediate save — used when parsed image keys/descriptions land so refresh never loses them.
+  const handleRequestPersist = useCallback(() => {
+    if (saveTimer.current) clearTimeout(saveTimer.current)
+    persistState()
+  }, [persistState])
 
   // Trigger auto-save when any editor state changes
   useEffect(() => {
@@ -587,6 +599,8 @@ export default function PresentationCreatePage() {
               onParsedImageKeysChange={setParsedImageKeys}
               imageDescriptions={imageDescriptions}
               onImageDescriptionsChange={handleImageDescriptionsChange}
+              onRequestPersist={handleRequestPersist}
+              onResetImageDescriptions={handleResetImageDescriptions}
               changedSlides={changedSlides}
               onChangedSlidesChange={handleChangedSlidesChange}
               selectedVoiceId={selectedVoiceId || null}
