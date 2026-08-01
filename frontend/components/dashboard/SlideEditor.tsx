@@ -1240,6 +1240,12 @@ export function SlideEditor({
     // Invalidate any in-flight parse from the previous deck so it can't write stale results.
     parseEpochRef.current += 1
     imageParsingRef.current = false
+    // Reset parsing state for the new deck so the auto-parse effect fires.
+    setImageDescStatus("idle")
+    setBlockedSlides([])
+    setRetryableError(null)
+    // Clear stale descriptions from the previous deck (new deck = fresh state).
+    onResetImageDescriptions?.()
     onSlideDataChange?.(pendingSlides.map(({ number, title, bullets, notes, comments, rawText }) => ({ number, title, bullets, notes, comments, rawText })))
 
     // Merge narrations for "changed" type — preserve unchanged, keep modified, init added
