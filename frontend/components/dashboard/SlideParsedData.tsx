@@ -84,7 +84,7 @@ export function SlideParsedData({
         ? "loaded"
         : imageDescLoading
           ? "loading"
-          : "loaded", // Per-image shows "Analyzing..." until batch fetch completes
+          : "loaded", // Shown until the recovery parse kicks off from the Images tab
   )
   const [imageError, setImageError] = useState<string | null>(null)
 
@@ -185,7 +185,9 @@ export function SlideParsedData({
       return
     }
     fetchedForSlideRef.current = slide.number
-    loadImageDescriptions()
+    // Flip to loading so the existing fetch effect (watches imageStatus === "loading")
+    // performs the single recovery fetch — avoids a duplicate describe call.
+    setImageStatus("loading")
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, slide.number, imageDescLoading, cachedImageDescriptions])
 
