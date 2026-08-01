@@ -1,9 +1,9 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { X, AlertCircle, RefreshCw, MessageSquare, FileText, ImageIcon, ChevronRight } from "lucide-react"
 import type { ParsedSlide, ImageDescription } from "@/lib/pptx-renderer"
-import { describeSlideImages } from "@/lib/image-analysis"
+import { describeSlideImages, imagesNeedingAnalysis, isSlideParsingComplete } from "@/lib/image-analysis"
 
 type Tab = "text" | "notes" | "images"
 
@@ -88,6 +88,9 @@ export function SlideParsedData({
   )
   const [imageError, setImageError] = useState<string | null>(null)
 
+  // Guards the recovery parse so it fires at most once per slide.
+  const fetchedForSlideRef = useRef<number | null>(null)
+
   // ── Determine tab status indicators ──────────────────────────────────────
 
   const textStatus: TabStatus =
@@ -106,15 +109,30 @@ export function SlideParsedData({
       return
     }
 
+    // Q3: on retry, send ONLY the images that still need analysis.
+    const toSend =
+      cachedImageDescriptions && cachedImageDescriptions.length > 0
+        ? imagesNeedingAnalysis(slide.images, cachedImageDescriptions)
+        : slide.images
+
+    if (toSend.length === 0) {
+      setImageStatus("loaded")
+      return
+    }
+
     setImageStatus("loading")
     setImageError(null)
 
     try {
       const result = await describeSlideImages(presentationId, [
-        { number: slide.number, images: slide.images },
+        { number: slide.number, images: toSend },
       ])
 
+      // Merge new results over any cached descriptions.
       const descMap = new Map<number, ImageDescription>()
+      if (cachedImageDescriptions) {
+        for (const d of cachedImageDescriptions) descMap.set(d.index, d)
+      }
       const slideResult = result.slides[0]
       if (slideResult) {
         for (const img of slideResult.images) {
@@ -126,18 +144,17 @@ export function SlideParsedData({
 
       // Propagate to parent for caching in editor_state
       if (onImageDescriptionsUpdate && slideResult?.images) {
-        onImageDescriptionsUpdate(slideResult.images)
+        onImageDescriptionsUpdate(Array.from(descMap.values()))
       }
 
-      // Determine overall status
-      const allFailed = slideResult?.images.every((img) => img.error) ?? false
+      const allFailed = descMap.size > 0 && Array.from(descMap.values()).every((img) => img.error)
       setImageStatus(allFailed ? "error" : "loaded")
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       setImageError(msg)
       setImageStatus("error")
     }
-  }, [slide, presentationId, onImageDescriptionsUpdate])
+  }, [slide, presentationId, cachedImageDescriptions, onImageDescriptionsUpdate])
 
   // Sync cached descriptions from parent into local state
   useEffect(() => {
@@ -154,6 +171,23 @@ export function SlideParsedData({
       setImageStatus("loaded")
     }
   }, [cachedImageDescriptions, imageDescLoading, slide.images.length])
+
+  // Q8 recovery: when the Images tab opens for a slide with images and no cached
+  // descriptions (e.g. legacy decks), trigger a one-time parse for that slide.
+  useEffect(() => {
+    if (activeTab !== "images") return
+    if (slide.images.length === 0) return
+    if (imageDescLoading) return
+    if (fetchedForSlideRef.current === slide.number) return
+    const complete = isSlideParsingComplete(slide.images, cachedImageDescriptions)
+    if (complete) {
+      fetchedForSlideRef.current = slide.number
+      return
+    }
+    fetchedForSlideRef.current = slide.number
+    loadImageDescriptions()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, slide.number, imageDescLoading, cachedImageDescriptions])
 
   // Only fetch on explicit retry — parent handles initial batch fetch
   useEffect(() => {
@@ -451,8 +485,16 @@ function ImagesTab({
                 <p className="text-xs leading-relaxed text-zinc-600">{desc.description}</p>
               ) : (
                 <div className="flex items-center gap-2">
-                  <div className="h-3 w-3 rounded-full bg-amber-400 animate-pulse" />
-                  <span className="text-xs text-zinc-400">Analyzing...</span>
+                  <AlertCircle className="h-3.5 w-3.5 text-zinc-400" />
+                  <span className="text-xs text-zinc-400">Not analyzed</span>
+                  <button
+                    type="button"
+                    onClick={onRetry}
+                    className="inline-flex items-center gap-1 text-xs font-medium text-zinc-500 hover:text-zinc-700"
+                  >
+                    <RefreshCw className="h-3 w-3" />
+                    Retry
+                  </button>
                 </div>
               )}
             </div>
