@@ -8,6 +8,7 @@ import { toWav } from "@/lib/audio-convert"
 import { downloadFileAsBuffer, deleteFile, uploadFile } from "@/lib/r2"
 import { withApiHandler } from "@/lib/api-handler"
 import { logAuditFromRequest } from "@/lib/audit"
+import { buildVoiceDescription } from "@/lib/presets"
 
 const slideSchema = z.object({
   slide_number: z.number().int().min(1),
@@ -65,7 +66,7 @@ export const POST = withApiHandler(async (request: Request) => {
           throw new Error("Cloned voice reference audio not found. Please re-upload your voice sample.")
         }
       } else {
-        voiceDesc = voice?.control_instruction || voice_description || "Natural, clear, professional speaking voice"
+        voiceDesc = buildVoiceDescription(voice?.control_instruction, voice?.gender, voice_description || "Natural, clear, professional speaking voice")
       }
     }
 
