@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client"
 import type { Project } from "@/lib/validations/project"
 import dynamic from "next/dynamic"
 import { ProjectCard } from "@/components/dashboard/ProjectCard"
+import { SidebarToggle } from "@/components/dashboard/SidebarToggle"
 
 const CreateProjectModal = dynamic(() => import("@/components/dashboard/CreateProjectModal").then(mod => mod.CreateProjectModal), { ssr: false })
 
@@ -80,7 +81,10 @@ export default function DashboardPage() {
   return (
     <>
       <div className="flex items-center justify-between border-b border-[var(--color-border-faint)] bg-white px-4 py-3 sm:px-6 sm:py-4">
-        <h1 className="text-lg font-semibold text-[#18181B]">All Projects</h1>
+        <div className="flex items-center gap-2">
+          <SidebarToggle />
+          <h1 className="text-lg font-semibold text-[#18181B]">All Projects</h1>
+        </div>
 
         <button
           type="button"

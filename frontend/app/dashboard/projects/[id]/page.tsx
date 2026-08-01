@@ -16,6 +16,7 @@ import { PresentationCardActions } from "@/components/dashboard/PresentationCard
 import { RenamePresentationDialog } from "@/components/dashboard/RenamePresentationDialog"
 import { DeletePresentationDialog } from "@/components/dashboard/DeletePresentationDialog"
 import { ConfirmArchiveDialog } from "@/components/dashboard/ConfirmArchiveDialog"
+import { SidebarToggle } from "@/components/dashboard/SidebarToggle"
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   FolderKanban,
@@ -151,6 +152,7 @@ export default function ProjectDetailPage() {
       {/* Top bar */}
       <div className="flex items-center justify-between border-b border-[var(--color-border-faint)] bg-white px-4 py-3 sm:px-6 sm:py-4">
         <div className="flex items-center gap-1.5 text-sm sm:gap-2">
+          <SidebarToggle />
           <a
             href="/dashboard"
             className="font-medium text-[#71717A] transition-colors hover:text-[#18181B]"

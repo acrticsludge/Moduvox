@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2, LogOut } from "lucide-react";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
+import { SidebarToggle } from "@/components/dashboard/SidebarToggle";
 import { useRouter } from "next/navigation";
 
 type Tab = "profile" | "security" | "api-keys";
@@ -204,7 +205,10 @@ export default function SettingsPage() {
     <>
       {/* Top bar */}
       <div className="border-b border-[var(--color-border-faint)] bg-white px-4 py-3 sm:px-6 sm:py-4">
-        <h1 className="text-lg font-semibold text-[#18181B]">Settings</h1>
+        <div className="flex items-center gap-2">
+          <SidebarToggle />
+          <h1 className="text-lg font-semibold text-[#18181B]">Settings</h1>
+        </div>
         <div className="mt-3 flex gap-1">
           {(["profile", "security", "api-keys"] as const).map((t) => (
             <button

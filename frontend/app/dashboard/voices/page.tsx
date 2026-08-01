@@ -8,6 +8,7 @@ import dynamic from "next/dynamic"
 const DeleteVoiceDialog = dynamic(() => import("@/components/dashboard/DeleteVoiceDialog").then(mod => mod.DeleteVoiceDialog), { ssr: false })
 const WaitlistDialog = dynamic(() => import("@/components/dashboard/WaitlistDialog").then(mod => mod.WaitlistDialog), { ssr: false })
 import { VoiceRecorder } from "@/components/dashboard/VoiceRecorder"
+import { SidebarToggle } from "@/components/dashboard/SidebarToggle"
 import type { QuotaResult } from "@/lib/quota"
 
 // ── Types ────────────────────────────────────────────
@@ -1062,7 +1063,10 @@ export default function VoicesPage() {
     <>
       {/* Top bar */}
       <div className="flex items-center justify-between border-b border-[var(--color-border-faint)] bg-white px-4 py-3 sm:px-6 sm:py-4">
-        <h1 className="text-lg font-semibold text-[#18181B]">My Voices</h1>
+        <div className="flex items-center gap-2">
+          <SidebarToggle />
+          <h1 className="text-lg font-semibold text-[#18181B]">My Voices</h1>
+        </div>
 
         <button
           type="button"

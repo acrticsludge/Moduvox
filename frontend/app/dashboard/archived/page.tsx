@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { toastError } from "@/components/ui/CustomToast"
+import { SidebarToggle } from "@/components/dashboard/SidebarToggle"
 import { createClient } from "@/lib/supabase/client"
 import {
   Archive,
@@ -100,6 +101,7 @@ export default function ArchivedPage() {
       {/* Top bar */}
       <div className="flex items-center justify-between border-b border-[var(--color-border-faint)] bg-white px-4 py-3 sm:px-6 sm:py-4">
         <div className="flex items-center gap-2 text-sm">
+          <SidebarToggle />
           <a
             href="/dashboard"
             className="font-medium text-[#71717A] transition-colors hover:text-[#18181B]"
