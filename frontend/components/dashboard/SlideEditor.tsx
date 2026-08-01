@@ -337,17 +337,17 @@ export function SlideEditor({
     imageParsingRef.current = true
     setImageDescLoading(true)
     try {
+      const combined: Record<number, ImageDesc[]> = { ...(externalImageDescriptions ?? {}) }
       const failed = collectFailedImages(slides, externalImageDescriptions ?? {})
       if (failed.length > 0) {
         const result = await describeSlideImagesChunked(presentationId, failed)
         const merged = mergeImageResults(result.slides)
-        const combined: Record<number, ImageDesc[]> = { ...externalImageDescriptions }
         for (const [k, v] of Object.entries(merged)) combined[Number(k)] = v
         onImageDescriptionsChange?.(combined)
         onRequestPersist?.()
       }
       const stillBlocked = slides.filter(
-        (s) => s.images.length > 0 && !isSlideParsingComplete(s.images, externalImageDescriptions?.[s.number]),
+        (s) => s.images.length > 0 && !isSlideParsingComplete(s.images, combined[s.number]),
       )
       setBlockedSlides(stillBlocked.map((s) => s.number))
       if (stillBlocked.length === 0) {
