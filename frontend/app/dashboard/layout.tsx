@@ -4,7 +4,7 @@ import { useState, useEffect, createContext, useContext } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { Navbar } from "@/components/ui/Navbar"
 import { Footer } from "@/components/landing/footer"
-import { LayoutGrid, Mic, Settings, Archive, Menu } from "lucide-react"
+import { LayoutGrid, Mic, Settings, Archive } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { createClient } from "@/lib/supabase/client"
 import { ErrorBoundary } from "react-error-boundary"
@@ -134,7 +134,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     key={item.label}
                     href={item.href}
                     onClick={() => setSidebarOpen(false)}
-className={`touch-target gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors duration-150 ${
+className={`touch-target-row gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors duration-150 ${
                        active
                          ? "bg-zinc-100 text-[#18181B]"
                          : "text-[#71717A] hover:bg-zinc-50 hover:text-[#18181B]"
@@ -157,17 +157,6 @@ className={`touch-target gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-med
               isPresentationEditor ? "" : "pb-16"
             }`}
           >
-            {/* Mobile hamburger — floats above content when sidebar is closed */}
-            {!sidebarOpen && (
-              <button
-                type="button"
-                onClick={() => setSidebarOpen(true)}
-                className="fixed left-3 top-20 z-20 inline-flex min-h-[48px] min-w-[48px] items-center justify-center rounded-lg border border-zinc-200 bg-white shadow-sm text-[#71717A] transition-colors hover:text-[#18181B] md:hidden"
-                aria-label="Open sidebar"
-              >
-                <Menu className="h-4 w-4" />
-              </button>
-            )}
             <ErrorBoundary
               fallback={
                 <main className="flex flex-1 flex-col items-center justify-center p-8 min-w-0">
