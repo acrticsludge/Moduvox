@@ -64,3 +64,33 @@ export const GENDER_LABELS: Record<string, string> = {
 export function getPreset(id: string): PresetDefinition | undefined {
   return PRESET_VOICES.find((p) => p.id === id)
 }
+
+const MALE_GENDER_RE = /\bmale\b/i
+const FEMALE_GENDER_RE = /\bfemale\b/i
+
+/**
+ * Build the tone-instruction text for a voice from its control instruction and
+ * gender. Prepends an explicit gender prompt only when the gender is male or
+ * female AND the instruction does not already mention that gender word.
+ * Neutral and already-specified cases use the instruction unchanged.
+ */
+export function buildVoiceDescription(
+  controlInstruction: string | null | undefined,
+  gender: string | null | undefined,
+  fallback = "Natural, clear, professional speaking voice",
+): string {
+  const text = controlInstruction?.trim() ?? ""
+
+  if (gender === "male" || gender === "female") {
+    const alreadyMentioned =
+      gender === "male" ? MALE_GENDER_RE.test(text) : FEMALE_GENDER_RE.test(text)
+
+    if (!alreadyMentioned) {
+      const prefix =
+        gender === "male" ? "Speak with a male voice." : "Speak with a female voice."
+      return text ? `${prefix} ${text}` : prefix
+    }
+  }
+
+  return text || fallback
+}
