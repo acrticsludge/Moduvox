@@ -5,6 +5,7 @@ import {
   imagesNeedingAnalysis,
   chunkImageRequests,
   describeSlideImagesChunked,
+  describeSlideImages,
 } from "@/lib/image-analysis"
 import type { ImageDescription } from "@/lib/pptx-renderer"
 
@@ -82,6 +83,18 @@ describe("chunkImageRequests", () => {
     const perChunk = chunks.map((c) => c.reduce((n, s) => n + s.images.length, 0))
     assert.ok(perChunk.every((n) => n <= 12))
     assert.equal(perChunk.reduce((a, b) => a + b, 0), 25)
+    assert.ok(chunks.flat().every((s) => s.images.length <= 10))
+  })
+  it("never merges more than 10 images into a single slide entry", () => {
+    const bigSlide = {
+      number: 1,
+      images: Array.from({ length: 12 }, (_, i) => ({ index: i, mimeType: "image/png", dataUrl: "data:image/png;base64,X" })),
+    }
+    const chunks = chunkImageRequests([bigSlide], 20)
+    const perEntry = chunks.flat().map((s) => s.images.length)
+    assert.ok(perEntry.every((n) => n <= 10))
+    assert.equal(perEntry.reduce((a, b) => a + b, 0), 12)
+    assert.equal(chunks.flat().filter((s) => s.number === 1).length, 2)
   })
   it("returns empty for empty input", () => {
     assert.deepEqual(chunkImageRequests([], 20), [])
@@ -89,18 +102,18 @@ describe("chunkImageRequests", () => {
 })
 
 describe("describeSlideImagesChunked", () => {
-  it("merges results across chunks and marks unreturned images as failed", async () => {
-    const requests: string[] = []
+  function echoFetch(requests: unknown[]) {
     const origFetch = global.fetch
     global.fetch = (async (url: RequestInfo | URL, init?: RequestInit) => {
-      const body = JSON.parse(String((init as RequestInit)?.body))
-      requests.push(JSON.stringify(body))
+      if (!init?.body) throw new Error("Missing request body")
+      const body = JSON.parse(String(init.body))
+      requests.push(body)
       return {
         ok: true,
         status: 200,
         json: async () => ({
           data: {
-            slides: (body as { slides: { number: number; images: { index: number }[] }[] }).slides.map((s: { number: number; images: { index: number }[] }) => ({
+            slides: (body as { slides: { number: number; images: { index: number }[] }[] }).slides.map((s) => ({
               number: s.number,
               images: s.images.map((img) => ({ index: img.index, description: `desc ${img.index}`, error: undefined })),
             })),
@@ -108,6 +121,12 @@ describe("describeSlideImagesChunked", () => {
         }),
       } as Response
     }) as typeof fetch
+    return origFetch
+  }
+
+  it("merges results across chunks", async () => {
+    const requests: unknown[] = []
+    const origFetch = echoFetch(requests)
 
     try {
       const slides = [
@@ -125,6 +144,42 @@ describe("describeSlideImagesChunked", () => {
     }
   })
 
+  it("merges slide images that span multiple chunks", async () => {
+    const requests: unknown[] = []
+    const origFetch = echoFetch(requests)
+
+    try {
+      const slides = [
+        {
+          number: 1,
+          images: Array.from({ length: 15 }, (_, i) => ({ index: i, mimeType: "image/png", dataUrl: "data:image/png;base64,X" })),
+        },
+        {
+          number: 2,
+          images: Array.from({ length: 10 }, (_, i) => ({ index: i, mimeType: "image/png", dataUrl: "data:image/png;base64,Y" })),
+        },
+      ]
+      const result = await describeSlideImagesChunked("pres-id", slides, { maxImagesPerRequest: 20, chunkDelayMs: 0 })
+      assert.equal(requests.length, 2) // chunks: [[1:15, 2:5], [2:5]]
+      const perChunk = requests.map((b) =>
+        (b as { slides: { number: number; images: unknown[] }[] }).slides.reduce(
+          (n, s) => ({ ...n, [s.number]: (n[s.number] ?? 0) + s.images.length }),
+          {} as Record<number, number>,
+        ),
+      )
+      assert.deepEqual(perChunk[0], { 1: 15, 2: 5 })
+      assert.deepEqual(perChunk[1], { 2: 5 })
+      const slide1 = result.slides.find((s) => s.number === 1)!
+      const slide2 = result.slides.find((s) => s.number === 2)!
+      assert.deepEqual(slide1.images.map((i) => i.index), Array.from({ length: 15 }, (_, i) => i))
+      assert.deepEqual(slide2.images.map((i) => i.index), Array.from({ length: 10 }, (_, i) => i))
+      assert.ok(slide1.images.every((i) => !i.error && i.description === `desc ${i.index}`))
+      assert.ok(slide2.images.every((i) => !i.error && i.description === `desc ${i.index}`))
+    } finally {
+      global.fetch = origFetch
+    }
+  })
+
   it("marks all images in a chunk as failed when the request throws", async () => {
     const origFetch = global.fetch
     global.fetch = (async () => {
@@ -135,6 +190,21 @@ describe("describeSlideImagesChunked", () => {
       const result = await describeSlideImagesChunked("pres-id", slides, { chunkDelayMs: 0 })
       assert.equal(result.slides.length, 1)
       assert.ok(result.slides[0].images.every((i) => i.error === "Analysis failed"))
+    } finally {
+      global.fetch = origFetch
+    }
+  })
+})
+
+describe("describeSlideImages", () => {
+  it("rejects when the API returns a non-2xx status", async () => {
+    const origFetch = global.fetch
+    global.fetch = (async () => ({ ok: false, status: 500 })) as unknown as typeof fetch
+    try {
+      await assert.rejects(
+        describeSlideImages("pres-id", [{ number: 1, images: [slideImages[0]] }]),
+        /Image description request failed/,
+      )
     } finally {
       global.fetch = origFetch
     }

@@ -65,6 +65,7 @@ export function chunkImageRequests(
   const chunks: SlideWithImages[][] = []
   let current: SlideWithImages[] = []
   let count = 0
+  const maxImagesPerSlideEntry = 10
 
   for (const slide of slidesWithImages) {
     for (const img of slide.images) {
@@ -74,7 +75,7 @@ export function chunkImageRequests(
         count = 0
       }
       const last = current[current.length - 1]
-      if (last && last.number === slide.number) {
+      if (last && last.number === slide.number && last.images.length < maxImagesPerSlideEntry) {
         last.images.push(img)
       } else {
         current.push({ number: slide.number, images: [img] })
@@ -94,8 +95,12 @@ async function toBase64DataUrl(dataUrl: string): Promise<string> {
   const blob = await res.blob()
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
-    reader.onloadend = () => resolve(reader.result as string)
+    reader.onload = () => {
+      if (typeof reader.result === "string") resolve(reader.result)
+      else reject(new Error("Failed to read image"))
+    }
     reader.onerror = () => reject(new Error("Failed to read image"))
+    reader.onabort = () => reject(new Error("Failed to read image"))
     reader.readAsDataURL(blob)
   })
 }
@@ -107,7 +112,7 @@ export async function describeSlideImagesChunked(
   opts?: { maxImagesPerRequest?: number; chunkDelayMs?: number; onProgress?: (done: number, total: number) => void },
 ): Promise<{ slides: SlideImageResult[] }> {
   const maxImagesPerRequest = opts?.maxImagesPerRequest ?? 20
-  const chunkDelayMs = opts?.chunkDelayMs ?? 6000
+  const chunkDelayMs = opts?.chunkDelayMs ?? 7000
   const chunks = chunkImageRequests(slidesWithImages, maxImagesPerRequest)
   const bySlide = new Map<number, ImageDescription[]>()
   let processed = 0
