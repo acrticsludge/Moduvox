@@ -164,6 +164,7 @@ export function SlideEditor({
   const [blockedSlides, setBlockedSlides] = useState<number[]>([])
   const [retryableError, setRetryableError] = useState<string | null>(null)
   const imageParsingRef = useRef(false)
+  const parseEpochRef = useRef(0)
   const [showReUpload, setShowReUpload] = useState(false)
   const [pendingDiff, setPendingDiff] = useState<SlideDiff | null>(null)
   const [pendingSlides, setPendingSlides] = useState<ParsedSlide[]>([])
@@ -301,6 +302,7 @@ export function SlideEditor({
     setRetryableError(null)
 
     const slidesWithImages = slides.filter((s) => s.images.length > 0)
+    const epoch = parseEpochRef.current
     try {
       let result = await describeSlideImagesChunked(presentationId, slidesWithImages)
       let merged = mergeImageResults(result.slides)
@@ -313,6 +315,8 @@ export function SlideEditor({
         merged = mergeImageResults([...result.slides, ...retryResult.slides])
       }
 
+      // Abort if the deck changed while we were parsing (stale results for an old deck).
+      if (parseEpochRef.current !== epoch) return
       onImageDescriptionsChange?.(merged)
       onRequestPersist?.()
 
@@ -337,12 +341,15 @@ export function SlideEditor({
     imageParsingRef.current = true
     setImageDescLoading(true)
     try {
+      const epoch = parseEpochRef.current
       const combined: Record<number, ImageDesc[]> = { ...(externalImageDescriptions ?? {}) }
       const failed = collectFailedImages(slides, externalImageDescriptions ?? {})
       if (failed.length > 0) {
         const result = await describeSlideImagesChunked(presentationId, failed)
         const merged = mergeImageResults(result.slides)
         for (const [k, v] of Object.entries(merged)) combined[Number(k)] = v
+        // Abort if the deck changed while we were parsing (stale results for an old deck).
+        if (parseEpochRef.current !== epoch) return
         onImageDescriptionsChange?.(combined)
         onRequestPersist?.()
       }
@@ -355,7 +362,7 @@ export function SlideEditor({
         setRetryableError(null)
         setGenerationFailed(false)
         // Q7: auto-fire narration once parsing succeeds.
-        const ok = await generateNarrations(slides, true)
+        const ok = await generateNarrations(slides, true, combined)
         if (!ok) setGenerationFailed(true)
       } else {
         setImageDescStatus("error")
@@ -456,6 +463,8 @@ export function SlideEditor({
             setSlides(parsedSlides)
 
             // Reset parsing state for a new deck so the auto-parse effect fires.
+            parseEpochRef.current += 1
+            imageParsingRef.current = false
             setImageDescStatus("idle")
             setBlockedSlides([])
             setRetryableError(null)
@@ -756,7 +765,8 @@ export function SlideEditor({
   // Shared helper: generate narrations via API. Returns the new narrations map, or null on failure.
   async function generateNarrations(
     targetSlides: ParsedSlide[],
-    showRateLimitPrompt = true
+    showRateLimitPrompt = true,
+    imageDescriptionsOverride?: Record<number, ImageDesc[]>,
   ): Promise<Record<number, string> | null> {
     if (targetSlides.length === 0) return null
     setGeneratingNarrations(true)
@@ -773,7 +783,7 @@ export function SlideEditor({
           controlInstruction: voiceDescription || undefined,
           ultimateMode: ultimateMode ?? false,
           // Pass image descriptions so Gemini can incorporate visual context into narration
-          imageDescriptions: externalImageDescriptions,
+          imageDescriptions: imageDescriptionsOverride ?? externalImageDescriptions,
         }),
       })
       const json = await res.json()
@@ -1187,6 +1197,9 @@ export function SlideEditor({
 
     // Replace slide data — persist notes, comments, rawText (NOT images — huge base64)
     setSlides(pendingSlides)
+    // Invalidate any in-flight parse from the previous deck so it can't write stale results.
+    parseEpochRef.current += 1
+    imageParsingRef.current = false
     onSlideDataChange?.(pendingSlides.map(({ number, title, bullets, notes, comments, rawText }) => ({ number, title, bullets, notes, comments, rawText })))
 
     // Merge narrations for "changed" type — preserve unchanged, keep modified, init added
