@@ -6,7 +6,7 @@
 
 import { generateWithPreset, generateWithClone } from "@/lib/voxcpm"
 import { downloadFileAsBuffer, uploadFile, createDownloadUrl, deleteFile } from "@/lib/r2"
-import { PRESET_VOICE_MAP } from "@/lib/presets"
+import { PRESET_VOICE_MAP, buildVoiceDescription } from "@/lib/presets"
 
 const EXAMPLE_TEXT =
   "At Moduvox, we turn slides into narrated training videos using your own voice. This preview shows how your presentation will sound."
@@ -18,6 +18,7 @@ type VoiceRecord = {
   preset_id: string | null
   control_instruction: string | null
   sample_path: string | null
+  gender: string | null
 }
 
 /**
@@ -29,9 +30,12 @@ export async function generateVoicePreview(voice: VoiceRecord): Promise<void> {
     let result: { audioUrl: string }
 
     if (voice.type === "preset") {
-      const description = voice.control_instruction
-        ?? (voice.preset_id ? PRESET_VOICE_MAP[voice.preset_id] : PRESET_VOICE_MAP["calm-female"])
-        ?? PRESET_VOICE_MAP["calm-female"]
+      const description = buildVoiceDescription(
+        voice.control_instruction
+          ?? (voice.preset_id ? PRESET_VOICE_MAP[voice.preset_id] : PRESET_VOICE_MAP["calm-female"])
+          ?? PRESET_VOICE_MAP["calm-female"],
+        voice.gender,
+      )
 
       result = await generateWithPreset(EXAMPLE_TEXT, description)
     } else {
