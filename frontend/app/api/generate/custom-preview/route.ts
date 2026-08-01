@@ -41,8 +41,14 @@ export const POST = withApiHandler(async (request: Request) => {
     // generateVoicePreview.
     return NextResponse.json({ data: { audioUrl: result.audioUrl } })
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to generate preview"
-    console.error("[CustomPreview] ERROR:", message)
-    return NextResponse.json({ error: message }, { status: 500 })
+    // Never expose internal error details (Gradio response text, URLs, poll
+    // internals) to the client — log them server-side and return a safe message.
+    const errObj = err && typeof err === "object" ? err as Record<string, unknown> : {}
+    const isBusy = typeof errObj.message === "string" && errObj.message.includes("currently busy")
+    const message = isBusy
+      ? "Voice generation is temporarily unavailable. The HuggingFace Space is busy. Try again in a few minutes."
+      : "Voice preview generation failed"
+    console.error("[CustomPreview] ERROR:", err instanceof Error ? err.message : JSON.stringify(errObj))
+    return NextResponse.json({ error: message }, { status: 503 })
   }
 })
