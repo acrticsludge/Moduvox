@@ -272,7 +272,7 @@ export default function PresentationCreatePage() {
     })
   }, [params.presentationId, params.id])
 
-  const persistState = useCallback(() => {
+  const persistState = useCallback((fresh?: { parsedImageKeys?: Record<string, string>; imageDescriptions?: Record<number, ImageDesc[]> }) => {
     const state: EditorState = {
       selectedVoiceId,
       controlInstructions,
@@ -288,8 +288,8 @@ export default function PresentationCreatePage() {
       slideData,
       changedSlides,
       slideCount: slideData.length,
-      imageDescriptions,
-      parsedImageKeys,
+      imageDescriptions: fresh?.imageDescriptions ?? imageDescriptions,
+      parsedImageKeys: fresh?.parsedImageKeys ?? parsedImageKeys,
     }
     return fetch(`/api/presentations/${params.presentationId}/state`, {
       method: "PATCH",
@@ -311,9 +311,9 @@ export default function PresentationCreatePage() {
   }, [persistState])
 
   // Immediate save — used when parsed image keys/descriptions land so refresh never loses them.
-  const handleRequestPersist = useCallback(() => {
+  const handleRequestPersist = useCallback((fresh?: { parsedImageKeys?: Record<string, string>; imageDescriptions?: Record<number, ImageDesc[]> }) => {
     if (saveTimer.current) clearTimeout(saveTimer.current)
-    persistState()
+    persistState(fresh)
   }, [persistState])
 
   // Trigger auto-save when any editor state changes

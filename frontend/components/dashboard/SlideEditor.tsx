@@ -129,7 +129,7 @@ export function SlideEditor({
   onAudioSlidePathsChange?: (v: Record<number, string>) => void
   selectedVoiceId?: string | null
   ultimateMode?: boolean
-  onRequestPersist?: () => void
+  onRequestPersist?: (fresh?: { parsedImageKeys?: Record<string, string>; imageDescriptions?: Record<number, ImageDesc[]> }) => void
   /** Fully clear cached image descriptions (fresh upload of a new deck). */
   onResetImageDescriptions?: () => void
 }) {
@@ -318,7 +318,7 @@ export function SlideEditor({
       // Abort if the deck changed while we were parsing (stale results for an old deck).
       if (parseEpochRef.current !== epoch) return
       onImageDescriptionsChange?.(merged)
-      onRequestPersist?.()
+      onRequestPersist?.({ imageDescriptions: merged })
 
       const stillBlocked = slides.filter(
         (s) => s.images.length > 0 && !isSlideParsingComplete(s.images, merged[s.number]),
@@ -351,7 +351,7 @@ export function SlideEditor({
         // Abort if the deck changed while we were parsing (stale results for an old deck).
         if (parseEpochRef.current !== epoch) return
         onImageDescriptionsChange?.(combined)
-        onRequestPersist?.()
+        onRequestPersist?.({ imageDescriptions: combined })
       }
       const stillBlocked = slides.filter(
         (s) => s.images.length > 0 && !isSlideParsingComplete(s.images, combined[s.number]),
@@ -474,12 +474,14 @@ export function SlideEditor({
             // Persist slide data (notes, comments, rawText — but NOT images which are huge base64)
             onSlideDataChange?.(parsedSlides.map(({ number, title, bullets, notes, comments, rawText }) => ({ number, title, bullets, notes, comments, rawText })))
 
-            // Save parsed images to R2 for cross-session persistence (await so keys persist reliably).
-            const savedKeys = await saveParsedImagesToR2(presentationId, parsedSlides)
-            if (!cancelled && savedKeys && Object.keys(savedKeys).length > 0) {
-              onParsedImageKeysChange?.(savedKeys)
-              onRequestPersist?.()
-            }
+            // Save parsed images to R2 for cross-session persistence (non-blocking:
+            // the main upload must not wait on sequential R2 image uploads).
+            saveParsedImagesToR2(presentationId, parsedSlides).then((savedKeys) => {
+              if (!cancelled && savedKeys && Object.keys(savedKeys).length > 0) {
+                onParsedImageKeysChange?.(savedKeys)
+                onRequestPersist?.({ parsedImageKeys: savedKeys })
+              }
+            })
 
             setInternalIndex(externalCurrentSlide ?? 0)
           }
