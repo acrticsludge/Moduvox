@@ -136,6 +136,10 @@ export default function ViewPresentationPage() {
   const fullscreenContainerRef = useRef<HTMLDivElement>(null)
   const { isFullscreen, supported, toggle } = useFullscreen()
   const [fullscreenControlsVisible, setFullscreenControlsVisible] = useState(false)
+  // Reset on every fullscreen entry so controls start hidden (hover/tap reveals them)
+  useEffect(() => {
+    if (isFullscreen) setFullscreenControlsVisible(false)
+  }, [isFullscreen])
 
   // Add/remove body class for viewer fullscreen
   useEffect(() => {
@@ -778,7 +782,11 @@ export default function ViewPresentationPage() {
             <main
               id="viewer-main-content"
               ref={viewerContentRef}
-              onClick={() => { if (isFullscreen) setFullscreenControlsVisible((v) => !v) }}
+              onClick={(e) => {
+                if (!isFullscreen) return
+                if ((e.target as HTMLElement).closest?.("[data-fullscreen-controls]")) return
+                setFullscreenControlsVisible((v) => !v)
+              }}
               className={`relative flex flex-1 flex-col items-center ${isFullscreen ? `group min-h-0 min-w-0 p-0 justify-center overflow-hidden${fitToScreen ? " bg-black" : ""}` : "p-4 md:p-8"}`}
             >
               {slidesError && (
@@ -822,7 +830,7 @@ export default function ViewPresentationPage() {
                     {/* Fullscreen overlay — only visible in fullscreen on hover */}
                     {isFullscreen && (
                       <div
-                        onClick={(e) => e.stopPropagation()}
+                        data-fullscreen-controls
                         className={`absolute inset-0 z-50 flex items-center justify-between transition-opacity duration-300 ${
                           fullscreenControlsVisible
                             ? "pointer-events-auto opacity-100"

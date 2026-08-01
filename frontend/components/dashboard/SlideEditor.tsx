@@ -1375,6 +1375,10 @@ export function SlideEditor({
   const [slideViewport, setSlideViewport] = useState({ width: 0, height: 0 })
   const fullscreenContainerRef = useRef<HTMLElement | null>(null)
   const { isFullscreen, supported, toggle } = useFullscreen()
+  // Reset on every fullscreen entry so controls start hidden (hover/tap reveals them)
+  useEffect(() => {
+    if (isFullscreen) setFullscreenControlsVisible(false)
+  }, [isFullscreen])
   // When exiting fullscreen, remount desktop AudioPlayer with current position
   useEffect(() => {
     if (!isFullscreen) setFullscreenExitKey((k) => k + 1)
@@ -1656,7 +1660,11 @@ export function SlideEditor({
           <>
             <div
               ref={slideViewerRef}
-              onClick={() => { if (isFullscreen) setFullscreenControlsVisible((v) => !v) }}
+              onClick={(e) => {
+                if (!isFullscreen) return
+                if ((e.target as HTMLElement).closest?.("[data-fullscreen-controls]")) return
+                setFullscreenControlsVisible((v) => !v)
+              }}
               className={`group relative flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden transition-all ${
                 isFullscreen ? (fitToScreen ? "p-0 bg-black" : "p-0") : "p-4"
               }`}
@@ -1683,7 +1691,7 @@ export function SlideEditor({
               {/* Fullscreen hover overlay — navigation + exit */}
               {isFullscreen && (
                 <div
-                  onClick={(e) => e.stopPropagation()}
+                  data-fullscreen-controls
                   className={`absolute inset-0 z-50 flex items-center justify-between transition-opacity duration-300 ${
                     fullscreenControlsVisible
                       ? "pointer-events-auto opacity-100"
