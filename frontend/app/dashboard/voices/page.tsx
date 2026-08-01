@@ -230,6 +230,12 @@ function AddVoiceModal({
   const [customPreviewLoading, setCustomPreviewLoading] = useState(false)
   const [customPreviewUrl, setCustomPreviewUrl] = useState<string | null>(null)
 
+  // Drop the preview player if the user edits the voice parameters — the audio
+  // would no longer match what the form describes.
+  useEffect(() => {
+    setCustomPreviewUrl(null)
+  }, [controlInstruction, voiceGender])
+
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") onClose()
@@ -331,6 +337,7 @@ function AddVoiceModal({
 
   async function handleCustomPreview() {
     setCustomPreviewLoading(true)
+    setCustomPreviewUrl(null)
     setError(null)
     try {
       const res = await fetch("/api/generate/custom-preview", {
@@ -674,7 +681,7 @@ function AddVoiceModal({
             <div className="mt-6 flex items-center justify-between">
               <button
                 type="button"
-                onClick={() => { setStep("choose"); setSelectedPreset(null); setVoiceName(""); setControlInstruction(""); }}
+                onClick={() => { setStep("choose"); setSelectedPreset(null); setVoiceName(""); setControlInstruction(""); setCustomPreviewUrl(null); }}
                 className="text-sm font-medium text-[#71717A] transition-colors hover:text-[#18181B]"
               >
                 Back
