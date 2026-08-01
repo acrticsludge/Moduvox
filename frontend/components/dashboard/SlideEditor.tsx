@@ -8,7 +8,11 @@ import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { parsePptxText, type ParsedSlide, type SlideImage, type SlideComment } from "@/lib/pptx-renderer"
 import { compareSlides, type SlideDiff } from "@/lib/pptx-renderer"
-import { describeSlideImages } from "@/lib/image-analysis"
+import {
+  describeSlideImagesChunked,
+  isSlideParsingComplete,
+  imagesNeedingAnalysis,
+} from "@/lib/image-analysis"
 import { toastSuccess, toastError } from "@/components/ui/CustomToast"
 import { parallelBatches } from "@/lib/async"
 import { ReUploadModal } from "./ReUploadModal"
@@ -37,6 +41,37 @@ type Voice = {
 
 type ImageDesc = { index: number; description: string; error?: string }
 
+/** Merge per-slide image results into a Record<slideNumber, desc[]> (later results win per index). */
+function mergeImageResults(
+  slideResults: { number: number; images: ImageDesc[] }[],
+): Record<number, ImageDesc[]> {
+  const out: Record<number, ImageDesc[]> = {}
+  for (const slide of slideResults) {
+    const existing = out[slide.number] ?? []
+    for (const img of slide.images) {
+      const idx = existing.findIndex((x) => x.index === img.index)
+      if (idx >= 0) existing[idx] = img
+      else existing.push(img)
+    }
+    out[slide.number] = existing
+  }
+  return out
+}
+
+/** Collect slides with images that still need analysis, given the current descriptions. */
+function collectFailedImages(
+  slides: ParsedSlide[],
+  descriptions: Record<number, ImageDesc[]>,
+): { number: number; images: { index: number; mimeType: string; dataUrl: string }[] }[] {
+  return slides
+    .filter((s) => s.images.length > 0)
+    .map((s) => ({
+      number: s.number,
+      images: imagesNeedingAnalysis(s.images, descriptions[s.number]),
+    }))
+    .filter((s) => s.images.length > 0)
+}
+
 export function SlideEditor({
   file,
   presentationId,
@@ -63,6 +98,8 @@ export function SlideEditor({
   ultimateMode,
   parsedImageKeys: externalParsedImageKeys,
   onParsedImageKeysChange,
+  onRequestPersist,
+  onResetImageDescriptions,
 }: {
   file: File | null
   presentationId: string
@@ -92,6 +129,9 @@ export function SlideEditor({
   onAudioSlidePathsChange?: (v: Record<number, string>) => void
   selectedVoiceId?: string | null
   ultimateMode?: boolean
+  onRequestPersist?: () => void
+  /** Fully clear cached image descriptions (fresh upload of a new deck). */
+  onResetImageDescriptions?: () => void
 }) {
   const [slides, setSlides] = useState<ParsedSlide[]>([])
   const slidesRef = useRef<ParsedSlide[]>(slides)
@@ -120,9 +160,10 @@ export function SlideEditor({
   const [showSlideInfo, setShowSlideInfo] = useState(false)
   const [internalNarrations, setInternalNarrations] = useState<Record<number, string>>({})
   const [imageDescLoading, setImageDescLoading] = useState(false)
-  const handleBatchResult = useCallback((cache: Record<number, ImageDesc[]>) => {
-    onImageDescriptionsChange?.(cache)
-  }, [onImageDescriptionsChange])
+  const [imageDescStatus, setImageDescStatus] = useState<"idle" | "loading" | "complete" | "error">("idle")
+  const [blockedSlides, setBlockedSlides] = useState<number[]>([])
+  const [retryableError, setRetryableError] = useState<string | null>(null)
+  const imageParsingRef = useRef(false)
   const [showReUpload, setShowReUpload] = useState(false)
   const [pendingDiff, setPendingDiff] = useState<SlideDiff | null>(null)
   const [pendingSlides, setPendingSlides] = useState<ParsedSlide[]>([])
@@ -250,6 +291,88 @@ export function SlideEditor({
     poll()
   }, [])
 
+  /** Describe ALL image-bearing slides in chunks, merge results, one auto-retry, then persist. */
+  const runImageParsing = useCallback(async () => {
+    if (imageParsingRef.current) return
+    imageParsingRef.current = true
+    setImageDescStatus("loading")
+    setImageDescLoading(true)
+    setBlockedSlides([])
+    setRetryableError(null)
+
+    const slidesWithImages = slides.filter((s) => s.images.length > 0)
+    try {
+      let result = await describeSlideImagesChunked(presentationId, slidesWithImages)
+      let merged = mergeImageResults(result.slides)
+
+      // Q4: one auto-retry (3s backoff) for failed images only.
+      const failed = collectFailedImages(slides, merged)
+      if (failed.length > 0) {
+        await new Promise((r) => setTimeout(r, 3000))
+        const retryResult = await describeSlideImagesChunked(presentationId, failed)
+        merged = mergeImageResults([...result.slides, ...retryResult.slides])
+      }
+
+      onImageDescriptionsChange?.(merged)
+      onRequestPersist?.()
+
+      const stillBlocked = slides.filter(
+        (s) => s.images.length > 0 && !isSlideParsingComplete(s.images, merged[s.number]),
+      )
+      setBlockedSlides(stillBlocked.map((s) => s.number))
+      setImageDescStatus(stillBlocked.length > 0 ? "error" : "complete")
+    } catch (err) {
+      console.error("[SlideEditor] Image parsing failed:", err)
+      setImageDescStatus("error")
+      setRetryableError(err instanceof Error ? err.message : "Image analysis failed")
+    } finally {
+      imageParsingRef.current = false
+      setImageDescLoading(false)
+    }
+  }, [slides, presentationId, onImageDescriptionsChange, onRequestPersist])
+
+  /** Re-analyze failed images only, then auto-fire narration if parsing completes (Q7). */
+  const retryFailedImages = useCallback(async () => {
+    if (imageParsingRef.current) return
+    imageParsingRef.current = true
+    setImageDescLoading(true)
+    try {
+      const failed = collectFailedImages(slides, externalImageDescriptions ?? {})
+      if (failed.length > 0) {
+        const result = await describeSlideImagesChunked(presentationId, failed)
+        const merged = mergeImageResults(result.slides)
+        const combined: Record<number, ImageDesc[]> = { ...externalImageDescriptions }
+        for (const [k, v] of Object.entries(merged)) combined[Number(k)] = v
+        onImageDescriptionsChange?.(combined)
+        onRequestPersist?.()
+      }
+      const stillBlocked = slides.filter(
+        (s) => s.images.length > 0 && !isSlideParsingComplete(s.images, externalImageDescriptions?.[s.number]),
+      )
+      setBlockedSlides(stillBlocked.map((s) => s.number))
+      if (stillBlocked.length === 0) {
+        setImageDescStatus("complete")
+        setRetryableError(null)
+        setGenerationFailed(false)
+        // Q7: auto-fire narration once parsing succeeds.
+        const ok = await generateNarrations(slides, true)
+        if (!ok) setGenerationFailed(true)
+      } else {
+        setImageDescStatus("error")
+        setRetryableError(
+          `Image analysis incomplete for slide${stillBlocked.length > 1 ? "s" : ""} ${stillBlocked.map((s) => s.number).join(", ")}. Retry to analyze and continue.`,
+        )
+      }
+    } catch (err) {
+      console.error("[SlideEditor] Retry image analysis failed:", err)
+      setImageDescStatus("error")
+      setRetryableError(err instanceof Error ? err.message : "Image analysis failed")
+    } finally {
+      imageParsingRef.current = false
+      setImageDescLoading(false)
+    }
+  }, [slides, presentationId, externalImageDescriptions, onImageDescriptionsChange, onRequestPersist])
+
   /** Fetch all PDFs as blobs and create Object URLs — instant slide nav in editor */
   function prefetchEditorPdfBlobs(urls: (string | null)[]) {
     const oldUrls = blobUrlsRef.current
@@ -331,6 +454,13 @@ export function SlideEditor({
           parsedSlides = await parsePptxText(file!)
           if (!cancelled) {
             setSlides(parsedSlides)
+
+            // Reset parsing state for a new deck so the auto-parse effect fires.
+            setImageDescStatus("idle")
+            setBlockedSlides([])
+            setRetryableError(null)
+            // Clear stale descriptions from a previous deck (new upload = fresh state).
+            onResetImageDescriptions?.()
 
             // Persist slide data (notes, comments, rawText — but NOT images which are huge base64)
             onSlideDataChange?.(parsedSlides.map(({ number, title, bullets, notes, comments, rawText }) => ({ number, title, bullets, notes, comments, rawText })))
@@ -555,6 +685,19 @@ export function SlideEditor({
     generateNarrations(slides, false).catch(() => {})
   }, [externalImageDescriptions, slides, file])
   // eslint-disable-next-line react-hooks/exhaustive-deps
+
+  // Auto-parse image descriptions on fresh uploads (Q8: restored decks parse on Images-tab open instead).
+  useEffect(() => {
+    if (!file) return
+    if (imageDescStatus !== "idle") return
+    if (imageParsingRef.current) return
+    const needsParse = slides.some(
+      (s) => s.images.length > 0 && !isSlideParsingComplete(s.images, externalImageDescriptions?.[s.number]),
+    )
+    if (!needsParse) return
+    runImageParsing()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slides, file, imageDescStatus, externalImageDescriptions])
 
   // Snapshot narrations as the "original" baseline when first populated (from saved state or initial AI gen)
   useEffect(() => {
@@ -2062,16 +2205,6 @@ export function SlideEditor({
         </div>
       )}
 
-      {/* Batch-fetch image descriptions for ALL slides — fires immediately when slides with images load */}
-      {!externalImageDescriptions && !imageDescLoading && slides.length > 0 && slides.some((s) => s.images.length > 0) && (
-        <BatchImageFetcher
-          slides={slides}
-          presentationId={presentationId}
-          onResult={handleBatchResult}
-          onLoading={setImageDescLoading}
-        />
-      )}
-
       {/* Slide info modal */}
       {showSlideInfo && (
         <SlideParsedData
@@ -2155,56 +2288,6 @@ export function SlideEditor({
       {/* Audio generation progress is now shown inside the unified RegenerateModal */}
     </>
   )
-}
-
-/**
- * Zero-height component that batch-fetches image descriptions for ALL slides
- * in a single API call when mounted. Renders nothing.
- */
-function BatchImageFetcher({
-  slides,
-  presentationId,
-  onResult,
-  onLoading,
-}: {
-  slides: ParsedSlide[]
-  presentationId: string
-  onResult: (cache: Record<number, { index: number; description: string; error?: string }[]>) => void
-  onLoading: (v: boolean) => void
-}) {
-  useEffect(() => {
-    const slidesWithImages = slides
-      .filter((s) => s.images.length > 0)
-      .map((s) => ({
-        number: s.number,
-        images: s.images.map((img) => ({
-          index: img.index,
-          mimeType: img.mimeType,
-          dataUrl: img.dataUrl,
-        })),
-      }))
-
-    if (slidesWithImages.length === 0) return
-
-    onLoading(true)
-
-    describeSlideImages(presentationId, slidesWithImages)
-      .then((result) => {
-        const cache: Record<number, { index: number; description: string; error?: string }[]> = {}
-        for (const slide of result.slides) {
-          cache[slide.number] = slide.images
-        }
-        onResult(cache)
-      })
-      .catch((err) => {
-        console.error("[BatchImageFetcher] Failed:", err)
-      })
-      .finally(() => {
-        onLoading(false)
-      })
-  }, [slides, presentationId, onResult, onLoading])
-
-  return null
 }
 
 function AudioDeckPreloader({
