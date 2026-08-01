@@ -366,6 +366,7 @@ export function SlideEditor({
         if (!ok) setGenerationFailed(true)
       } else {
         setImageDescStatus("error")
+        setGenerationFailed(true)
         setRetryableError(
           `Image analysis incomplete for slide${stillBlocked.length > 1 ? "s" : ""} ${stillBlocked.map((s) => s.number).join(", ")}. Retry to analyze and continue.`,
         )
@@ -1916,9 +1917,9 @@ export function SlideEditor({
                 <p className="text-xs font-medium text-red-500">
                   {blockedSlides.length > 0 ? "Image analysis incomplete" : "Generation failed"}
                 </p>
-                {blockedSlides.length > 0 && (
+                {(blockedSlides.length > 0 || retryableError) && (
                   <p className="max-w-[90%] text-center text-[10px] leading-relaxed text-zinc-500">
-                    Slide{blockedSlides.length > 1 ? "s" : ""} {blockedSlides.join(", ")} need image analysis before narration. Retry to analyze and continue.
+                    {retryableError || `Slide${blockedSlides.length > 1 ? "s" : ""} ${blockedSlides.join(", ")} need image analysis before narration. Retry to analyze and continue.`}
                   </p>
                 )}
                 <button
@@ -2159,9 +2160,9 @@ export function SlideEditor({
                     <p className="text-xs font-medium text-red-500">
                       {blockedSlides.length > 0 ? "Image analysis incomplete" : "Generation failed"}
                     </p>
-                    {blockedSlides.length > 0 && (
+                    {(blockedSlides.length > 0 || retryableError) && (
                       <p className="max-w-[90%] text-center text-[10px] leading-relaxed text-zinc-500">
-                        Slide{blockedSlides.length > 1 ? "s" : ""} {blockedSlides.join(", ")} need image analysis before narration. Retry to analyze and continue.
+                        {retryableError || `Slide${blockedSlides.length > 1 ? "s" : ""} ${blockedSlides.join(", ")} need image analysis before narration. Retry to analyze and continue.`}
                       </p>
                     )}
                     <button
