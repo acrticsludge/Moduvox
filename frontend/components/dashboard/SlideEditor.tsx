@@ -374,6 +374,7 @@ export function SlideEditor({
     } catch (err) {
       console.error("[SlideEditor] Retry image analysis failed:", err)
       setImageDescStatus("error")
+      setGenerationFailed(true)
       setRetryableError(err instanceof Error ? err.message : "Image analysis failed")
     } finally {
       imageParsingRef.current = false
