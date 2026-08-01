@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 import { generateWithPreset, generateWithClone } from "@/lib/voxcpm"
 import { createDownloadUrl, downloadFileAsBuffer, uploadFile, fileExists } from "@/lib/r2"
 import { withApiHandler } from "@/lib/api-handler"
-import { PRESET_VOICE_MAP } from "@/lib/presets"
+import { PRESET_VOICE_MAP, buildVoiceDescription } from "@/lib/presets"
 
 const testVoiceSchema = z.object({
   voice_id: z.string().uuid("Invalid voice ID"),
@@ -73,10 +73,13 @@ export const POST = withApiHandler(async (request: Request) => {
     if (voice.type === "preset") {
       // Use control_instruction from DB if available (populated at voice creation),
       // otherwise fall back to hardcoded map
-      const description = voice.control_instruction
-        ?? (voice.preset_id
-          ? (PRESET_VOICE_MAP[voice.preset_id] ?? PRESET_VOICE_MAP["calm-female"])
-          : PRESET_VOICE_MAP["calm-female"])
+      const description = buildVoiceDescription(
+        voice.control_instruction
+          ?? (voice.preset_id
+            ? (PRESET_VOICE_MAP[voice.preset_id] ?? PRESET_VOICE_MAP["calm-female"])
+            : PRESET_VOICE_MAP["calm-female"]),
+        voice.gender,
+      )
 
       console.log("[TestVoice] Generating with preset:", voice.preset_id, "→", description.slice(0, 60))
       result = await generateWithPreset(EXAMPLE_TEXT, description)
