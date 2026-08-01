@@ -554,29 +554,9 @@ Change to a state-driven class and add `onClick` stopPropagation so tapping a co
                 >
 ```
 
-- [ ] **Step 4: Editor — audio bar visibility**
+- [ ] **Step 4: Editor — audio bar visibility (DEFERRED to Task 9)**
 
-Find the fullscreen audio bar (line ~1817):
-
-```tsx
-              isFullscreen
-                ? "absolute bottom-0 left-0 right-0 z-[100] opacity-0 transition-opacity duration-300 group-hover:opacity-100 pointer-events-auto"
-                : "mt-auto pt-3"
-```
-
-Change to:
-
-```tsx
-              isFullscreen
-                ? `absolute bottom-0 left-0 right-0 z-[100] transition-opacity duration-300 ${
-                    fullscreenControlsVisible
-                      ? "opacity-100 pointer-events-auto"
-                      : "opacity-0 group-hover:opacity-100 pointer-events-auto"
-                  }`
-                : "mt-auto pt-3"
-```
-
-Add `onClick={(e) => e.stopPropagation()}` on the same audio bar wrapper div so tapping audio controls doesn't hide the overlay.
+DO NOT touch the editor's fullscreen audio bar in this task. The committed code at line ~1811 has the OLD `{isFullscreen && audioUrl && ...}` structure, but the user's uncommitted audio-player refactor (stashed in Task 0) restructures that exact region. Editing it here would conflict with the stash pop at Task 9 and bake part of the user's uncommitted work into a commit. Task 9 (after `git stash pop`) will re-apply the `fullscreenControlsVisible` visibility wiring to the restored audio bar.
 
 - [ ] **Step 5: View page — add state**
 
@@ -814,7 +794,7 @@ git commit -m "fix: bump card menu z-index, add touch-target-row, guard horizont
 
 ---
 
-### Task 9: Restore stashed audio-player change
+### Task 9: Restore stashed audio-player change + re-apply editor audio-bar visibility
 
 - [ ] **Step 1: Pop the stash**
 
@@ -823,12 +803,46 @@ git stash pop
 ```
 
 Run: `git status --short`
-Expected: only ` M frontend/components/dashboard/SlideEditor.tsx` uncommitted.
+Expected: `frontend/components/dashboard/SlideEditor.tsx` modified (audio-player refactor restored). If the pop reports a conflict (because Task 6's nav-overlay changes are in the same file), resolve by keeping BOTH: the audio-player refactor AND the `fullscreenControlsVisible` nav-overlay changes.
 
-- [ ] **Step 2: Verify the restored diff is the audio-player refactor**
+- [ ] **Step 2: Re-apply audio-bar visibility wiring**
 
-Run: `git diff --stat frontend/components/dashboard/SlideEditor.tsx`
-Expected: `1 file changed, 11 insertions(+), 19 deletions(-)` (the original audio-player change). Do NOT commit it.
+The restored (refactored) fullscreen audio bar in `SlideEditor.tsx` now looks like:
+
+```tsx
+        {/* Audio player — single instance, never unmounts during fullscreen toggle (matches view page pattern).
+            In normal mode sits at the bottom of the slide viewer; in fullscreen overlays at viewport bottom. */}
+        {audioUrl && (
+          <div
+            className={
+              isFullscreen
+                ? "absolute bottom-0 left-0 right-0 z-[100] opacity-0 transition-opacity duration-300 group-hover:opacity-100 pointer-events-auto"
+                : "mt-auto pt-3"
+            }
+          >
+```
+
+Change the `isFullscreen` branch to also show when `fullscreenControlsVisible`, and add `onClick` stopPropagation on the wrapper so tapping audio controls doesn't hide the overlay:
+
+```tsx
+        {/* Audio player — single instance, never unmounts during fullscreen toggle (matches view page pattern).
+            In normal mode sits at the bottom of the slide viewer; in fullscreen overlays at viewport bottom. */}
+        {audioUrl && (
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className={
+              isFullscreen
+                ? `absolute bottom-0 left-0 right-0 z-[100] transition-opacity duration-300 ${
+                    fullscreenControlsVisible
+                      ? "opacity-100 pointer-events-auto"
+                      : "opacity-0 group-hover:opacity-100 pointer-events-auto"
+                  }`
+                : "mt-auto pt-3"
+            }
+          >
+```
+
+Do NOT commit this file — it must remain as the user's uncommitted audio-player work (now including the visibility wiring). Verify with `git diff --stat frontend/components/dashboard/SlideEditor.tsx` that the change is confined to SlideEditor.tsx.
 
 ---
 
@@ -856,9 +870,9 @@ npx --yes tsx --test lib/__tests__/voice-description.test.ts
 
 Expected: all pass (18 + 8).
 
-- [ ] **Step 3: Final code review** — dispatch reviewer over `git log --oneline <spec-commit>..HEAD` (spec commit is the `docs: add mobile responsiveness design spec` commit). Verify: end-to-end coherence (hamburger in headers not overlapping content, no floating toggles remaining, drawer pointer-events fixed, md/lg margins consistent, fullscreen tap works), no `any`, no regressions to desktop layout, commit hygiene (audio-player change NOT in any commit).
+- [ ] **Step 3: Final code review** — dispatch reviewer over `git log --oneline <spec-commit>..HEAD` (spec commit is the `docs: add mobile responsiveness design spec` commit). Verify: end-to-end coherence (hamburger in headers not overlapping content, no floating toggles remaining, drawer pointer-events fixed, md/lg margins consistent, fullscreen tap works — including the audio-bar wiring in the uncommitted SlideEditor diff), no `any`, no regressions to desktop layout, commit hygiene (audio-player change NOT in any commit).
 
 - [ ] **Step 4: Working-tree check**
 
 Run: `git status --short`
-Expected: only ` M frontend/components/dashboard/SlideEditor.tsx` (the restored audio-player refactor).
+Expected: only ` M frontend/components/dashboard/SlideEditor.tsx` (the restored audio-player refactor + the audio-bar visibility wiring).
