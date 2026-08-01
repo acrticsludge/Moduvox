@@ -227,6 +227,8 @@ function AddVoiceModal({
   const [previewLoading, setPreviewLoading] = useState(false)
   const [previewPlaying, setPreviewPlaying] = useState(false)
   const previewAudioRef = useRef<HTMLAudioElement | null>(null)
+  const [customPreviewLoading, setCustomPreviewLoading] = useState(false)
+  const [customPreviewUrl, setCustomPreviewUrl] = useState<string | null>(null)
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -324,6 +326,30 @@ function AddVoiceModal({
       setPreviewPresetId(null)
     } finally {
       setPreviewLoading(false)
+    }
+  }
+
+  async function handleCustomPreview() {
+    setCustomPreviewLoading(true)
+    setError(null)
+    try {
+      const res = await fetch("/api/generate/custom-preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          controlInstruction: controlInstruction.trim(),
+          gender: voiceGender || null,
+        }),
+      })
+      const json = await res.json()
+      if (!json.data?.audioUrl) {
+        throw new Error(typeof json.error === "string" ? json.error : "Failed to generate preview")
+      }
+      setCustomPreviewUrl(json.data.audioUrl)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong")
+    } finally {
+      setCustomPreviewLoading(false)
     }
   }
 
@@ -604,6 +630,38 @@ function AddVoiceModal({
                 <p className="mt-1 text-xs text-[#71717A]">
                   This instruction will be pre-filled and locked when you use this voice in the editor.
                 </p>
+                {/* Test voice — one-time audition, nothing cached */}
+                <div className="mt-3 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleCustomPreview}
+                    disabled={
+                      customPreviewLoading ||
+                      !voiceName.trim() ||
+                      !voiceGender ||
+                      !controlInstruction.trim()
+                    }
+                    className="inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-[#18181B] disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {customPreviewLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Volume2 className="h-4 w-4" strokeWidth={1.5} />
+                    )}
+                    {customPreviewLoading ? "Generating..." : "Test voice"}
+                  </button>
+                  {customPreviewUrl && (
+                    <audio
+                      key={customPreviewUrl}
+                      controls
+                      autoPlay
+                      src={customPreviewUrl}
+                      className="h-9 min-w-0 flex-1 rounded-lg"
+                    >
+                      Your browser does not support the audio element.
+                    </audio>
+                  )}
+                </div>
               </div>
             ) : (
               <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2.5">
