@@ -673,12 +673,15 @@ export function SlideEditor({
     }
   }
 
-  // Auto-generate narration when slides are first parsed
+  // Auto-generate narration when slides are first parsed. Wait for image parsing
+  // to settle when the deck has images so narration includes visual context.
   useEffect(() => {
     if (slides.length === 0) return
     if (Object.keys(narrations).length > 0) return
     if (generatingNarrations) return
     if (!file) return // Only auto-generate for freshly uploaded files, not restored state
+    const hasImages = slides.some((s) => s.images.length > 0)
+    if (hasImages && (imageDescStatus === "loading" || imageDescStatus === "idle")) return
     // Reset the previous result before starting a new asynchronous generation.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setGenerationFailed(false)
@@ -688,7 +691,7 @@ export function SlideEditor({
   // The guards above intentionally prevent duplicate generation while the async
   // request is in flight or narration data has already been restored.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slides, file])
+  }, [slides, file, imageDescStatus])
 
   // When image descriptions arrive AFTER initial narration generation,
   // automatically re-generate narration with visual context.
@@ -789,6 +792,21 @@ export function SlideEditor({
     imageDescriptionsOverride?: Record<number, ImageDesc[]>,
   ): Promise<Record<number, string> | null> {
     if (targetSlides.length === 0) return null
+    // Gate: a slide with images must have every image parsed before narration (Q1).
+    // Slides with no images are always ready. "No significant visual content." is a valid description.
+    const descs = imageDescriptionsOverride ?? externalImageDescriptions
+    const blocked = targetSlides.filter((s) => {
+      if (s.images.length === 0) return false
+      return !isSlideParsingComplete(s.images, descs?.[s.number])
+    })
+    if (blocked.length > 0) {
+      setBlockedSlides(blocked.map((s) => s.number))
+      setGenerationFailed(true)
+      setRetryableError(
+        `Image analysis incomplete for slide${blocked.length > 1 ? "s" : ""} ${blocked.map((s) => s.number).join(", ")}. Retry image analysis to continue.`,
+      )
+      return null
+    }
     setGeneratingNarrations(true)
     try {
       const res = await fetch("/api/generate/narration", {
@@ -803,7 +821,7 @@ export function SlideEditor({
           controlInstruction: voiceDescription || undefined,
           ultimateMode: ultimateMode ?? false,
           // Pass image descriptions so Gemini can incorporate visual context into narration
-          imageDescriptions: imageDescriptionsOverride ?? externalImageDescriptions,
+          imageDescriptions: descs,
         }),
       })
       const json = await res.json()
@@ -1895,23 +1913,38 @@ export function SlideEditor({
             {generationFailed && (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-lg">
                 <RefreshCw className="h-5 w-5 text-red-400" />
-                <p className="text-xs font-medium text-red-500">Generation failed</p>
+                <p className="text-xs font-medium text-red-500">
+                  {blockedSlides.length > 0 ? "Image analysis incomplete" : "Generation failed"}
+                </p>
+                {blockedSlides.length > 0 && (
+                  <p className="max-w-[90%] text-center text-[10px] leading-relaxed text-zinc-500">
+                    Slide{blockedSlides.length > 1 ? "s" : ""} {blockedSlides.join(", ")} need image analysis before narration. Retry to analyze and continue.
+                  </p>
+                )}
                 <button
                   type="button"
                   onClick={async () => {
                     setGenerationFailed(false)
+                    if (blockedSlides.length > 0) {
+                      await retryFailedImages()
+                      return
+                    }
                     const ok = await generateNarrations(slides, true)
                     if (!ok) setGenerationFailed(true)
                   }}
-                  disabled={generating || generatingNarrations}
+                  disabled={generating || generatingNarrations || imageDescLoading}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white/80 px-3 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50"
                 >
-                  {generating || generatingNarrations ? (
+                  {generating || generatingNarrations || imageDescLoading ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   ) : (
                     <RefreshCw className="h-3.5 w-3.5" />
                   )}
-                  {generating || generatingNarrations ? "Trying again…" : "Try Again"}
+                  {generating || generatingNarrations || imageDescLoading
+                    ? "Working…"
+                    : blockedSlides.length > 0
+                      ? "Retry Image Analysis"
+                      : "Try Again"}
                 </button>
               </div>
             )}
@@ -2123,23 +2156,38 @@ export function SlideEditor({
                 {generationFailed && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-lg">
                     <RefreshCw className="h-5 w-5 text-red-400" />
-                    <p className="text-xs font-medium text-red-500">Generation failed</p>
+                    <p className="text-xs font-medium text-red-500">
+                      {blockedSlides.length > 0 ? "Image analysis incomplete" : "Generation failed"}
+                    </p>
+                    {blockedSlides.length > 0 && (
+                      <p className="max-w-[90%] text-center text-[10px] leading-relaxed text-zinc-500">
+                        Slide{blockedSlides.length > 1 ? "s" : ""} {blockedSlides.join(", ")} need image analysis before narration. Retry to analyze and continue.
+                      </p>
+                    )}
                     <button
                       type="button"
                       onClick={async () => {
                         setGenerationFailed(false)
+                        if (blockedSlides.length > 0) {
+                          await retryFailedImages()
+                          return
+                        }
                         const ok = await generateNarrations(slides, true)
                         if (!ok) setGenerationFailed(true)
                       }}
-                      disabled={generating || generatingNarrations}
+                      disabled={generating || generatingNarrations || imageDescLoading}
                       className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white/80 px-3 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50"
                     >
-                      {generating || generatingNarrations ? (
+                      {generating || generatingNarrations || imageDescLoading ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
                       ) : (
                         <RefreshCw className="h-3.5 w-3.5" />
                       )}
-                      {generating || generatingNarrations ? "Trying again…" : "Try Again"}
+                      {generating || generatingNarrations || imageDescLoading
+                        ? "Working…"
+                        : blockedSlides.length > 0
+                          ? "Retry Image Analysis"
+                          : "Try Again"}
                     </button>
                   </div>
                 )}
