@@ -1,3 +1,13 @@
+## 2026-08-01: [Bug] Tap-blocker fix was incomplete — off-canvas panels still intercepted taps on mobile
+
+**What happened:** After the mobile responsiveness pass, the user reported buttons still unclickable "across multiple pages" on mobile. The first fix (drawer `pointer-events-none`) only patched SlideEditor's drawer.
+
+**Root cause:** A codebase-wide sweep found the SAME bug class in 4 more always-rendered fixed panels that relied purely on an off-canvas transform (`translate-x-full`/`-translate-x-full`) with NO `pointer-events-none`: (1) the Navbar mobile drawer panel (rendered on every page, `z-50`, covers right 80% if the transform doesn't apply), (2) the dashboard layout sidebar (`z-40`, covers left 224px), and (3+4) the fullscreen audio bars in the editor and view page (`opacity-0` but `pointer-events-auto`, full-width `z-[100]`). The audit lesson from LESSONS.md ("every always-rendered overlay must carry `pointer-events-none` when closed") was applied to one drawer but not swept across the app.
+
+**Fix:** Added `pointer-events-none` to the closed state of the Navbar panel and dashboard sidebar (defense-in-depth even when the transform works), and gated the fullscreen audio bars so `opacity-0` also means `pointer-events-none` (with `group-hover` restore for desktop hover in the editor).
+
+**Prevention:** When fixing an overlay/tap-blocker bug, don't fix the one reported instance — grep for the full pattern (`fixed inset-0`, `fixed inset-y-0`, off-canvas `translate-*` at high z-index, `opacity-0` without `pointer-events-none`) across the ENTIRE app. The reported symptom ("unclickable buttons") is a class of bug, not a single element.
+
 ## 2026-08-01: [Bug] Always-rendered `fixed inset-0` drawer wrapper swallowed all taps on mobile
 
 **What happened:** On the slide editor, every button became unresponsive on screens below `lg`. Users couldn't tap anything: slides, the open-controls FAB, even page navigation.
