@@ -123,7 +123,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           >
           <aside
             className={`fixed bottom-0 left-0 top-16 z-40 flex w-56 flex-col border-r border-[var(--color-border-faint)] bg-white transition-transform duration-300 md:static md:translate-x-0 ${
-              sidebarOpen ? "translate-x-0" : "-translate-x-full"
+              sidebarOpen ? "translate-x-0" : "pointer-events-none -translate-x-full"
             }`}
           >
             <nav className="flex flex-1 flex-col gap-1 px-3 py-4">

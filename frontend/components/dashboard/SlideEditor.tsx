@@ -1835,7 +1835,7 @@ export function SlideEditor({
                 ? `absolute bottom-0 left-0 right-0 z-[100] transition-opacity duration-300 ${
                     fullscreenControlsVisible
                       ? "opacity-100 pointer-events-auto"
-                      : "opacity-0 group-hover:opacity-100 pointer-events-auto"
+                      : "opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                   }`
                 : "mt-auto pt-3"
             }

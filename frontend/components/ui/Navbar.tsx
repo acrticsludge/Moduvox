@@ -141,7 +141,7 @@ export function Navbar() {
       {/* Mobile drawer panel */}
       <aside
         className={`fixed inset-y-0 right-0 z-50 flex w-72 max-w-[80%] flex-col bg-[#FFFFFF] px-6 py-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)] transition-transform duration-300 ease-out overflow-y-auto md:hidden ${
-          drawerOpen ? "translate-x-0" : "translate-x-full"
+          drawerOpen ? "translate-x-0" : "pointer-events-none translate-x-full"
         }`}
         aria-hidden={!drawerOpen}
       >

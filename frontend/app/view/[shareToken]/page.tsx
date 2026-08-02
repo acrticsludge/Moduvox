@@ -964,7 +964,7 @@ export default function ViewPresentationPage() {
 
             <div
               onClick={(e) => e.stopPropagation()}
-              className={isFullscreen ? `absolute bottom-0 left-0 right-0 z-[100] transition-opacity duration-300 ${fullscreenControlsVisible ? "opacity-100" : "opacity-0 hover:opacity-100"}` : ''}
+              className={isFullscreen ? `absolute bottom-0 left-0 right-0 z-[100] transition-opacity duration-300 ${fullscreenControlsVisible ? "opacity-100" : "opacity-0 pointer-events-none"}` : ''}
             >
               <ViewAudioBar key={audioRefreshKey} seekToSlideRef={seekToSlideRef}
                 shareToken={shareToken}
