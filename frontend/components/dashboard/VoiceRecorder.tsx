@@ -8,7 +8,7 @@ import { toastError } from "@/components/ui/CustomToast"
 async function convertToWav(blob: Blob): Promise<Blob> {
   const audioCtx = new AudioContext()
   const arrayBuffer = await blob.arrayBuffer()
-  let audioBuffer = await audioCtx.decodeAudioData(arrayBuffer)
+  const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer)
 
   // Keep the decoded audio's NATIVE sample rate. Uploaded clips are used at
   // their native rate and work; forcing 16 kHz here caused VoxCPM2 to reject
