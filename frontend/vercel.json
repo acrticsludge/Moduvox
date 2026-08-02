@@ -1,9 +1,3 @@
 {
-  "version": 2,
-  "crons": [
-    {
-      "path": "/api/cron/worker-keepalive",
-      "schedule": "*/10 * * * *"
-    }
-  ]
+  "version": 2
 }

@@ -68,16 +68,16 @@ The 10s limit changes every verdict from the earlier analysis. Below are the rev
 
 **Fix:** Add `export const maxDuration = 15` (Hobby ignores, but documents intent). For large presentations, the user would need to upgrade to Pro for the 60s limit. Not worth moving to worker — Gemini API is fast enough that most cases complete under 10s.
 
-### 5. Email Queue — **COLD START FIX APPLIED 2026-07-31**
+### 5. Email Queue — **COLD START FIX APPLIED 2026-07-31, CRON REMOVED 2026-08-02**
 
-**Hobby limitation:** Vercel Hobby does NOT support cron jobs. The `vercel.json` cron config is silently ignored.
+**Hobby limitation:** Vercel Hobby does NOT support cron jobs — a `crons` block in `vercel.json` actually **fails the deployment** (not silently ignored). The keepalive cron (`/api/cron/worker-keepalive`) was removed 2026-08-02; its `/queue/process` trigger was redundant (worker self-polls every 10s) and unauthenticated (would 401 against the worker's API key).
 
 **Fix applied (Option 2 - lazy wake):**
 - `frontend/lib/email.ts` — after successful queue insert, fires a side-effect `fetch(workerUrl + "/health")` to wake the Render worker. Zero-cost, self-healing — emails are delivered whenever the app is active.
 
-**Alternative approaches (not implemented):**
-1. External cron service (e.g., cron-job.org free tier) — supplemental if lazy wake isn't enough
-3. Manual trigger button in admin dashboard — not needed given lazy wake
+**Keepalive (worker warmth):**
+- The worker's `GET /health` endpoint (`worker/server.js`) is public (no auth) and is pinged externally via **UptimeRobot** every 10 minutes to prevent the 15-min free-tier sleep. Configure a UptimeRobot HTTP(S) monitor against `RENDER_WORKER_URL/health`.
+- Note: on a cold worker the first ping may take ~30s to spin up; UptimeRobot's default 30s timeout should be raised or the monitor keyword-based if flapping.
 
 ### 6. PPTX-to-PDF Conversion — **CORRECTLY ON WORKER**
 
