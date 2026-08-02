@@ -10,20 +10,9 @@ async function convertToWav(blob: Blob): Promise<Blob> {
   const arrayBuffer = await blob.arrayBuffer()
   let audioBuffer = await audioCtx.decodeAudioData(arrayBuffer)
 
-  const targetSampleRate = 16000
-  if (audioBuffer.sampleRate !== targetSampleRate) {
-    const offlineCtx = new OfflineAudioContext(
-      audioBuffer.numberOfChannels,
-      Math.ceil(audioBuffer.duration * targetSampleRate),
-      targetSampleRate
-    )
-    const source = offlineCtx.createBufferSource()
-    source.buffer = audioBuffer
-    source.connect(offlineCtx.destination)
-    source.start()
-    audioBuffer = await offlineCtx.startRendering()
-  }
-
+  // Keep the decoded audio's NATIVE sample rate. Uploaded clips are used at
+  // their native rate and work; forcing 16 kHz here caused VoxCPM2 to reject
+  // recorder-produced clones.
   const numChannels = 1 // mono
   const sampleRate = audioBuffer.sampleRate
   const length = audioBuffer.length
@@ -174,7 +163,7 @@ export function VoiceRecorder({
         setDuration(0);
         setState("done");
 
-        // Convert WebM/opus to WAV — VoxCpm requires WAV for voice cloning
+        // Convert WebM/opus to WAV at native sample rate — VoxCpm requires WAV for voice cloning
         let finalFile: File;
         try {
           const wavBlob = await convertToWav(blob);
