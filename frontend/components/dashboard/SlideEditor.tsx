@@ -1756,9 +1756,9 @@ export function SlideEditor({
               )}
             </div>
 
-            {/* Toolbar — hidden in fullscreen (replaced by overlay) */}
+            {/* Toolbar — hidden in fullscreen (replaced by overlay); sits below the slide in normal flow */}
             {!isFullscreen && (
-              <div className="absolute bottom-12 right-3 flex max-w-[calc(100%-1.5rem)] flex-wrap justify-end gap-1.5">
+              <div className="flex flex-wrap items-center justify-center gap-1.5 px-4 pt-3 pb-4">
                 <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-[#71717A] shadow-sm transition-colors hover:text-[#18181B]">
                   <FileText className="h-3 w-3" />
                   Re-upload
