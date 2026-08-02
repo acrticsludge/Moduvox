@@ -100,6 +100,8 @@ export function SlideEditor({
   onParsedImageKeysChange,
   onRequestPersist,
   onResetImageDescriptions,
+  mobilePanelOpen: externalMobilePanelOpen,
+  onMobilePanelOpenChange,
 }: {
   file: File | null
   presentationId: string
@@ -132,6 +134,9 @@ export function SlideEditor({
   onRequestPersist?: (fresh?: { parsedImageKeys?: Record<string, string>; imageDescriptions?: Record<number, ImageDesc[]> }) => void
   /** Fully clear cached image descriptions (fresh upload of a new deck). */
   onResetImageDescriptions?: () => void
+  /** Controlled mobile narration panel (opened by the MobileActionDock). */
+  mobilePanelOpen?: boolean
+  onMobilePanelOpenChange?: (v: boolean) => void
 }) {
   const [slides, setSlides] = useState<ParsedSlide[]>([])
   const slidesRef = useRef<ParsedSlide[]>(slides)
@@ -188,7 +193,13 @@ export function SlideEditor({
   const [regenStep, setRegenStep] = useState<RegenStep>("review")
   const [generationSummary, setGenerationSummary] = useState<{ success: number; failed: number } | null>(null)
   const [isInitialGenerate, setIsInitialGenerate] = useState(false)
-  const [showMobilePanel, setShowMobilePanel] = useState(false)
+  const [showMobilePanelInternal, setShowMobilePanelInternal] = useState(false)
+  // Controlled from the parent page via MobileActionDock when the prop is provided.
+  const showMobilePanel = externalMobilePanelOpen ?? showMobilePanelInternal
+  const setShowMobilePanel = (v: boolean) => {
+    setShowMobilePanelInternal(v)
+    onMobilePanelOpenChange?.(v)
+  }
   const [fullscreenControlsVisible, setFullscreenControlsVisible] = useState(false)
   const [retryCount, setRetryCount] = useState(0)
   const [voices, setVoices] = useState<Voice[]>([])
@@ -2075,23 +2086,11 @@ export function SlideEditor({
       </div>
       )}
 
-      {/* Mobile toggle button — shown on < lg screens when panel is closed */}
-      {!showMobilePanel && (
-        <button
-          type="button"
-          onClick={() => setShowMobilePanel(true)}
-          className="fixed right-3 bottom-24 z-30 inline-flex min-h-[48px] min-w-[48px] items-center justify-center rounded-full border border-zinc-200 bg-white shadow-lg text-zinc-600 transition-colors hover:text-zinc-900 lg:hidden"
-          aria-label="Open controls panel"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-        </button>
-      )}
-
       {/* Mobile drawer — overlay + slide-in panel (only when slide data exists) */}
       {slides.length > 0 && (
         <div className={`fixed inset-0 z-50 transition-opacity duration-300 lg:hidden ${showMobilePanel ? "" : "pointer-events-none"}`}>
           <div className={`absolute inset-0 transition-opacity duration-300 ${showMobilePanel ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={() => { if (showMobilePanel) setShowMobilePanel(false) }} />
-          <div className={`absolute bottom-0 right-0 left-0 z-10 max-h-[75vh] flex-col gap-4 overflow-y-auto rounded-t-2xl border-t border-zinc-200 bg-white p-5 shadow-xl transition-transform duration-300 ease-out ${showMobilePanel ? 'translate-y-0' : 'translate-y-full'}`}>
+          <div className={`absolute bottom-0 right-0 left-0 z-10 max-h-[75vh] flex-col gap-4 overflow-y-auto rounded-t-2xl border-t border-zinc-200 bg-white p-5 shadow-xl transition-transform duration-300 ease-out ${showMobilePanel ? 'translate-y-0 visible' : 'translate-y-full invisible'}`}>
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-semibold text-zinc-500">Controls</span>
               <button

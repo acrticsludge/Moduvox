@@ -207,7 +207,7 @@ export function ViewSidebar({ title, createdAt, slideCount, expiresAt, viewerFir
           />
           <aside
             className={`fixed left-0 top-0 z-50 flex h-full w-72 flex-col border-r border-zinc-200 bg-white shadow-xl transition-transform duration-300 md:hidden ${
-              isOpen ? "translate-x-0" : "-translate-x-full"
+              isOpen ? "translate-x-0 visible" : "-translate-x-full invisible"
             }`}
           >
             <div className="flex items-center justify-between border-b border-zinc-100 px-4 py-3">

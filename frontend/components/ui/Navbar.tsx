@@ -61,6 +61,7 @@ export function Navbar() {
   }, [])
 
   return (
+    <>
     <header
       className={`fixed inset-x-0 top-0 z-50 transition-colors duration-300 ${
         scrolled
@@ -129,78 +130,81 @@ export function Navbar() {
           <Menu className="h-6 w-6" />
         </button>
       </nav>
-
-      {/* Mobile drawer overlay */}
-      <div
-        onClick={() => setDrawerOpen(false)}
-        aria-hidden="true"
-        className={`fixed inset-0 z-40 bg-[#18181B]/40 transition-opacity duration-300 md:hidden ${
-          drawerOpen ? "opacity-100" : "pointer-events-none opacity-0"
-        }`}
-      />
-      {/* Mobile drawer panel */}
-      <aside
-        className={`fixed inset-y-0 right-0 z-50 flex w-72 max-w-[80%] flex-col bg-[#FFFFFF] px-6 py-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)] transition-transform duration-300 ease-out overflow-y-auto md:hidden ${
-          drawerOpen ? "translate-x-0" : "pointer-events-none translate-x-full"
-        }`}
-        aria-hidden={!drawerOpen}
-      >
-        <div className="flex items-center justify-between">
-          <img src="/logo-wordmark.svg" alt="Moduvox" className="h-7" width={120} height={28} />
-          <button
-            type="button"
-            onClick={() => setDrawerOpen(false)}
-            className="inline-flex h-11 w-11 min-h-[48px] min-w-[48px] items-center justify-center rounded-lg text-[#71717A] transition-colors hover:bg-[rgba(0,0,0,0.04)] hover:text-[#18181B]"
-            aria-label="Close menu"
-          >
-            <X className="h-6 w-6" />
-          </button>
-        </div>
-
-        <ul className="mt-8 flex flex-col gap-1">
-          {NAV_LINKS.map((link) => (
-            <li key={link.href}>
-              <a
-                href={link.href}
-                onClick={() => setDrawerOpen(false)}
-                className="touch-target-row rounded-lg px-3 py-2.5 text-base font-medium text-[#71717A] no-underline transition-colors duration-200 hover:bg-[rgba(0,0,0,0.04)] hover:text-[#18181B]"
-              >
-                {link.label}
-              </a>
-            </li>
-          ))}
-        </ul>
-
-        <div className="mt-auto space-y-2">
-          {user ? (
-            <a
-              href="/dashboard"
-              onClick={() => setDrawerOpen(false)}
-              className="touch-target rounded-lg border border-[#18181B]/70 bg-[#18181B] px-4 py-2.5 text-center text-sm font-medium text-white transition-transform duration-200 hover:scale-[1.02] hover:border-[#18181B] hover:bg-[#27272A] active:scale-[0.98]"
-            >
-              Dashboard
-            </a>
-          ) : (
-            <>
-              <a
-                href="/login"
-                onClick={() => setDrawerOpen(false)}
-                className="touch-target-row rounded-lg px-3 py-2.5 text-base font-medium text-[#71717A] no-underline transition-colors duration-200 hover:bg-[rgba(0,0,0,0.04)] hover:text-[#18181B]"
-              >
-                Log in
-              </a>
-              <a
-                href="/signup"
-                onClick={() => setDrawerOpen(false)}
-                style={{ transitionTimingFunction: SPRING }}
-                className="touch-target rounded-lg border border-zinc-300 bg-transparent px-4 py-2.5 text-center text-sm font-medium text-[#18181B] transition-all duration-200 hover:bg-[#F9FAFB] hover:scale-[1.02] active:scale-[0.98]"
-              >
-                Start free
-              </a>
-            </>
-          )}
-        </div>
-      </aside>
     </header>
+
+    {/* Mobile drawer overlay — sibling of the header, NOT a child. The header gains
+        backdrop-blur when scrolled, and backdrop-filter makes it a containing block for
+        fixed descendants; putting the drawer inside the header broke its viewport anchoring. */}
+    <div
+      onClick={() => setDrawerOpen(false)}
+      aria-hidden="true"
+      className={`fixed inset-0 z-40 bg-[#18181B]/40 transition-opacity duration-300 md:hidden ${
+        drawerOpen ? "opacity-100" : "pointer-events-none opacity-0"
+      }`}
+    />
+    {/* Mobile drawer panel */}
+    <aside
+      className={`fixed inset-y-0 right-0 z-50 flex w-72 max-w-[80%] flex-col bg-[#FFFFFF] px-6 py-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)] transition-transform duration-300 ease-out overflow-y-auto md:hidden ${
+        drawerOpen ? "translate-x-0" : "pointer-events-none translate-x-full"
+      }`}
+      aria-hidden={!drawerOpen}
+    >
+      <div className="flex items-center justify-between">
+        <img src="/logo-wordmark.svg" alt="Moduvox" className="h-7" width={120} height={28} />
+        <button
+          type="button"
+          onClick={() => setDrawerOpen(false)}
+          className="inline-flex h-11 w-11 min-h-[48px] min-w-[48px] items-center justify-center rounded-lg text-[#71717A] transition-colors hover:bg-[rgba(0,0,0,0.04)] hover:text-[#18181B]"
+          aria-label="Close menu"
+        >
+          <X className="h-6 w-6" />
+        </button>
+      </div>
+
+      <ul className="mt-8 flex flex-col gap-1">
+        {NAV_LINKS.map((link) => (
+          <li key={link.href}>
+            <a
+              href={link.href}
+              onClick={() => setDrawerOpen(false)}
+              className="touch-target-row rounded-lg px-3 py-2.5 text-base font-medium text-[#71717A] no-underline transition-colors duration-200 hover:bg-[rgba(0,0,0,0.04)] hover:text-[#18181B]"
+            >
+              {link.label}
+            </a>
+          </li>
+        ))}
+      </ul>
+
+      <div className="mt-auto space-y-2">
+        {user ? (
+          <a
+            href="/dashboard"
+            onClick={() => setDrawerOpen(false)}
+            className="touch-target rounded-lg border border-[#18181B]/70 bg-[#18181B] px-4 py-2.5 text-center text-sm font-medium text-white transition-transform duration-200 hover:scale-[1.02] hover:border-[#18181B] hover:bg-[#27272A] active:scale-[0.98]"
+          >
+            Dashboard
+          </a>
+        ) : (
+          <>
+            <a
+              href="/login"
+              onClick={() => setDrawerOpen(false)}
+              className="touch-target-row rounded-lg px-3 py-2.5 text-base font-medium text-[#71717A] no-underline transition-colors duration-200 hover:bg-[rgba(0,0,0,0.04)] hover:text-[#18181B]"
+            >
+              Log in
+            </a>
+            <a
+              href="/signup"
+              onClick={() => setDrawerOpen(false)}
+              style={{ transitionTimingFunction: SPRING }}
+              className="touch-target rounded-lg border border-zinc-300 bg-transparent px-4 py-2.5 text-center text-sm font-medium text-[#18181B] transition-all duration-200 hover:bg-[#F9FAFB] hover:scale-[1.02] active:scale-[0.98]"
+            >
+              Start free
+            </a>
+          </>
+        )}
+      </div>
+    </aside>
+    </>
   );
 }

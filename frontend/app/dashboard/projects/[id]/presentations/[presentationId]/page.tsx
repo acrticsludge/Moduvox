@@ -9,7 +9,8 @@ import type { SlideImage, SlideComment } from "@/lib/pptx-renderer"
 import { parsePptxText } from "@/lib/pptx-renderer"
 import type { Presentation as PresentationType } from "@/lib/validations/presentation"
 import { CreatePageSidebar } from "@/components/dashboard/CreatePageSidebar"
-import { SidebarToggle } from "@/components/dashboard/SidebarToggle"
+import { MobileActionDock } from "@/components/dashboard/MobileActionDock"
+import { useSidebar } from "@/app/dashboard/layout"
 import { PptxUploadZone } from "@/components/dashboard/PptxUploadZone"
 import { SlideEditor } from "@/components/dashboard/SlideEditor"
 import dynamic from "next/dynamic"
@@ -79,6 +80,8 @@ export default function PresentationCreatePage() {
   useEffect(() => { narrationsRef.current = narrations }, [narrations])
   const [restoring, setRestoring] = useState(false)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
+  const [mobilePanelOpen, setMobilePanelOpen] = useState(false)
+  const sidebar = useSidebar()
 
   useEffect(() => {
     if (!mobileSidebarOpen) return
@@ -416,7 +419,7 @@ export default function PresentationCreatePage() {
           className={`absolute inset-0 transition-opacity duration-300 ${mobileSidebarOpen ? "bg-black/40 opacity-100" : "bg-black/40 opacity-0"}`}
           onClick={() => setMobileSidebarOpen(false)}
         />
-        <div className={`absolute bottom-0 left-0 right-0 z-10 max-h-[80vh] overflow-y-auto rounded-t-2xl border-t border-zinc-200 bg-white shadow-xl transition-transform duration-300 ${mobileSidebarOpen ? "translate-y-0" : "translate-y-full"}`}>
+        <div className={`absolute bottom-0 left-0 right-0 z-10 max-h-[80vh] overflow-y-auto rounded-t-2xl border-t border-zinc-200 bg-white shadow-xl transition-transform duration-300 ${mobileSidebarOpen ? "translate-y-0 visible" : "translate-y-full invisible"}`}>
           <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-3">
             <span className="text-sm font-semibold text-zinc-500">Voice Settings</span>
             <button
@@ -456,10 +459,9 @@ export default function PresentationCreatePage() {
       </div>
 
       {/* Content */}
-      <div className="ml-0 mr-0 flex min-h-0 min-w-0 flex-1 flex-col md:ml-80 lg:mr-[380px]">
+      <div className="ml-0 mr-0 flex min-h-0 min-w-0 flex-1 flex-col pb-20 md:ml-80 lg:mr-[380px] lg:pb-0">
         {/* Top bar */}
         <div className="flex flex-wrap items-start gap-2 border-b border-[var(--color-border-faint)] bg-white px-4 py-3 md:flex-nowrap md:items-center md:px-6 md:py-4">
-          <SidebarToggle />
           <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden text-sm md:gap-2">
             <a
               href="/dashboard"
@@ -499,14 +501,6 @@ export default function PresentationCreatePage() {
 
             {/* Action buttons */}
             <div className="flex items-center gap-1 border-l border-zinc-200 pl-2 md:ml-4 md:pl-4">
-              <button
-                type="button"
-                onClick={() => setMobileSidebarOpen(true)}
-                className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-[#71717A] transition-colors hover:bg-zinc-100 hover:text-[#18181B] md:hidden"
-                aria-label="Open voice settings"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-              </button>
               <button
                 type="button"
                 onClick={() => setShowRename(true)}
@@ -609,6 +603,8 @@ export default function PresentationCreatePage() {
               audioStoragePath={audioStoragePath}
               onAudioStoragePathChange={setAudioStoragePath}
               onRemovePpt={() => { setMode("upload"); setStoragePath(""); setAudioUrl(null); setAudioStoragePath(null) }}
+              mobilePanelOpen={mobilePanelOpen}
+              onMobilePanelOpenChange={setMobilePanelOpen}
             />
           </ErrorBoundary>
         )}
@@ -651,6 +647,15 @@ export default function PresentationCreatePage() {
             Upload a presentation to access narration and audio tools
           </p>
         </div>
+      )}
+
+      {/* Mobile floating dock — left sidebar, voice info, narration script */}
+      {presentation?.status !== "archived" && (
+        <MobileActionDock
+          onOpenSidebar={sidebar.open}
+          onOpenVoice={() => setMobileSidebarOpen(true)}
+          onOpenNarration={() => setMobilePanelOpen(true)}
+        />
       )}
     </>
   )

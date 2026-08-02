@@ -101,7 +101,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Mobile sidebar overlay */}
         {sidebarOpen && (
           <div
-            className="fixed inset-0 z-40 bg-[#18181B]/40 md:hidden"
+            className="fixed inset-0 z-50 bg-[#18181B]/40 md:hidden"
             onClick={() => setSidebarOpen(false)}
           />
         )}
@@ -116,16 +116,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {/* ========== SIDEBAR ========== */}
           <ErrorBoundary
             fallback={
-              <aside className="fixed bottom-0 left-0 top-16 z-40 flex w-56 flex-col border-r border-[var(--color-border-faint)] bg-white p-4 md:static">
-                <p className="text-sm text-[#71717A]">Sidebar unavailable</p>
+              <aside className="fixed bottom-0 left-0 top-0 z-[60] flex w-64 max-w-[85%] flex-col rounded-r-2xl border-r border-[var(--color-border-faint)] bg-white shadow-2xl md:static md:z-auto md:w-56 md:max-w-none md:rounded-none md:shadow-none">
+                <p className="p-4 text-sm text-[#71717A]">Sidebar unavailable</p>
               </aside>
             }
           >
           <aside
-            className={`fixed bottom-0 left-0 top-16 z-40 flex w-56 flex-col border-r border-[var(--color-border-faint)] bg-white transition-transform duration-300 md:static md:translate-x-0 ${
+            className={`fixed bottom-0 left-0 top-0 z-[60] flex w-64 max-w-[85%] flex-col rounded-r-2xl border-r border-[var(--color-border-faint)] bg-white shadow-2xl transition-transform duration-300 md:static md:z-auto md:w-56 md:max-w-none md:translate-x-0 md:rounded-none md:shadow-none ${
               sidebarOpen ? "translate-x-0" : "pointer-events-none -translate-x-full"
             }`}
           >
+            {/* Ergonomic drag handle on mobile */}
+            <div className="mx-auto mt-3 h-1.5 w-9 flex-shrink-0 rounded-full bg-zinc-200 md:hidden" />
             <nav className="flex flex-1 flex-col gap-1 px-3 py-4">
               {SIDEBAR_MAIN.map((item) => {
                 const active = item.match.test(pathname)
@@ -134,11 +136,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     key={item.label}
                     href={item.href}
                     onClick={() => setSidebarOpen(false)}
-className={`touch-target-row gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors duration-150 ${
-                       active
-                         ? "bg-zinc-100 text-[#18181B]"
-                         : "text-[#71717A] hover:bg-zinc-50 hover:text-[#18181B]"
-                     }`}
+                    className={`touch-target-row gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors duration-150 ${
+                      active
+                        ? "bg-zinc-100 text-[#18181B]"
+                        : "text-[#71717A] hover:bg-zinc-50 hover:text-[#18181B]"
+                    }`}
                   >
                     <item.icon className="h-4 w-4" />
                     {item.label}
