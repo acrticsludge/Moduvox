@@ -412,7 +412,6 @@ function AddVoiceModal({
           name: voiceName.trim(),
           emotion_default: "calm",
           consent: voiceConsent,
-          gender: voiceGender || null,
         }),
       })
       const confirmJson = await confirmRes.json()
@@ -823,29 +822,6 @@ function AddVoiceModal({
                 placeholder="e.g. My Training Voice"
                 className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm text-[#18181B] outline-none transition-colors placeholder:text-zinc-500 focus:border-zinc-400"
               />
-            </div>
-
-            {/* Gender selection */}
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-[#18181B]">
-                Voice gender
-              </label>
-              <div className="flex gap-2">
-                {(["male", "female", "neutral"] as const).map((g) => (
-                  <button
-                    key={g}
-                    type="button"
-                    onClick={() => setVoiceGender(voiceGender === g ? "" : g)}
-                    className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-all ${
-                      voiceGender === g
-                        ? "border-[#18181B] bg-[#18181B] text-white"
-                        : "border-zinc-200 text-zinc-600 hover:border-zinc-300"
-                    }`}
-                  >
-                    {g.charAt(0).toUpperCase() + g.slice(1)}
-                  </button>
-                ))}
-              </div>
             </div>
 
             {/* Voice cloning consent */}
