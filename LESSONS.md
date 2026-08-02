@@ -1,3 +1,13 @@
+## 2026-08-02: [Bug] Voice clone recorder failed — forced 16 kHz downsample rejected by VoxCPM2
+
+**What happened:** Cloning from the inbuilt recorder always failed ("Failed to generate preview" in Test Voice; "Failed to generate audio" on slides), while uploading a clip worked. User suspected gender — that was wrong.
+
+**Root cause:** `VoiceRecorder.tsx` `convertToWav` forced `targetSampleRate = 16000` (added to fix WebM/Opus incompatibility, commit `3a93040`). VoxCPM2's reference-audio pipeline rejects 16 kHz input; uploaded clips keep their native rate (44.1/48 kHz) and work. Gender was NOT the cause: cloned voices never pass gender to TTS (only presets do via `buildVoiceDescription`), and both upload/recorder paths sent identical gender.
+
+**Fix:** Removed the `OfflineAudioContext` resample — WAV conversion now uses the decoded audio's native sample rate (mono downmix + 16-bit PCM header unchanged). Also removed the redundant clone-step gender picker (a clone keeps the speaker's inherent gender).
+
+**Prevention:** When a bug "only happens with feature A but not B," diff the actual inputs the two paths produce, not the suspected metadata. Test the recorder path against the real TTS backend after any audio-format change. Don't assume a UI field is the cause when the same field is sent by the working path.
+
 ## 2026-08-01: [Bug] Tap-blocker fix was incomplete — off-canvas panels still intercepted taps on mobile
 
 **What happened:** After the mobile responsiveness pass, the user reported buttons still unclickable "across multiple pages" on mobile. The first fix (drawer `pointer-events-none`) only patched SlideEditor's drawer.
