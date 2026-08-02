@@ -1825,26 +1825,24 @@ export function SlideEditor({
           </div>
         )}
 
-        {/* Audio player — single instance, never unmounts during fullscreen toggle (matches view page pattern).
-            In normal mode sits at the bottom of the slide viewer; in fullscreen overlays at viewport bottom. */}
-        {audioUrl && (
+        {/* Audio player for fullscreen mode — fades in on hover at bottom (matches other fullscreen controls).
+            Only rendered in fullscreen; the desktop instance lives in the right panel. */}
+        {isFullscreen && audioUrl && (
           <div
             onClick={(e) => e.stopPropagation()}
-            className={
-              isFullscreen
-                ? `absolute bottom-0 left-0 right-0 z-[100] transition-opacity duration-300 ${
-                    fullscreenControlsVisible
-                      ? "opacity-100 pointer-events-auto"
-                      : "opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-                  }`
-                : "mt-auto pt-3"
-            }
+            className={`absolute bottom-0 left-0 right-0 z-[100] transition-opacity duration-300 ${
+              fullscreenControlsVisible
+                ? "opacity-100 pointer-events-auto"
+                : "opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+            }`}
           >
             <AudioPlayer
               audioUrl={audioUrl}
               presentationId={presentationId}
               slideNumber={currentIndex + 1}
-              fullscreen={isFullscreen}
+              fullscreen
+              initialCurrentTime={audioPositionRef.current.currentTime}
+              initialPlaying={audioPositionRef.current.playing}
               onTimeUpdate={handleAudioTimeUpdate}
             />
           </div>
@@ -2037,6 +2035,19 @@ export function SlideEditor({
               <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
                 {voiceChangeMessage}
               </div>
+            )}
+
+            {/* Audio player — only when not in fullscreen (fullscreen has its own instance below) */}
+            {audioUrl && !isFullscreen && (
+              <AudioPlayer
+                key={`desktop-${fullscreenExitKey}`}
+                audioUrl={audioUrl}
+                presentationId={presentationId}
+                slideNumber={currentIndex + 1}
+                initialCurrentTime={fullscreenExitKey > 0 ? audioPositionRef.current.currentTime : 0}
+                initialPlaying={fullscreenExitKey > 0 ? audioPositionRef.current.playing : false}
+                onTimeUpdate={handleAudioTimeUpdate}
+              />
             )}
 
             {/* Actions row */}
