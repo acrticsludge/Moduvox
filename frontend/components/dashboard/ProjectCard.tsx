@@ -113,7 +113,7 @@ export function ProjectCard({ project }: { project: Project }) {
                     className="fixed inset-0 z-10"
                     onClick={() => setMenuOpen(false)}
                   />
-                  <div className="absolute right-0 z-20 mt-1 w-40 rounded-lg border border-zinc-200 bg-white py-1 shadow-lg">
+                  <div className="absolute right-0 z-30 mt-1 w-40 rounded-lg border border-zinc-200 bg-white py-1 shadow-lg">
                     <button
                       onClick={(e) => {
                         e.stopPropagation()

@@ -59,7 +59,9 @@
   --ring: oklch(0.87 0 0);
 }
 
+html,
 body {
+  overflow-x: clip;
   background: var(--color-canvas);
   color: var(--color-charcoal);
   font-family: var(--font-sans);
@@ -97,6 +99,10 @@ body {
 
 @utility touch-target {
   @apply flex min-h-[48px] min-w-[48px] items-center justify-center;
+}
+
+@utility touch-target-row {
+  @apply flex min-h-[48px] items-center gap-3;
 }
 
 @utility touch-target-sm {
