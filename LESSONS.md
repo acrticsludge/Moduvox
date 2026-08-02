@@ -1,3 +1,13 @@
+## 2026-08-02: [Bug] Mobile drawers: Navbar behind layout when scrolled, cut-box sidebar, "Content" sliver at bottom
+
+**What happened:** Three mobile UI bugs in one pass: (1) the Navbar's mobile drawer went behind the layout when the page was scrolled; (2) the dashboard left sidebar was a plain cut box (top-16, square, below navbar); (3) a closed bottom sheet's top sliver ("Content" modal with an X) peeked at the bottom of the phone screen while scrolling.
+
+**Root cause:** (1) The Navbar drawer was a child of `<header>`, which gains `backdrop-blur-sm` when scrolled — `backdrop-filter` creates a containing block for fixed-position descendants, so the drawer's `fixed inset-0` anchoring broke. (2) Sidebar styled as `fixed bottom-0 left-0 top-16 z-40` — a square box below the navbar, no rounding/shadow. (3) Closed bottom sheets relied solely on `translate-y-full` to hide; on mobile browsers (dynamic toolbars, `vh` vs visual viewport) the panel could still render a visible top edge at the viewport bottom.
+
+**Fix:** (1) Moved the Navbar drawer overlay + panel OUT of the `<header>` (siblings, fragment). (2) Sidebar now `fixed inset-y-0 left-0 z-[60]` full-height, `rounded-r-2xl shadow-2xl`, drag handle, slides over the navbar; `md:` resets restore static layout. (3) Closed bottom sheets now also get `invisible` (visibility:hidden) alongside the translate, guaranteeing no paint.
+
+**Prevention:** Never nest `fixed` overlays/drawers inside a header that applies `backdrop-filter` on scroll — keep them as siblings. Use `invisible` + translate (not translate alone) to hide off-canvas mobile sheets. When redesigning mobile chrome, check the scrolled state, not just the top-of-page state.
+
 ## 2026-08-02: [Bug] Remove PPT then re-upload produced old + new slides
 
 **What happened:** User removed a PPTX and uploaded a new one; the deck showed the old deck's slides plus the new deck's slides (old + new) instead of replacing. User suspected the R2 deletion logic.
