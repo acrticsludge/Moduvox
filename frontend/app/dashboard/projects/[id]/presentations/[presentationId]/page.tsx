@@ -456,7 +456,7 @@ export default function PresentationCreatePage() {
       </div>
 
       {/* Content */}
-      <div className="ml-0 mr-0 flex min-w-0 flex-1 flex-col md:ml-80 lg:mr-[380px]">
+      <div className="ml-0 mr-0 flex min-h-0 min-w-0 flex-1 flex-col md:ml-80 lg:mr-[380px]">
         {/* Top bar */}
         <div className="flex flex-wrap items-start gap-2 border-b border-[var(--color-border-faint)] bg-white px-4 py-3 md:flex-nowrap md:items-center md:px-6 md:py-4">
           <SidebarToggle />

@@ -1560,9 +1560,9 @@ export function SlideEditor({
 
   return (
     <>
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       {/* Left — PDF-based slide viewer */}
-      <div ref={(el) => { if (el) fullscreenContainerRef.current = el }} className="group relative flex min-w-0 flex-1 flex-col bg-zinc-100">
+      <div ref={(el) => { if (el) fullscreenContainerRef.current = el }} className="group relative flex min-h-0 min-w-0 flex-1 flex-col bg-zinc-100">
         {/* Processing overlay during re-upload */}
         {reUploading ? (
           <div className="flex h-full min-h-[60vh] flex-col items-center justify-center gap-3">

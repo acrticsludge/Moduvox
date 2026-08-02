@@ -153,7 +153,7 @@ className={`touch-target-row gap-3 rounded-lg px-3 py-2.5 text-left text-sm font
 
           {/* ========== MAIN CONTENT ========== */}
           <main
-            className={`relative flex min-w-0 flex-1 flex-col ${
+            className={`relative flex min-h-0 min-w-0 flex-1 flex-col ${
               isPresentationEditor ? "" : "pb-16"
             }`}
           >
