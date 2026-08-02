@@ -1,3 +1,13 @@
+## 2026-08-02: [Bug] Single-instance audio player move broke editor layout — reverted
+
+**What happened:** Committing a stashed "single audio player instance" refactor (`2de4d18`) moved the desktop audio bar OUT of the right sidebar panel and into the left slide viewer (`mt-auto pt-3`), causing it to overlap into the footer and break the editor UI.
+
+**Root cause:** The refactor collapsed two AudioPlayer instances (desktop in right panel + fullscreen overlay) into one always-rendered instance inside the viewer wrapper. The right panel (`lg:flex` sidebar with narration script, actions) lost its player entirely; the normal-mode `mt-auto pt-3` placement overflowed the viewer's flex column.
+
+**Fix:** Surgically reverted the layout: restored the desktop player inside the right panel's audio section (keyed `desktop-${fullscreenExitKey}` with position-preserving props) and made the viewer instance fullscreen-only again — while keeping the later `pointer-events-none` tap-block fix from `6021d5b` (a plain `git revert 2de4d18` would have conflicted and re-introduced the tap-block bug).
+
+**Prevention:** When committing a stash that consolidates layout components, verify the rendered DOM position of each instance in BOTH modes (normal + fullscreen) before committing. When reverting, re-apply any later fixes that touched the same lines rather than doing a blind `git revert`.
+
 ## 2026-08-02: [Bug] Voice clone recorder failed — forced 16 kHz downsample rejected by VoxCPM2
 
 **What happened:** Cloning from the inbuilt recorder always failed ("Failed to generate preview" in Test Voice; "Failed to generate audio" on slides), while uploading a clip worked. User suspected gender — that was wrong.
