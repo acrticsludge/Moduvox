@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { createDownloadUrl, createUploadUrl } from "@/lib/r2"
+import { createDownloadUrl, createUploadUrl, deleteFile, purgePrefix } from "@/lib/r2"
 import { withApiHandler } from "@/lib/api-handler"
 
 export const POST = withApiHandler(async (
@@ -70,7 +70,6 @@ export const POST = withApiHandler(async (
     return NextResponse.json({ error: "File is empty" }, { status: 400 })
   }
   if (fileSize > MAX_FILE_SIZE) {
-    const { deleteFile } = await import("@/lib/r2")
     await deleteFile(filePath)
     return NextResponse.json({
       error: `File too large (${(fileSize / 1024 / 1024).toFixed(1)}MB). Maximum is 100MB.`,
@@ -87,7 +86,6 @@ export const POST = withApiHandler(async (
   if (magicBytes) {
     const validPptxMagic = Buffer.from([0x50, 0x4B, 0x03, 0x04])
     if (!magicBytes.equals(validPptxMagic)) {
-      const { deleteFile } = await import("@/lib/r2")
       await deleteFile(filePath)
       return NextResponse.json({ error: "Invalid file type. Only .pptx files are allowed." }, { status: 422 })
     }
@@ -100,6 +98,13 @@ export const POST = withApiHandler(async (
     .from("presentations")
     .update({ status: "ready", slide_count: slideCount })
     .eq("id", presentationId)
+
+  // ── Purge the previous deck's per-slide PDFs before conversion ──
+  // A re-upload (or upload after "Remove PPT") must REPLACE the old deck, never
+  // merge with it. If R2 deletion in the remove step failed silently, stale
+  // slide-*.pdf keys from the old deck would survive next to the new deck's
+  // PDFs (old + new). Delete the whole pdf/ prefix so the worker starts clean.
+  await purgePrefix(`${user.id}/pdf/${presentationId}/`)
 
   // ── Fire PDF conversion in background ──
   const workerUrl = process.env.RENDER_WORKER_URL

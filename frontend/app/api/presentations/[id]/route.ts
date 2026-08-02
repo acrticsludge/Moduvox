@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { deleteFile, listFiles } from "@/lib/r2"
+import { deleteFile, purgePrefix } from "@/lib/r2"
 import { updatePresentationSchema } from "@/lib/validations/presentation"
 import { withApiHandler } from "@/lib/api-handler"
 import { logAuditFromRequest } from "@/lib/audit"
@@ -144,17 +144,21 @@ export const DELETE = withApiHandler(async (
 
   // Clean up PPTX from R2 if it exists
   const filePath = `${user.id}/${presentationId}.pptx`
-  await deleteFile(filePath)
+  const pptxDelete = await deleteFile(filePath)
+  if (!pptxDelete.success) {
+    console.error(`DELETE /api/presentations/[id]: failed to delete ${filePath}: ${pptxDelete.error}`)
+  }
 
-  // Clean up all per-slide PDFs and audio files from R2
+  // Clean up all per-slide PDFs, audio files, and parsed images from R2
   const prefixes = [
     `${user.id}/pdf/${presentationId}/`,
     `${user.id}/audio/${presentationId}/`,
+    `${user.id}/parsed-images/${presentationId}/`,
   ]
   for (const prefix of prefixes) {
-    const listed = await listFiles(prefix)
-    if (listed.success && listed.data.length > 0) {
-      await Promise.all(listed.data.map((obj: { Key: string }) => deleteFile(obj.Key)))
+    const { failed } = await purgePrefix(prefix)
+    if (failed.length > 0) {
+      console.error(`DELETE /api/presentations/[id]: failed to clean up ${prefix}:`, failed)
     }
   }
 

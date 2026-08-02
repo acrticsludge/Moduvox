@@ -29,8 +29,12 @@ export const POST = withApiHandler(async (
 
   const filePath = `${user.id}/${presentationId}.pptx`
 
-  // Remove any existing file at this path
-  await deleteFile(filePath)
+  // Remove any existing file at this path (log failure — the new PUT will
+  // overwrite anyway, but a stale object here can confuse confirm/polling)
+  const existingDelete = await deleteFile(filePath)
+  if (!existingDelete.success) {
+    console.error(`[upload] Failed to delete existing ${filePath}: ${existingDelete.error}`)
+  }
 
   // Generate presigned URL for direct browser-to-R2 upload
   const presignedUrl = await createUploadUrl(

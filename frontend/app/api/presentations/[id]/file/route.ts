@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { deleteFile, listFiles, createDownloadUrl } from "@/lib/r2"
+import { deleteFile, createDownloadUrl, purgePrefix } from "@/lib/r2"
 import { withApiHandler } from "@/lib/api-handler"
 import { validateUuid } from "@/lib/validate-uuid"
 
@@ -70,17 +70,23 @@ export const DELETE = withApiHandler(async (
 
   // Remove PPTX from storage
   const filePath = `${user.id}/${presentationId}.pptx`
-  await deleteFile(filePath)
+  const pptxDelete = await deleteFile(filePath)
+  if (!pptxDelete.success) {
+    console.error(`[file] Failed to delete PPTX ${filePath}: ${pptxDelete.error}`)
+  }
 
-  // Clean up all per-slide PDFs and audio files from R2
+  // Clean up all per-slide PDFs, audio files, and parsed images from R2.
+  // Each prefix is purged with result checking — a silent failure here leaves
+  // stale files that can resurrect the old deck after a re-upload (old + new).
   const prefixes = [
     `${user.id}/pdf/${presentationId}/`,
     `${user.id}/audio/${presentationId}/`,
+    `${user.id}/parsed-images/${presentationId}/`,
   ]
   for (const prefix of prefixes) {
-    const listed = await listFiles(prefix)
-    if (listed.success && listed.data.length > 0) {
-      await Promise.all(listed.data.map((obj: { Key: string }) => deleteFile(obj.Key)))
+    const { failed } = await purgePrefix(prefix)
+    if (failed.length > 0) {
+      console.error(`[file] Failed to clean up prefix ${prefix}:`, failed)
     }
   }
 

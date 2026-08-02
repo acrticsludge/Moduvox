@@ -216,6 +216,25 @@ export async function listFiles(prefix?: string): Promise<R2Response<any[]>> {
 }
 
 /**
+ * Delete every object under a key prefix (list + delete all).
+ * Returns the keys that failed to delete so callers can log them.
+ */
+export async function purgePrefix(prefix: string): Promise<{ failed: string[] }> {
+  const listed = await listFiles(prefix)
+  const keys = (listed.success ? listed.data.map((f: any) => f.Key) : []) as string[]
+  const failed: string[] = []
+  if (keys.length === 0) return { failed }
+  const results = await Promise.all(keys.map((key) => deleteFile(key)))
+  results.forEach((res, i) => {
+    if (!res.success) failed.push(keys[i])
+  })
+  if (failed.length > 0) {
+    console.error(`[R2] purgePrefix "${prefix}" — ${failed.length}/${keys.length} failed:`, failed)
+  }
+  return { failed }
+}
+
+/**
  * Check if a file exists in R2.
  */
 export async function fileExists(key: string): Promise<R2Response<boolean>> {
