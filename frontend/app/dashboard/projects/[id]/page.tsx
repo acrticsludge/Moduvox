@@ -151,16 +151,16 @@ export default function ProjectDetailPage() {
     <>
       {/* Top bar */}
       <div className="flex items-center justify-between border-b border-[var(--color-border-faint)] bg-white px-4 py-3 sm:px-6 sm:py-4">
-        <div className="flex items-center gap-1.5 text-sm sm:gap-2">
+        <div className="flex min-w-0 items-center gap-1.5 text-sm sm:gap-2">
           <SidebarToggle />
           <a
             href="/dashboard"
-            className="font-medium text-[#71717A] transition-colors hover:text-[#18181B]"
+            className="shrink-0 font-medium text-[#71717A] transition-colors hover:text-[#18181B]"
           >
             All Projects
           </a>
-          <ChevronRight className="h-3.5 w-3.5 text-zinc-300" />
-          <span className="font-medium text-[#18181B]">{project.name}</span>
+          <ChevronRight className="h-3.5 w-3.5 shrink-0 text-zinc-300" />
+          <span className="truncate font-medium text-[#18181B]">{project.name}</span>
         </div>
 
         <button
