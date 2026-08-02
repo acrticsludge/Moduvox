@@ -5,7 +5,7 @@ import Image from "next/image"
 import { RefreshCw } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-export function ViewNavbar({ onRefresh }: { onRefresh?: () => void }) {
+export function ViewNavbar({ onRefresh, onToggleInfo }: { onRefresh?: () => void; onToggleInfo?: () => void }) {
   const [spinning, setSpinning] = useState(false)
 
   const handleRefresh = useCallback(() => {
@@ -21,6 +21,16 @@ export function ViewNavbar({ onRefresh }: { onRefresh?: () => void }) {
       <div className="mx-auto flex h-16 max-w-[1400px] items-center px-4 sm:px-6 lg:px-8">
         <Image src="/logo-wordmark.svg" alt="Moduvox" width={112} height={28} className="h-7 w-auto" priority />
         <div className="ml-auto" />
+        {onToggleInfo && (
+          <button
+            type="button"
+            aria-label="Show presentation info"
+            onClick={onToggleInfo}
+            className="touch-target-sm mr-1 flex items-center justify-center rounded-lg text-zinc-500 transition-colors hover:text-zinc-800 md:hidden"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          </button>
+        )}
         {onRefresh && (
           <button
             type="button"
