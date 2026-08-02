@@ -1,3 +1,13 @@
+## 2026-08-02: [Bug] Remove PPT then re-upload produced old + new slides
+
+**What happened:** User removed a PPTX and uploaded a new one; the deck showed the old deck's slides plus the new deck's slides (old + new) instead of replacing. User suspected the R2 deletion logic.
+
+**Root cause:** The R2 deletion logic swallowed failures. `deleteFile()` in `lib/r2.ts` catches errors internally and returns `{success:false}` — it never throws — but every caller (`file/route.ts` DELETE, `presentations/[id]` DELETE, `upload/route.ts` POST) did `await deleteFile(...)` and ignored the result. `listFiles()` failures were also skipped silently via `if (listed.success && ...)`. So when R2 deletion failed (the codebase has a documented history of flaky R2 TLS), stale `slide-*.pdf` keys from the old deck survived. The worker conversion only overwrote the new deck's `slide-1..N.pdf`, leaving surplus old PDFs; combined with a stale `slide_count` in the DB, the slides API returned old + new slides. The `parsed-images/` prefix was also never cleaned on remove.
+
+**Fix:** Added `purgePrefix(prefix)` to `lib/r2.ts` (list + delete all, returns failed keys). The `upload/confirm` route now purges `${user.id}/pdf/${presentationId}/` BEFORE firing the worker, so any re-upload is a clean replace even if the earlier remove step's R2 deletion failed. All delete call sites now check and log results, and the `parsed-images/` prefix is included in remove/delete cleanup.
+
+**Prevention:** Treat `deleteFile`/`listFiles` (and any R2/S3 helper that returns a result object) as fallible — always check the return value or use a purge helper that aggregates failures. Any "replace" flow (re-upload, remove-then-upload) must delete the whole per-deck prefix before writing new files, never rely on a prior DELETE having succeeded.
+
 ## 2026-08-02: [Bug] Slide viewer overflowed into footer — flexbox min-h-0 chain break
 
 **What happened:** In the presentation editor (non-fullscreen), the gray slide-viewer container ended at the PDF's height while the Re-upload/Remove PPT/Full screen buttons overflowed into the footer. Recurred despite a prior Codex attempt (reverted in `b1555ad`).
