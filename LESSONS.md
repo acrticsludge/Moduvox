@@ -1,3 +1,13 @@
+## 2026-08-02: [Bug] Slide viewer overflowed into footer — flexbox min-h-0 chain break
+
+**What happened:** In the presentation editor (non-fullscreen), the gray slide-viewer container ended at the PDF's height while the Re-upload/Remove PPT/Full screen buttons overflowed into the footer. Recurred despite a prior Codex attempt (reverted in `b1555ad`).
+
+**Root cause:** `SlidePdfViewer` renders the PDF at a fixed pixel height (`slideWidth * 0.75`), and the left viewer wrapper is `flex-1` inside a chain of nested flex columns (`layout.tsx` main → page.tsx content div → SlideEditor root → left viewer). Flex items default to `min-height: auto`, so each ancestor refused to shrink below the PDF's content height, pushing the gray box past the viewport into the footer. Codex's attempt changed the PDF sizing instead of the container chain, so it still overflowed.
+
+**Fix:** Added `min-h-0` to each `flex-1` ancestor (layout main, page content div, SlideEditor root, left viewer wrapper). The slide viewer area already had `min-h-0 overflow-hidden`; the missing `min-h-0` on its ancestors is what let the chain shrink so the PDF actually clips.
+
+**Prevention:** When a fixed-size child overflows a nested flex column, add `min-h-0` to every `flex-1` ancestor — don't change the child's sizing. Check for `min-height: auto` on all flex items between the height-constrained container and the `overflow-hidden` element.
+
 ## 2026-08-02: [Bug] Single-instance audio player move broke editor layout — reverted
 
 **What happened:** Committing a stashed "single audio player instance" refactor (`2de4d18`) moved the desktop audio bar OUT of the right sidebar panel and into the left slide viewer (`mt-auto pt-3`), causing it to overlap into the footer and break the editor UI.
