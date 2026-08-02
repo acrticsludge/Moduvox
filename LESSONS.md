@@ -1,3 +1,23 @@
+## 2026-08-01: [Bug] Always-rendered `fixed inset-0` drawer wrapper swallowed all taps on mobile
+
+**What happened:** On the slide editor, every button became unresponsive on screens below `lg`. Users couldn't tap anything: slides, the open-controls FAB, even page navigation.
+
+**Root cause:** `SlideEditor.tsx` rendered `<div className="fixed inset-0 z-50 lg:hidden">` whenever slides existed — a full-viewport transparent hit-target. The children were inert when closed (backdrop `pointer-events-none`, panel `translate-y-full`), but the wrapper itself had default `pointer-events: auto`, so it sat at z-50 above everything and consumed all taps. The FAB that opens the panel was z-30, under the wrapper, so it could never even be reopened.
+
+**Fix:** Added `pointer-events-none` to the wrapper when the panel is closed (`${showMobilePanel ? "" : "pointer-events-none"}`), mirroring the working pattern in the editor page drawer.
+
+**Prevention:** Every always-rendered overlay/drawer wrapper must either be conditionally rendered or carry `pointer-events-none` when closed. Audit all `fixed inset-0` elements for the closed-state hit-test: if the wrapper is rendered but invisible, it still intercepts taps. Check children AND the wrapper itself.
+
+## 2026-08-01: [Bug] Fullscreen tap-to-reveal: `stopPropagation` on a full-area overlay makes reveal one-way
+
+**What happened:** "Tap to reveal" fullscreen controls worked the first time, but once controls were visible a second tap could never hide them — they stayed until exiting fullscreen.
+
+**Root cause:** The overlay is `absolute inset-0` on top of the slide with `pointer-events-auto` when visible, and had `onClick={(e) => e.stopPropagation()}`. When visible, every tap lands on the overlay first; stopPropagation prevented the tap from reaching the viewer's toggle handler. A `closest("[data-fullscreen-controls]")` guard in the handler didn't fix it either — since the overlay covers the slide, the slide is never the hit target, so `closest()` always found the overlay. The slide and overlay are siblings; hit-testing picks the top sibling.
+
+**Fix:** Keep the overlay `pointer-events-none` ALWAYS (toggle only `opacity`), and give only the interactive control buttons `pointer-events-auto` (gated on the visible state so invisible buttons aren't tappable on touch). Then slide taps pass through the overlay to the toggle handler; button taps are shielded by the `closest()` guard.
+
+**Prevention:** For tap-to-reveal overlays, never make the overlay itself pointer-interactive. The overlay must be hit-transparent; only the controls inside it should be interactive. Gating `pointer-events-auto` on the revealed state also prevents accidental taps on invisible buttons on touch devices.
+
 ## 2026-08-01: [Bug] `!externalImageDescriptions` predicate never true — auto image parsing was dead code
 
 **What happened:** The BatchImageFetcher that auto-described slide images on upload never fired; only manual per-slide retry worked. Users saw "only the first image parsed, rest fail until I click retry."
