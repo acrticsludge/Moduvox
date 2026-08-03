@@ -604,34 +604,56 @@ export function SlideEditor({
 
   // ── Parsed image persistence helpers ──────────────────────────
 
-  /** Save parsed slide images to R2 for cross-session persistence. Returns the R2 key map, or null on failure. */
+  /**
+   * Save parsed slide images to R2 for cross-session persistence.
+   * Sends images in chunks (≤20 per request) so the POST body stays small;
+   * a single giant request previously hit the server's body-size limit and
+   * surfaced a scary "persist failed" toast for a non-fatal background op.
+   * Returns the merged R2 key map, or null on failure.
+   */
   async function saveParsedImagesToR2(
     presId: string,
     slides: ParsedSlide[],
   ): Promise<Record<string, string> | null> {
-    try {
-      const payload = {
-        slides: slides.map((s) => ({
-          number: s.number,
-          images: s.images.map((img) => ({
-            index: img.index,
-            mimeType: img.mimeType,
-            data: img.dataUrl.replace(/^data:image\/\w+;base64,/, ""),
-          })),
-        })),
+    const MAX_IMAGES_PER_REQUEST = 20
+    const entries: { slide: number; index: number; mimeType: string; data: string }[] = []
+    for (const s of slides) {
+      for (const img of s.images) {
+        entries.push({
+          slide: s.number,
+          index: img.index,
+          mimeType: img.mimeType,
+          data: img.dataUrl.replace(/^data:image\/\w+;base64,/, ""),
+        })
       }
-      const res = await fetch(`/api/presentations/${presId}/parsed-images/save`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`)
-      if (json.data?.keys) return json.data.keys as Record<string, string>
-      return null
+    }
+    if (entries.length === 0) return null
+
+    const keys: Record<string, string> = {}
+    try {
+      for (let i = 0; i < entries.length; i += MAX_IMAGES_PER_REQUEST) {
+        const chunk = entries.slice(i, i + MAX_IMAGES_PER_REQUEST)
+        const slidesPayload = new Map<number, { number: number; images: { index: number; mimeType: string; data: string }[] }>()
+        for (const e of chunk) {
+          const slideEntry = slidesPayload.get(e.slide)
+          if (slideEntry) slideEntry.images.push({ index: e.index, mimeType: e.mimeType, data: e.data })
+          else slidesPayload.set(e.slide, { number: e.slide, images: [{ index: e.index, mimeType: e.mimeType, data: e.data }] })
+        }
+        const res = await fetch(`/api/presentations/${presId}/parsed-images/save`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ slides: Array.from(slidesPayload.values()) }),
+        })
+        const json = await res.json()
+        if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`)
+        if (json.data?.keys) {
+          Object.assign(keys, json.data.keys as Record<string, string>)
+        }
+      }
+      if (Object.keys(keys).length === 0) return null
+      return keys
     } catch (err) {
       console.warn("[parsed-images] Save failed:", err)
-      toastError("Failed to persist slide images — they may be lost after refresh.")
       return null
     }
   }
@@ -732,9 +754,11 @@ export function SlideEditor({
   }, [externalImageDescriptions, slides, file])
   // eslint-disable-next-line react-hooks/exhaustive-deps
 
-  // Auto-parse image descriptions on fresh uploads (Q8: restored decks parse on Images-tab open instead).
+  // Auto-parse image descriptions whenever there are image-bearing slides that
+  // haven't been described yet — on fresh uploads AND restored decks. Previously
+  // gated on `file`, so revisited presentations never parsed until the Images tab
+  // was opened (Q8 recovery), which forced a manual "retry image parsing" step.
   useEffect(() => {
-    if (!file) return
     if (imageDescStatus !== "idle") return
     if (imageParsingRef.current) return
     const needsParse = slides.some(

@@ -103,14 +103,27 @@ function validateImage(mimeType: string, data: string): string | null {
 
 /**
  * Normalize AI-generated description for consistent display.
+ * Strips markdown emphasis, leading list numbering, and chatty prefixes
+ * so the stored description reads like a clean caption, not raw LLM output.
  */
 function formatDescription(desc: string): string {
   let text = desc.trim()
 
   if (!text) return ""
 
+  // Strip leading list numbering / bullets: "1.  ", "1) ", "- ", "* ", "• "
+  text = text.replace(/^\s*(?:\d+[.)]\s*|[-*•]\s+)+/, "")
+
+  // Strip markdown emphasis markers: **bold**, *italic*, __under__
+  text = text.replace(/\*\*(.+?)\*\*/g, "$1")
+  text = text.replace(/__(.+?)__/g, "$1")
+  text = text.replace(/(^|\s)\*([^*\n]+)\*/g, "$1$2")
+
   // Strip common AI prefixes
   text = text.replace(/^(here is|this image shows|the image depicts|the screenshot shows|in this image)\s*/i, "")
+
+  // Collapse internal whitespace/newlines
+  text = text.replace(/\s+/g, " ").trim()
 
   // Capitalize first letter
   text = text.charAt(0).toUpperCase() + text.slice(1)
@@ -134,7 +147,7 @@ function validateDescriptionFormat(desc: string): string {
     return desc
   }
 
-  const VISUAL_TYPES = /^(Chart|Diagram|Screenshot|Photo|Icon|Table|Logo|Text-only|Mixed-content|Illustration|Graph|Image):/i
+  const VISUAL_TYPES = /^\**?(Chart|Diagram|Screenshot|Photo|Icon|Table|Logo|Text-only|Mixed-content|Illustration|Graph|Image)\**?\s*:/i
   if (!VISUAL_TYPES.test(desc)) {
     console.warn(`[image-descriptions] Description missing visual type marker, prepending "Image: ". Raw: "${desc.slice(0, 60)}..."`)
     return `Image: ${desc}`
