@@ -1,3 +1,13 @@
+## 2026-08-02: [Bug] Image persistence toast, deferred parsing, and raw-markdown descriptions
+
+**What happened:** Three related issues: (1) remove-PPT-then-re-upload fired a scary "Failed to persist slide images" toast even though nothing was broken; (2) image parsing did not run until the Images tab was opened, forcing a manual "retry image parsing" before narration; (3) AI image descriptions displayed raw LLM markdown like `1.  **Photo**: ...` and got "Image: " prepended.
+
+**Root cause:** (1) `saveParsedImagesToR2` sent ALL slide images in one giant POST — body-size-limit failure, and the failure toast treated a non-fatal background persistence op as critical (images still work in-memory; persistence is only for cross-session reload). (2) The auto-parse effect was gated on `if (!file) return`, so restored/revisited decks (file=null) never auto-parsed — only fresh uploads did. (3) `formatDescription` did not strip markdown emphasis (`**`), list numbering (`1. `), or bullet markers, and `validateDescriptionFormat`'s visual-type regex required the type at the very start, so `1. **Photo**` failed and got "Image: " prepended.
+
+**Fix:** (1) Chunked the save into ≤20-image POSTs and downgraded the toast to `console.warn`. (2) Removed the `!file` guard so any deck with image-bearing slides that lack descriptions auto-parses. (3) Stripped markdown/emphasis/numbering in `formatDescription` and loosened the visual-type regex (`^\**?...`).
+
+**Prevention:** Never treat best-effort background persistence as user-facing fatal; log and continue. Check for `file`-gated effects that break the restored path (reload/revisit is the common case). Always sanitize AI text before display — assume markdown/bullets will appear.
+
 ## 2026-08-02: [Bug] Mobile drawers: Navbar behind layout when scrolled, cut-box sidebar, "Content" sliver at bottom
 
 **What happened:** Three mobile UI bugs in one pass: (1) the Navbar's mobile drawer went behind the layout when the page was scrolled; (2) the dashboard left sidebar was a plain cut box (top-16, square, below navbar); (3) a closed bottom sheet's top sliver ("Content" modal with an X) peeked at the bottom of the phone screen while scrolling.
