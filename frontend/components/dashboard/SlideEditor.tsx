@@ -1228,7 +1228,7 @@ export function SlideEditor({
       setConversionError("")
       onSlideDataChange?.([])
       setInternalChangedSlides([])
-      onChangedSlidesChange?.([])
+
       setGenerationFailed(false)
       setGeneratingNarrations(false)
       setSlideInput("1")

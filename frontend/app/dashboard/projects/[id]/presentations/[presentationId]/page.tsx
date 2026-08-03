@@ -213,10 +213,6 @@ export default function PresentationCreatePage() {
           if (saved.storagePath) {
             setStoragePath(saved.storagePath)
             setMode("editor")
-          } else if (typeof saved.storagePath === "string") {
-            // storagePath exists but is empty string — still valid, treat as editor
-            setStoragePath(saved.storagePath)
-            setMode("editor")
           } else if ((p.slide_count ?? 0) > 0) {
             // Recovery: editor_state.storagePath was lost (e.g. corrupted by a prior
             // save bug) but the presentation still has per-slide PDFs in R2. Reconstruct
@@ -602,7 +598,28 @@ export default function PresentationCreatePage() {
               onAudioUrlChange={setAudioUrl}
               audioStoragePath={audioStoragePath}
               onAudioStoragePathChange={setAudioStoragePath}
-              onRemovePpt={() => { setMode("upload"); setStoragePath(""); setAudioUrl(null); setAudioStoragePath(null) }}
+              onRemovePpt={() => {
+                setMode("upload")
+                setStoragePath("")
+                setAudioUrl(null)
+                setAudioStoragePath(null)
+                setSlideData([])
+                setChangedSlides([])
+                setParsedImageKeys({})
+                setImageDescriptions({})
+                setNarrations({})
+                setAudioGenerated(false)
+                setCurrentSlide(0)
+                // Persist the cleared editor state so a refresh shows the upload
+                // box instead of a resurrected (now-deleted) deck. The DELETE
+                // /file route already reset the row; this keeps editor_state
+                // from being re-written with stale values by the auto-save.
+                fetch(`/api/presentations/${params.presentationId}/state`, {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ slideCount: 0 }),
+                }).catch(() => {})
+              }}
               mobilePanelOpen={mobilePanelOpen}
               onMobilePanelOpenChange={setMobilePanelOpen}
             />
