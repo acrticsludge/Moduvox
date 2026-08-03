@@ -1,3 +1,13 @@
+## 2026-08-02: [Bug] Remove-PPT then refresh shows "No file provided" and hides the upload box
+
+**What happened:** After removing a PPT, the upload box showed, but refreshing the page hit an error "No file provided" and the upload box was gone.
+
+**Root cause:** Two stacked bugs: (1) `handleRemovePpt` called `onChangedSlidesChange([])` right after DELETE /file, and the parent's `handleChangedSlidesChange` PATCHed `/state` with stale closure values (old storagePath + old slideData), resurrecting the just-deleted deck in the DB. (2) The page-load restore logic had an empty-string-storagePath branch (`typeof saved.storagePath === "string"`) added for a corruption-recovery scenario; after remove the persisted `storagePath` is `""`, so this branch forced `mode="editor"` with no file → SlideEditor's `processFile` hit `if (!file && !externalStoragePath)` → "No file provided", and the upload box was hidden because mode was editor.
+
+**Fix:** In SlideEditor `handleRemovePpt`, stop calling `onChangedSlidesChange([])` (the stale PATCH). In the parent's `onRemovePpt`, clear ALL editor state and immediately PATCH `/state` with `{ slideCount: 0 }` so the DB row stays reset. In the load effect, delete the empty-string branch so `storagePath: ""` falls through to the `slide_count > 0` recovery check and a removed deck lands on upload mode.
+
+**Prevention:** Never PATCH editor state with closure values right after a destructive reset — clear state first, then persist. Treat empty-string storagePath as "no file" (upload mode), not as a valid editor state; the recovery branch handles genuine corruption via `slide_count`.
+
 ## 2026-08-02: [Bug] Image persistence toast, deferred parsing, and raw-markdown descriptions
 
 **What happened:** Three related issues: (1) remove-PPT-then-re-upload fired a scary "Failed to persist slide images" toast even though nothing was broken; (2) image parsing did not run until the Images tab was opened, forcing a manual "retry image parsing" before narration; (3) AI image descriptions displayed raw LLM markdown like `1.  **Photo**: ...` and got "Image: " prepended.
