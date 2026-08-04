@@ -553,6 +553,17 @@ export function SlideEditor({
         // Step 1: Upload new file via presigned URL
         try {
           const res = await fetch(`/api/presentations/${presentationId}/upload`, { method: "POST" })
+
+          // A silent presigned-URL failure used to die here: no error shown, no
+          // confirm, no slide_count in the DB → refresh fell back to the upload
+          // box even though parsing progressed. Surface it so the cause is visible.
+          if (!res.ok) {
+            const errBody = await res.json().catch(() => ({}))
+            const errMsg = errBody.error || `Server error (${res.status})`
+            if (!cancelled) { setLoading(false); setLoadError(`Failed to start upload: ${errMsg}`) }
+            return
+          }
+
           const json = await res.json()
           if (json.data?.presignedUrl) {
             path = json.data.path as string

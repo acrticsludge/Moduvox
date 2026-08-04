@@ -31,6 +31,11 @@ export type ImageDescriptionResponse = {
 type SlideWithImages = { number: number; images: { index: number; mimeType: string; dataUrl: string }[] }
 type SlideImageResult = { number: number; images: ImageDescription[] }
 
+/** True when the description error is permanent (unsupported image format) and retrying can never succeed. */
+function isPermanentImageError(d: ImageDescription): boolean {
+  return Boolean(d.error && d.error.startsWith("Unsupported image format"))
+}
+
 /** True when the slide has no images, or every image has a non-error description. */
 export function isSlideParsingComplete(
   slideImages: { index: number }[],
@@ -40,6 +45,9 @@ export function isSlideParsingComplete(
   if (!descriptions) return false
   return slideImages.every((img) => {
     const d = descriptions.find((x) => x.index === img.index)
+    // Unsupported formats (e.g. SVG) can never be parsed server-side — treat
+    // them as handled so they don't block narration or retry forever.
+    if (d && isPermanentImageError(d)) return true
     return Boolean(d && d.description && !d.error)
   })
 }
@@ -53,6 +61,7 @@ export function imagesNeedingAnalysis(
   if (!descriptions) return [...slideImages]
   return slideImages.filter((img) => {
     const d = descriptions.find((x) => x.index === img.index)
+    if (d && isPermanentImageError(d)) return false
     return !d || !d.description || Boolean(d.error)
   })
 }

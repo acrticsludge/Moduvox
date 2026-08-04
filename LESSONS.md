@@ -1,3 +1,13 @@
+## 2026-08-04: [Bug] Upload regression — SVG image killed all parsing/narration, empty storagePath sentinel reset editor on refresh
+
+**What happened:** On upload, ALL image parsing and narration failed instantly, and refreshing the page reset to the upload box even after a successful upload.
+
+**Root cause:** Three stacked bugs. (1) `pptx-renderer` emits `image/svg+xml` data URIs, but the image-descriptions API's Zod `ImageSchema.mimeType` regex only allowed `png|jpeg|webp|gif|bmp` — one SVG made `safeParse` fail the ENTIRE request (422), every image in the deck was marked failed, and the narration gate ("Image analysis incomplete for slide(s)…") blocked every image-bearing slide. (2) `persistState`/`handleChangedSlidesChange` wrote `storagePath` verbatim, so racing persists during upload (immediate `onRequestPersist` before the upload-URL fetch resolved) persisted `storagePath: ""` + `slide_count: 0` — the load effect treats falsy storagePath as "no file" → upload box on refresh. The presigned-URL fetch also never checked `res.ok`, so upload failures were silent (no error, no confirm, no slide_count). (3) The narration route's schema has `instructions`, but the client sends `controlInstruction` — Zod strips unknown keys silently, so the user's voice style never reached Gemini.
+
+**Fix:** (1) Loosened `ImageSchema.mimeType` to `/^image\//`; `validateImage` now reports unsupported formats as per-image errors, and `isSlideParsingComplete`/`imagesNeedingAnalysis` treat "Unsupported image format" as terminal (no retry loop, doesn't block narration). (2) Both state writers now send `storagePath: storagePath || undefined` (JSON drops the key — DB never gets the empty-string sentinel), and the upload step checks `res.ok`, surfaces the server error, and clears loading. (3) Added `controlInstruction` to the narration schema and used it as the global style guide.
+
+**Prevention:** Validate per-item (images), never per-request, when a single bad item must not kill the batch. Never persist empty-string sentinels that downstream logic treats as falsy — drop the key instead. When adding client fields to an API, verify they exist in the route's Zod schema; Zod's default strip silently discards mismatched keys.
+
 ## 2026-08-02: [Bug] Remove-PPT then refresh shows "No file provided" and hides the upload box
 
 **What happened:** After removing a PPT, the upload box showed, but refreshing the page hit an error "No file provided" and the upload box was gone.

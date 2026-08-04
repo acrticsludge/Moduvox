@@ -11,7 +11,11 @@ import { z } from "zod"
 
 const ImageSchema = z.object({
   index: z.number().int().min(0),
-  mimeType: z.string().regex(/^image\/(png|jpeg|webp|gif|bmp)$/),
+  // Accept any image/* here; unsupported formats (e.g. image/svg+xml) are
+  // reported as per-image errors by validateImage instead of failing the
+  // entire request with a 422 (which previously killed parsing + narration
+  // for the whole deck on a single SVG image).
+  mimeType: z.string().regex(/^image\//),
   data: z.string().min(1),
 })
 

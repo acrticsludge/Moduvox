@@ -156,7 +156,11 @@ export default function PresentationCreatePage() {
       narrations: narrationsRef.current,
       audioGenerated,
         audioStoragePath: audioStoragePath ?? undefined,
-        storagePath,
+        // Never persist an empty-string storagePath sentinel: the load effect
+        // treats falsy storagePath as "no file" and falls back to slide_count
+        // recovery, so an empty string in the DB permanently resets the editor
+        // to the upload box on refresh (racing persists during upload wrote it).
+        storagePath: storagePath || undefined,
         currentSlide,
         // Always include every field — never drop empty values to undefined.
         // The PATCH endpoint replaces the entire JSONB column, so dropping a
@@ -280,7 +284,9 @@ export default function PresentationCreatePage() {
       narrations,
       audioGenerated,
       audioStoragePath: audioStoragePath ?? undefined,
-      storagePath,
+      // Keep storagePath out of the PATCH body until a real path exists
+      // (empty string would persist the upload-box-on-refresh sentinel).
+      storagePath: storagePath || undefined,
       currentSlide,
       // Always include every field — never drop empty values to undefined.
       // The PATCH endpoint replaces the entire JSONB column, so dropping a

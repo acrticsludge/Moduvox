@@ -16,6 +16,9 @@ const narrationSchema = z.object({
     bullets: z.array(z.string()),
   })).min(1).max(30),
   instructions: z.string().optional(),
+  // Client sends the sidebar voice/control instruction under this key; it was
+  // silently stripped by Zod before, so the voice style never reached Gemini.
+  controlInstruction: z.string().optional(),
   slideInstructions: z.record(z.string(), z.string()).optional(),
   presentationId: z.string().uuid(),
   voiceId: z.string().uuid().optional(),
@@ -75,7 +78,7 @@ export const POST = withApiHandler(async (request: Request) => {
     if (!parsed.success) {
       return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
     }
-    const { slides, instructions, slideInstructions, presentationId, voiceId, voiceDescription, ultimateMode, imageDescriptions } = parsed.data
+    const { slides, instructions, controlInstruction, slideInstructions, presentationId, voiceId, voiceDescription, ultimateMode, imageDescriptions } = parsed.data
 
     // Verify ownership
     const { data: presentation } = await supabase
@@ -168,7 +171,7 @@ Rules:
 
 Respond with ONLY a valid JSON object where keys are slide numbers and values are narration strings. No other text.
 
-${instructions ? `Global style guide: ${instructions}` : ""}
+${(instructions ?? controlInstruction) ? `Global style guide: ${instructions ?? controlInstruction}` : ""}
 
 Slides:
 ${slideBlocks.join("\n\n")}`
