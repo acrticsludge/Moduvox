@@ -2,9 +2,10 @@ import express from "express";
 import { z } from "zod";
 import { PDFDocument } from "pdf-lib";
 import { execSync } from "child_process";
-import { createWriteStream, existsSync, mkdirSync, readdirSync, rmSync } from "fs";
-import { readFile } from "fs/promises";
+import { createWriteStream, existsSync, readdirSync, rmSync } from "fs";
+import { mkdtemp, readFile } from "fs/promises";
 import { basename, join } from "path";
+import { tmpdir } from "os";
 import { pipeline } from "stream/promises";
 import fetch from "node-fetch";
 import { createClient } from "@supabase/supabase-js";
@@ -22,7 +23,6 @@ const CORS_ORIGIN = (process.env.CORS_ORIGIN || "")
   .split(",")
   .map((s) => s.trim())
   .filter(Boolean);
-const TMP_DIR = "/tmp/convert";
 
 // ── Supabase + Resend clients ──
 const supabaseUrl = process.env.SUPABASE_URL || "";
@@ -132,11 +132,19 @@ app.post("/convert", auth, async (req, res) => {
   }
 
   const { pptxUrl, slidePutUrls, slideCount } = parsed.data;
-  const tmpInput = join(TMP_DIR, "input.pptx");
-  const tmpOutput = join(TMP_DIR, "input.pdf");
 
-  if (existsSync(TMP_DIR)) rmSync(TMP_DIR, { recursive: true });
-  mkdirSync(TMP_DIR, { recursive: true });
+  // Per-request temp dir — concurrent /convert calls must never share or
+  // wipe each other's files (a shared /tmp/convert caused ENOENT + lost
+  // slide uploads when two conversions ran at once).
+  let tmpDir = "";
+  try {
+    tmpDir = await mkdtemp(join(tmpdir(), "convert-"));
+  } catch (err) {
+    console.error("[convert] Failed to create temp dir:", err.message);
+    return res.status(500).json({ error: "Failed to create temp directory" });
+  }
+  const tmpInput = join(tmpDir, "input.pptx");
+  const tmpOutput = join(tmpDir, "input.pdf");
 
   try {
     console.log(`[convert] Downloading PPTX from ${pptxUrl}`);
@@ -144,9 +152,11 @@ app.post("/convert", auth, async (req, res) => {
 
     console.log("[convert] Converting PPTX -> PDF via LibreOffice");
     try {
-      // Run LibreOffice from the tmp dir so output lands there even if --outdir is flaky
+      // Run LibreOffice from the tmp dir so output lands there even if --outdir is flaky.
+      // -env:UserInstallation isolates the LO profile per request so concurrent
+      // soffice runs don't contend for (and lock) the shared user profile.
       execSync(
-        `cd ${TMP_DIR} && soffice --headless --norestore --convert-to pdf --outdir ${TMP_DIR} input.pptx`,
+        `cd ${tmpDir} && soffice --headless --norestore -env:UserInstallation=file://${tmpDir}/lo-profile --convert-to pdf --outdir ${tmpDir} input.pptx`,
         {
           timeout: 180_000,
           stdio: "pipe",
@@ -159,19 +169,19 @@ app.post("/convert", auth, async (req, res) => {
     }
 
     // Find any PDF in the output dir — LO output naming varies by version
-    const pdfFiles = readdirSync(TMP_DIR).filter(
+    const pdfFiles = readdirSync(tmpDir).filter(
       (f) => f.endsWith(".pdf") && f !== basename(tmpOutput),
     );
     console.log(`[convert] PDFs in output dir: ${JSON.stringify(pdfFiles)}`);
     if (pdfFiles.length === 0 && !existsSync(tmpOutput)) {
-      console.error(`[convert] No PDF found in ${TMP_DIR}`);
+      console.error(`[convert] No PDF found in ${tmpDir}`);
       throw new Error("LibreOffice did not produce output PDF");
     }
 
     // Use the discovered PDF if the expected path is missing
     const actualPdfPath = existsSync(tmpOutput)
       ? tmpOutput
-      : join(TMP_DIR, pdfFiles[0]);
+      : join(tmpDir, pdfFiles[0]);
 
     console.log(`[convert] Output PDF: ${actualPdfPath} (${(await readFile(actualPdfPath)).length} bytes)`);
 
@@ -216,7 +226,7 @@ app.post("/convert", auth, async (req, res) => {
     console.error("[convert] Error:", err.message);
     res.status(500).json({ error: err.message });
   } finally {
-    if (existsSync(TMP_DIR)) rmSync(TMP_DIR, { recursive: true });
+    if (tmpDir) rmSync(tmpDir, { recursive: true, force: true });
   }
 });
 

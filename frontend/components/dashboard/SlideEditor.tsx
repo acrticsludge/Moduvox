@@ -1616,8 +1616,8 @@ export function SlideEditor({
             <p className="text-sm text-[#71717A]">Processing PPTX...</p>
           </div>
         ) : conversionStatus === "uploading" && file ? (
-          /* Fresh upload: show upload + convert progress */
-          <div className="mx-auto flex w-[340px] flex-col items-center justify-center gap-6">
+          /* Fresh upload: show upload + convert progress — centered in the slide area */
+          <div className="m-auto flex w-[340px] flex-col items-center justify-center gap-6">
             {/* Step 1: Uploading */}
             <div className="flex items-center gap-3">
               <Loader2 className="h-5 w-5 animate-spin text-[#18181B]" />
@@ -1642,8 +1642,8 @@ export function SlideEditor({
             <p className="text-xs text-zinc-400">Uploading your presentation…</p>
           </div>
         ) : conversionStatus === "converting" ? (
-          /* Converting (fresh upload) or loading (reload) — stable width */
-          <div className="mx-auto flex w-[340px] flex-col items-center justify-center gap-5">
+          /* Converting (fresh upload) or loading (reload) — stable width, centered */
+          <div className="m-auto flex w-[340px] flex-col items-center justify-center gap-5">
             {/* Step 1: Uploading (already done) */}
             {file && (
               <div className="flex items-center gap-3">
