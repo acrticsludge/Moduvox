@@ -1,3 +1,13 @@
+## 2026-08-04: [Bug] PPT slide "stuck on loading" — converter worker self-corrupts on concurrent /convert
+
+**What happened:** A deck's slide stayed on "Loading slide…" forever. Worker logs showed two `POST /convert` for the same deck arriving concurrently; one uploaded all 15 slides fine, the other hit `ENOENT: /tmp/convert/input.pdf` and a failed R2 `PutObject` on slide-11, leaving slide-11.pdf missing so the frontend poll never saw a complete deck.
+
+**Root cause:** The Render worker used ONE shared `TMP_DIR=/tmp/convert` for every request and `rmSync`'d it at the start and in `finally`. Two concurrent conversions (upload-confirm route + view-page "Generate slides" retry both legitimately fire `/convert`) wiped each other's downloaded/converted files mid-flight. LibreOffice also shares the default user profile, so two concurrent `soffice` runs can lock each other.
+
+**Fix:** Per-request temp dir via `mkdtemp(join(tmpdir(), "convert-"))`, removed the shared `TMP_DIR` constant, and isolated the LO user profile with `-env:UserInstallation=file://${tmpDir}/lo-profile`. Cleanup uses `rmSync(tmpDir, { recursive: true, force: true })`. Concurrent conversions now produce complete decks (last-writer-wins on identical slide content).
+
+**Prevention:** Any worker doing file-based work must use per-request temp dirs — never a shared path that gets wiped. Add `-env:UserInstallation` whenever concurrent LibreOffice runs are possible. When a slide is "stuck loading," check worker logs for `ENOENT` + failed PUTs — it's almost always a temp-dir collision, not the frontend.
+
 ## 2026-08-04: [Bug] VoxCPM "Voice preview generation failed" — HF space errors mid-generation, not "down"
 
 **What happened:** Test-voice preview returned "Voice preview generation failed" with `Gradio error: null` after ~51s of SSE heartbeats; the HF space appeared healthy and showed no queue.
