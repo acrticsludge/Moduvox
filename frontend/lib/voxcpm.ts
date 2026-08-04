@@ -149,6 +149,7 @@ async function pollResult(
 async function generateWithGradio(
   input: VoxCPMInput,
   spaceUrl: string,
+  opts: { advancedParams?: boolean } = {},
 ): Promise<VoxCPMResult> {
   const {
     targetText,
@@ -204,21 +205,23 @@ async function generateWithGradio(
     log("GRADIO", "No reference audio (preset mode)")
   }
 
-  // Start prediction — send exactly 10 params matching Gradio API
-  const body: { data: unknown[] } = {
-    data: [
-      targetText,                // 1. text
-      ultimateMode ? "" : toneInstructions, // 2. control_instruction
-      refAudioData,              // 3. ref_wav (single object or null)
-      ultimateMode,              // 4. use_prompt_text
-      promptText,                // 5. prompt_text_value
-      cfgValue,                  // 6. cfg_value
-      normalize,                 // 7. do_normalize
-      refDenoise,                // 8. denoise
-      ditSteps,                  // 9. dit_steps
-      seedValue,                 // 10. seed_value
-    ],
+  // Start prediction — the openbmb/VoxCPM-Demo space's /generate accepts
+  // exactly 8 params. The self-hosted Gradio server (INFERENCE_BASE_URL)
+  // expects 2 extra advanced params: dit_steps + seed_value.
+  const payload: unknown[] = [
+    targetText,                // 1. text
+    ultimateMode ? "" : toneInstructions, // 2. control_instruction
+    refAudioData,              // 3. ref_wav (single object or null)
+    ultimateMode,              // 4. use_prompt_text
+    promptText,                // 5. prompt_text_value
+    cfgValue,                  // 6. cfg_value
+    normalize,                 // 7. do_normalize
+    refDenoise,                // 8. denoise
+  ]
+  if (opts.advancedParams) {
+    payload.push(ditSteps, seedValue) // 9. dit_steps, 10. seed_value (self-hosted only)
   }
+  const body: { data: unknown[] } = { data: payload }
 
   log("GRADIO", `Predict body: ${JSON.stringify(body).slice(0, 300)}`)
 
@@ -364,7 +367,7 @@ export async function generateAudio(input: VoxCPMInput): Promise<VoxCPMResult> {
 
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
-      return await generateWithGradio(input, hfUrl)
+      return await generateWithGradio(input, hfUrl, { advancedParams: false })
     } catch (hfError) {
       lastError = hfError
       const msg = hfError instanceof Error ? hfError.message : String(hfError)
@@ -386,7 +389,7 @@ export async function generateAudio(input: VoxCPMInput): Promise<VoxCPMResult> {
   if (fallbackUrl) {
     console.log("[VoxCPM] Falling back to INFERENCE_BASE_URL:", fallbackUrl)
     try {
-      return await generateWithGradio(input, fallbackUrl)
+      return await generateWithGradio(input, fallbackUrl, { advancedParams: true })
     } catch (fbError) {
       const msg = fbError instanceof Error ? fbError.message : String(fbError)
       console.warn("[VoxCPM] INFERENCE fallback also failed:", msg)

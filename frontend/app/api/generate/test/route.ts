@@ -161,12 +161,16 @@ export const POST = withApiHandler(async (request: Request) => {
     console.log("[TestVoice] Falling back to Gradio temp URL")
     return NextResponse.json({ data: { audioUrl: result.audioUrl } })
   } catch (err) {
-    // Check if the Gradio space is busy (public HF demo limitation)
+    // Classify the failure for an accurate, actionable message. The public HF
+    // demo space errors mid-generation (event: error) when it's overloaded —
+    // that's not "space is down", it's a transient generation failure.
     const errObj = err && typeof err === "object" ? err as Record<string, unknown> : {}
-    const isBusy = typeof errObj.message === "string" && errObj.message.includes("currently busy")
-    const message = isBusy
+    const msg = typeof errObj.message === "string" ? errObj.message : ""
+    const message = msg.includes("currently busy")
       ? "Voice generation is temporarily unavailable. The HuggingFace Space is busy. Try again in a few minutes."
-      : "Voice preview generation failed"
+      : msg.includes("Gradio error")
+        ? "Voice generation failed on the HuggingFace Space mid-generation. The public demo is often overloaded — try again in a few minutes."
+        : "Voice preview generation failed"
     console.error("[TestVoice] ERROR:", message, err instanceof Error ? err.message : JSON.stringify(errObj))
     return NextResponse.json({ error: message }, { status: 503 })
   }

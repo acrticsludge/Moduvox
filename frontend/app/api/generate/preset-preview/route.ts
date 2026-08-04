@@ -88,10 +88,12 @@ export const POST = withApiHandler(async (request: Request) => {
     // Never expose internal error details (Gradio response text, URLs, poll
     // internals) to the client — log them server-side and return a safe message.
     const errObj = err && typeof err === "object" ? err as Record<string, unknown> : {}
-    const isBusy = typeof errObj.message === "string" && errObj.message.includes("currently busy")
-    const message = isBusy
+    const msg = typeof errObj.message === "string" ? errObj.message : ""
+    const message = msg.includes("currently busy")
       ? "Voice generation is temporarily unavailable. The HuggingFace Space is busy. Try again in a few minutes."
-      : "Voice preview generation failed"
+      : msg.includes("Gradio error")
+        ? "Voice generation failed on the HuggingFace Space mid-generation. The public demo is often overloaded — try again in a few minutes."
+        : "Voice preview generation failed"
     console.error("[PresetPreview] ERROR:", err instanceof Error ? err.message : JSON.stringify(errObj))
     return NextResponse.json({ error: message }, { status: 503 })
   }
