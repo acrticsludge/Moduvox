@@ -1,3 +1,13 @@
+## 2026-08-04: [Bug] Dashboard sidebar unclickable on desktop — `md:` reset restored visibility but not pointer-events
+
+**What happened:** The left dashboard sidebar (All Projects, My Voices, Archived, Settings) rendered normally on desktop but none of the links were clickable.
+
+**Root cause:** Commit `a0555d5` (mobile drawers pass) changed the sidebar to `fixed … md:static md:translate-x-0 …` while keeping the closed-state class `${sidebarOpen ? "translate-x-0" : "pointer-events-none -translate-x-full"}` from the earlier tap-blocker fix. `md:translate-x-0` overrides `-translate-x-full` (so the sidebar shows) but no `md:pointer-events-auto` was added, so with `sidebarOpen === false` (the default on page load) the entire desktop sidebar stayed `pointer-events: none`.
+
+**Fix:** Added `md:pointer-events-auto` to the sidebar's `md:` reset group. Swept the codebase for the same pattern — Navbar drawer and ViewSidebar are `md:hidden`/separate desktop elements, so this was the only instance.
+
+**Prevention:** Any time an `md:` (or responsive) reset overrides an off-canvas transform (`-translate-x-full` → `md:translate-x-0`), it must ALSO override the associated closed-state `pointer-events-none` with the matching `md:pointer-events-auto`. Grep `pointer-events-none -translate-` whenever restyling responsive panels.
+
 ## 2026-08-04: [Bug] Upload regression — SVG image killed all parsing/narration, empty storagePath sentinel reset editor on refresh
 
 **What happened:** On upload, ALL image parsing and narration failed instantly, and refreshing the page reset to the upload box even after a successful upload.

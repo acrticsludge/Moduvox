@@ -122,7 +122,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             }
           >
           <aside
-            className={`fixed bottom-0 left-0 top-0 z-[60] flex w-64 max-w-[85%] flex-col rounded-r-2xl border-r border-[var(--color-border-faint)] bg-white shadow-2xl transition-transform duration-300 md:static md:z-auto md:w-56 md:max-w-none md:translate-x-0 md:rounded-none md:shadow-none ${
+            className={`fixed bottom-0 left-0 top-0 z-[60] flex w-64 max-w-[85%] flex-col rounded-r-2xl border-r border-[var(--color-border-faint)] bg-white shadow-2xl transition-transform duration-300 md:static md:z-auto md:w-56 md:max-w-none md:translate-x-0 md:rounded-none md:shadow-none md:pointer-events-auto ${
               sidebarOpen ? "translate-x-0" : "pointer-events-none -translate-x-full"
             }`}
           >
