@@ -1,3 +1,13 @@
+## 2026-08-04: [Bug] VoxCPM "Voice preview generation failed" — HF space errors mid-generation, not "down"
+
+**What happened:** Test-voice preview returned "Voice preview generation failed" with `Gradio error: null` after ~51s of SSE heartbeats; the HF space appeared healthy and showed no queue.
+
+**Root cause:** The `event: error / data: null` in a Gradio SSE stream after heartbeats means the space's **server-side inference job failed mid-generation** (cold start / GPU contention / OOM on the shared public demo) — NOT that the space is down or the request was rejected (a rejected call returns 4xx at predict time, verified live). We also proved with live tests that both 8- and 10-param payloads work on the space, so the shape of our payload was never the blocker — but we were sending 2 phantom params (`dit_steps`, `seed_value`) that only the self-hosted Gradio server accepts (added in `2623e14` for INFERENCE_BASE_URL).
+
+**Fix:** Split the payload — HF space gets exactly 8 params (`advancedParams: false`), self-hosted INFERENCE_BASE_URL keeps 10 (`advancedParams: true`). Updated the catch blocks in test/preset-preview/custom-preview to classify `"Gradio error"` as "space overloaded, try again" instead of the generic, misleading "generation failed".
+
+**Prevention:** When debugging HF space failures, first distinguish (1) predict-time rejection (4xx/HTTP) from (2) post-start server error (`event: error` after heartbeats). The latter is transient load on the shared demo — make the user message say so, and never send params that only exist on a self-hosted deployment.
+
 ## 2026-08-04: [Bug] Dashboard sidebar unclickable on desktop — `md:` reset restored visibility but not pointer-events
 
 **What happened:** The left dashboard sidebar (All Projects, My Voices, Archived, Settings) rendered normally on desktop but none of the links were clickable.
